@@ -55,9 +55,11 @@ impl Instruction {
         Ok(match tag {
             0 => {
                 let (authority, rest) = Self::unpack_pubkey(rest)?;
-                let description = rest
-                    .get(..32)
-                    .and_then(|slice| slice.try_into().ok())
+
+                let (description, rest) = rest.split_at(32);
+                let description = description
+                    .try_into()
+                    .ok()
                     .ok_or(InvalidInstruction)?;
                 
                 let (min_submission_value, rest) = rest.split_at(8);
