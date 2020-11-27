@@ -13,6 +13,7 @@ thiserror = "1.0"
 num-derive = "0.3"
 num-traits = "0.2"
 arrayref = "0.3.6"
+num_enum = "0.5.1"
 
 [lib]
 crate-type = ["cdylib", "lib"]

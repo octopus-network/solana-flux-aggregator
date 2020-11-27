@@ -16,6 +16,12 @@ pub enum Error {
     /// Not rent exempt
     #[error("Not rent exempt")]
     NotRentExempt,
+    /// Not found aggregator
+    #[error("Not found aggregator")]
+    NotFoundAggregator,
+    /// Oracle added
+    #[error("Oracle added")]
+    OracleAdded,
 }
 
 impl From<Error> for ProgramError {

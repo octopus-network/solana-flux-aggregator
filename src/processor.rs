@@ -2,15 +2,15 @@
 
 use crate::{
     error::Error,
-    instruction::{Instruction, MAX_ORACLES},
-    state::{Aggregator},
+    instruction::{Instruction},
+    state::{Aggregator, Oracle},
 };
 use num_traits::FromPrimitive;
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
     decode_error::DecodeError,
     entrypoint::ProgramResult,
-    info,
+    info, 
     program_pack::{Pack},
     program_error::{PrintProgramError},
     pubkey::Pubkey,
@@ -33,16 +33,17 @@ impl Processor {
                 max_submission_value,
             } => {
                 info!("Instruction: Initialize");
-                info!(&format!("description: {:?}", description)[..]);
-
                 Self::process_initialize(
                     accounts, authority, description, min_submission_value, max_submission_value
                 )
             },
             Instruction::AddOracle {
+                authority
             } => {
                 info!("Instruction: AddOracle");
-                Self::process_add_oracle()
+                Self::process_add_oracle(
+                    accounts, authority,
+                )
             },
             Instruction::RemoveOracle {
             } => {
@@ -86,8 +87,7 @@ impl Processor {
         aggregator.max_submission_value = max_submission_value;
         aggregator.description = description;
         aggregator.is_initialized = true;
-        aggregator.answer = 123;
-        aggregator.submissions = [0; MAX_ORACLES];
+        aggregator.answer = 0u64;
         aggregator.authority = authority;
 
         Aggregator::pack(aggregator, &mut aggregator_info.data.borrow_mut())?;
@@ -97,8 +97,41 @@ impl Processor {
 
     /// Processes an [AddOracle](enum.Instruction.html) instruction.
     pub fn process_add_oracle(
-        
+        accounts: &[AccountInfo],
+        authority: Pubkey,
     ) -> ProgramResult {
+        let account_info_iter = &mut accounts.iter();
+        let aggregator_info = next_account_info(account_info_iter)?;
+
+        let mut aggregator = Aggregator::unpack_unchecked(&aggregator_info.data.borrow())?;
+        if !aggregator.is_initialized {
+            return Err(Error::NotFoundAggregator.into());
+        }
+
+        let mut oracles = aggregator.oracles;
+        let mut next_idx = 0;
+        for oracle in oracles.iter() {
+            if oracle.authority == Pubkey::default() {
+                break;
+            }
+            if oracle.authority == authority {
+                return Err(Error::OracleAdded.into());
+            }
+            next_idx += 1;
+        }
+
+        // append oracle
+        oracles[next_idx] = Oracle {
+            submission: 0,
+            submit_times: 0,
+            authority,
+            withdrawable: 0,
+        };
+
+        aggregator.oracles = oracles;
+
+        Aggregator::pack(aggregator, &mut aggregator_info.data.borrow_mut())?;
+
         Ok(())
     }
 
@@ -127,6 +160,8 @@ impl PrintProgramError for Error {
             Error::InvalidInstruction => info!("Error: Invalid instruction"),
             Error::AlreadyInUse => info!("Error: Already in use"),
             Error::NotRentExempt => info!("Error: No rent exempt"),
+            Error::NotFoundAggregator => info!("Error: no found aggregator"),
+            Error::OracleAdded => info!("Error: Oracle added"),
         }
     }
 }

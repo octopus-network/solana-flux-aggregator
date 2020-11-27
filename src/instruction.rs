@@ -10,7 +10,7 @@ use solana_program::{
 use std::convert::TryInto;
 
 /// Maximum number of oracles
-pub const MAX_ORACLES: usize = 21;
+pub const MAX_ORACLES: usize = 18;
 
 /// Instructions supported by the program.
 #[repr(C)]
@@ -18,7 +18,7 @@ pub const MAX_ORACLES: usize = 21;
 pub enum Instruction {
     /// Initializes a new Aggregator
     Initialize {
-        /// The authority/multisignature
+        /// The aggregator authority
         authority: Pubkey,
         /// A short description of what is being reported
         description: [u8; 32],
@@ -30,7 +30,8 @@ pub enum Instruction {
 
     /// Add an oracle
     AddOracle {
-        
+        /// The oracle authority
+        authority: Pubkey,
     },
 
     /// Remove an oracle
@@ -84,13 +85,19 @@ impl Instruction {
                 }
             },
             1 => {
-                let submission = rest
-                    .get(..8)
-                    .and_then(|slice| slice.try_into().ok())
-                    .map(u64::from_le_bytes)
-                    .ok_or(InvalidInstruction)?;
-                Self::Submit { submission }
+                let (authority, _rest) = Self::unpack_pubkey(rest)?;
+                Self::AddOracle { 
+                    authority,
+                }
             },
+            // 1 => {
+            //     let submission = rest
+            //         .get(..8)
+            //         .and_then(|slice| slice.try_into().ok())
+            //         .map(u64::from_le_bytes)
+            //         .ok_or(InvalidInstruction)?;
+            //     Self::Submit { submission }
+            // },
             _ => return Err(Error::InvalidInstruction.into()),
         })
     }
