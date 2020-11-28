@@ -22,6 +22,21 @@ pub enum Error {
     /// Oracle added
     #[error("Oracle added")]
     OracleAdded,
+    /// Oracle added
+    #[error("Owner mismatch")]
+    OwnerMismatch,
+    /// Seat already taken
+    #[error("Seat already been taken")]
+    SeatAlreadyBeenTaken,
+    /// Not found oracle
+    #[error("Not found oracle")]
+    NotFoundOracle,
+    /// Not found oracle
+    #[error("Submission value out of range")]
+    SubmissonValueOutOfRange,
+    /// Submit cooling
+    #[error("Submission cooling")]
+    SubmissonCooling,
 }
 
 impl From<Error> for ProgramError {

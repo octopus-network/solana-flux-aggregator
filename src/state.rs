@@ -7,6 +7,7 @@ use solana_program::{
     program_error::ProgramError,
     program_pack::{IsInitialized, Pack, Sealed},
     pubkey::Pubkey,
+    clock::{UnixTimestamp}
 };
 
 /// Aggregator data.
@@ -21,8 +22,6 @@ pub struct Aggregator {
     pub description: [u8; 32],
     /// is initialized
     pub is_initialized: bool,
-    /// answer
-    pub answer: u64,
     /// authority
     pub authority: Pubkey,
     /// submissions
@@ -37,13 +36,13 @@ impl IsInitialized for Aggregator {
 
 impl Sealed for Aggregator {}
 impl Pack for Aggregator {
-    const LEN: usize = 89 + MAX_ORACLES*56;
+    const LEN: usize = 81 + MAX_ORACLES*56;
     fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
-        let src = array_ref![src, 0, 89 + MAX_ORACLES*56];
+        let src = array_ref![src, 0, 81 + MAX_ORACLES*56];
         let (
             min_submission_value, max_submission_value, 
-            description, is_initialized, answer, authority, rem,
-        ) = array_refs![src, 8, 8, 32, 1, 8, 32; ..;];
+            description, is_initialized, authority, rem,
+        ) = array_refs![src, 8, 8, 32, 1, 32; ..;];
 
         let is_initialized = match is_initialized {
             [0] => false,
@@ -56,30 +55,27 @@ impl Pack for Aggregator {
             max_submission_value: u64::from_le_bytes(*max_submission_value),
             description: *description,
             is_initialized,
-            answer: u64::from_le_bytes(*answer),
             authority: Pubkey::new_from_array(*authority),
             oracles: unpack_oracles(rem),
         })
     }
 
     fn pack_into_slice(&self, dst: &mut [u8]) {
-        let dst = array_mut_ref![dst, 0, 89 + MAX_ORACLES*56];
+        let dst = array_mut_ref![dst, 0, 81 + MAX_ORACLES*56];
         let (
             min_submission_value_dst, 
             max_submission_value_dst, 
             description_dst, 
             is_initialized_dst, 
-            answer_dst, 
             authority_dst,
             rem,
-        ) = mut_array_refs![dst, 8, 8, 32, 1, 8, 32; ..;];
+        ) = mut_array_refs![dst, 8, 8, 32, 1, 32; ..;];
 
         let &Aggregator {
             min_submission_value, 
             max_submission_value, 
             description, 
             is_initialized, 
-            answer, 
             ref authority,
             ref oracles,
         } = self;
@@ -88,7 +84,6 @@ impl Pack for Aggregator {
         *max_submission_value_dst = max_submission_value.to_le_bytes();
         *description_dst = description;
         is_initialized_dst[0] = is_initialized as u8;
-        *answer_dst = answer.to_le_bytes();
         authority_dst.copy_from_slice(authority.as_ref());
 
         pack_oracles(oracles, rem);
@@ -101,8 +96,8 @@ impl Pack for Aggregator {
 pub struct Oracle {
     /// submission
     pub submission: u64,
-    /// submit times in each round
-    pub submit_times: u64,
+    /// submit times
+    pub next_submit_time: UnixTimestamp,
     /// oracle authority
     pub authority: Pubkey,
     /// withdrawable
@@ -115,7 +110,7 @@ fn unpack_oracles(mut dst: &[u8]) -> [Oracle; MAX_ORACLES] {
     for i in 0 .. MAX_ORACLES {
         let (
             submission, 
-            submit_times, 
+            next_submit_time, 
             authority, 
             withdrawable, 
             rem,
@@ -123,7 +118,7 @@ fn unpack_oracles(mut dst: &[u8]) -> [Oracle; MAX_ORACLES] {
 
         arr[i] = Oracle {
             submission: u64::from_le_bytes(*submission),
-            submit_times: u64::from_le_bytes(*submit_times),
+            next_submit_time: i64::from_le_bytes(*next_submit_time),
             authority: Pubkey::new_from_array(*authority),
             withdrawable: u64::from_le_bytes(*withdrawable),
         };
@@ -139,20 +134,20 @@ fn pack_oracles(src: &[Oracle; MAX_ORACLES], mut dst: &mut [u8]) {
 
         let (
             submission_dst, 
-            submit_times_dst, 
+            next_submit_time_dst, 
             authority_dst, 
             withdrawable_dst,
         ) = mut_array_refs![&mut *s, 8, 8, 32, 8];
 
         let &Oracle {
             submission, 
-            submit_times, 
+            next_submit_time, 
             authority, 
             withdrawable, 
         } = &src[i];
 
         *submission_dst = submission.to_le_bytes();
-        *submit_times_dst = submit_times.to_le_bytes();
+        *next_submit_time_dst = next_submit_time.to_le_bytes();
         authority_dst.copy_from_slice(authority.as_ref());
         *withdrawable_dst = withdrawable.to_le_bytes();
 

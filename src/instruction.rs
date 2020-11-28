@@ -11,6 +11,8 @@ use std::convert::TryInto;
 
 /// Maximum number of oracles
 pub const MAX_ORACLES: usize = 18;
+/// The interval(seconds) of an oracle's each submission
+pub const SUBMIT_INTERVAL: i64 = 6;
 
 /// Instructions supported by the program.
 #[repr(C)]
@@ -29,14 +31,21 @@ pub enum Instruction {
     },
 
     /// Add an oracle
+    /// Accounts expected by this instruction:
+    /// 
+    /// 0. `[writable]` The aggregator.
+    /// 1. `[signer]` The aggregator's authority.
     AddOracle {
         /// The oracle authority
         authority: Pubkey,
+        /// The oracle's index
+        seat: u8,
     },
 
     /// Remove an oracle
     RemoveOracle {
-        
+        /// The oracle's index
+        seat: u8,
     },
 
     /// Called by oracles when they have witnessed a need to update
@@ -80,24 +89,36 @@ impl Instruction {
                 Self::Initialize { 
                     authority, 
                     description,
-                    min_submission_value: min_submission_value,
-                    max_submission_value: max_submission_value,
+                    min_submission_value,
+                    max_submission_value,
                 }
             },
             1 => {
-                let (authority, _rest) = Self::unpack_pubkey(rest)?;
+                let (authority, rest) = Self::unpack_pubkey(rest)?;
+                let (seat, _rest) = rest.split_first().ok_or(InvalidInstruction)?;
                 Self::AddOracle { 
                     authority,
+                    seat: *seat,
                 }
             },
-            // 1 => {
-            //     let submission = rest
-            //         .get(..8)
-            //         .and_then(|slice| slice.try_into().ok())
-            //         .map(u64::from_le_bytes)
-            //         .ok_or(InvalidInstruction)?;
-            //     Self::Submit { submission }
-            // },
+            2 => {
+                let (seat, _rest) = rest.split_first().ok_or(InvalidInstruction)?;
+                Self::RemoveOracle { 
+                    seat: *seat,
+                }
+            },
+            3 => {
+                let (submission, _rest) = rest.split_at(8);
+                let submission = submission
+                    .try_into()
+                    .ok()
+                    .map(u64::from_le_bytes)
+                    .ok_or(InvalidInstruction)?;
+
+                Self::Submit { 
+                    submission,
+                }
+            }
             _ => return Err(Error::InvalidInstruction.into()),
         })
     }
