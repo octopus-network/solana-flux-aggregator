@@ -37,6 +37,9 @@ pub enum Error {
     /// Submit cooling
     #[error("Submission cooling")]
     SubmissonCooling,
+    /// InsufficientWithdrawable
+    #[error("Insufficient withdrawable")]
+    InsufficientWithdrawable,
 }
 
 impl From<Error> for ProgramError {

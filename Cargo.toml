@@ -8,6 +8,7 @@ edition = "2018"
 
 [dependencies]
 solana-program = "1.4.8"
+spl-token = { version = "3.0.0", features = [ "no-entrypoint" ] }
 byteorder = "1.3"
 thiserror = "1.0"
 num-derive = "0.3"
