@@ -42,21 +42,19 @@ impl Processor {
                 )
             },
             Instruction::AddOracle {
-                authority,
                 description,
-                seat,
             } => {
                 info!("Instruction: AddOracle");
                 Self::process_add_oracle(
-                    accounts, authority, description, seat,
+                    accounts, description,
                 )
             },
             Instruction::RemoveOracle {
-                seat,
+                oracle,
             } => {
                 info!("Instruction: RemoveOracle");
                 Self::process_remove_oracle(
-                    accounts, seat,
+                    accounts, oracle,
                 )
             },
             Instruction::Submit {
@@ -93,7 +91,7 @@ impl Processor {
         max_submission_value: u64,
         payment_token: Pubkey,
     ) -> ProgramResult {
-   
+      
         let account_info_iter = &mut accounts.iter();
         let aggregator_info = next_account_info(account_info_iter)?;
         let program_info = next_account_info(account_info_iter)?;
@@ -105,7 +103,7 @@ impl Processor {
         if !owner_info.is_signer {
             return Err(ProgramError::MissingRequiredSignature);
         }
-
+  
         let rent = &Rent::from_account_info(rent_info)?;
 
         let mut aggregator = Aggregator::unpack_unchecked(&aggregator_info.data.borrow())?;
@@ -116,13 +114,13 @@ impl Processor {
         if !rent.is_exempt(aggregator_info.lamports(), aggregator_info.data_len()) {
             return Err(Error::NotRentExempt.into());
         }
-
+      
         let (faucet_owner, faucet_bump_seed) = find_authority_bump_seed(
             program_info.key,
             aggregator_info.key,
             b"faucet",
         );
-
+ 
         aggregator.min_submission_value = min_submission_value;
         aggregator.max_submission_value = max_submission_value;
         aggregator.description = description;
@@ -149,22 +147,22 @@ impl Processor {
 
     /// Processes an [AddOracle](enum.Instruction.html) instruction.
     /// 
-    /// @authority(key): the oracle's pubkey
-    /// @seat:  the oracle's index of the aggregator
+    /// @description: the oracle name
     /// 
     /// Accounts expected by this instruction:
     /// 
     /// 0. `[writable]` The aggregator(key).
-    /// 1. `[]` Clock sysvar
-    /// 1. `[signer]` The aggregator's authority.
+    /// 1. `[writable]` The oracle(key)
+    /// 2. `[]` Clock sysvar
+    /// 3. `[signer]` The aggregator's authority.
     pub fn process_add_oracle(
         accounts: &[AccountInfo],
-        authority: Pubkey,
         description: [u8; 32],
-        seat: u8,
     ) -> ProgramResult {
+      
         let account_info_iter = &mut accounts.iter();
         let aggregator_info = next_account_info(account_info_iter)?;
+        let oracle_info = next_account_info(account_info_iter)?;
         let clock_sysvar_info = next_account_info(account_info_iter)?;
         let mut aggregator = Aggregator::unpack_unchecked(&aggregator_info.data.borrow())?;
 
@@ -175,25 +173,31 @@ impl Processor {
         if !aggregator.is_initialized {
             return Err(Error::NotFoundAggregator.into());
         }
-
+  
         let mut oracles = aggregator.oracles;
-    
-        // oracle sit down
-        if oracles[seat as usize].authority != Pubkey::default() {
-            return Err(Error::SeatAlreadyBeenTaken.into());
-        } 
-
-        let clock = &Clock::from_account_info(clock_sysvar_info)?;
-        oracles[seat as usize] = Oracle {
-            submission: 0,
-            next_submit_time: clock.unix_timestamp,
-            authority,
-            description,
-            withdrawable: 0,
-        };
+       
+        // append
+        for o in oracles.iter_mut() {
+            if o == &Pubkey::default() {
+                *o = *oracle_info.key;
+            }
+        }
 
         aggregator.oracles = oracles;
         Aggregator::pack(aggregator, &mut aggregator_info.data.borrow_mut())?;
+       
+        let mut oracle = Oracle::unpack_unchecked(&oracle_info.data.borrow())?;
+
+        let clock = &Clock::from_account_info(clock_sysvar_info)?;
+
+        oracle.submission = 0;
+        oracle.next_submit_time = clock.unix_timestamp;
+        oracle.authority = *oracle_info.key;
+        oracle.description = description;
+        oracle.is_initialized = true;
+        oracle.withdrawable = 0;
+
+        Oracle::pack(oracle, &mut oracle_info.data.borrow_mut())?;
 
         Ok(())
     }
@@ -208,7 +212,7 @@ impl Processor {
     /// 1. `[signer]` The aggregator's authority.
     pub fn process_remove_oracle(
         accounts: &[AccountInfo],
-        seat: u8,
+        oracle: Pubkey,
     ) -> ProgramResult {
         let account_info_iter = &mut accounts.iter();
         let aggregator_info = next_account_info(account_info_iter)?;
@@ -225,7 +229,11 @@ impl Processor {
 
         let mut oracles = aggregator.oracles;
 
-        oracles[seat as usize] = Oracle::default();
+        for o in oracles.iter_mut() {
+            if o == &oracle {
+                *o = Pubkey::default();
+            }
+        }
 
         aggregator.oracles = oracles;
         Aggregator::pack(aggregator, &mut aggregator_info.data.borrow_mut())?;
@@ -240,7 +248,7 @@ impl Processor {
     /// 
     /// 0. `[writable]` The aggregator(key).
     /// 1. `[]` Clock sysvar
-    /// 1. `[signer]` The oracle's authority.
+    /// 1. `[signer, writable]` The oracle's authority.
     pub fn process_submit(
         accounts: &[AccountInfo],
         submission: u64,
@@ -248,9 +256,9 @@ impl Processor {
         let account_info_iter = &mut accounts.iter();
         let aggregator_info = next_account_info(account_info_iter)?;
         let clock_sysvar_info = next_account_info(account_info_iter)?;
-        let oracle_owner_info = next_account_info(account_info_iter)?;
+        let oracle_info = next_account_info(account_info_iter)?;
 
-        let mut aggregator = Aggregator::unpack_unchecked(&aggregator_info.data.borrow())?;
+        let aggregator = Aggregator::unpack_unchecked(&aggregator_info.data.borrow())?;
         if !aggregator.is_initialized {
             return Err(Error::NotFoundAggregator.into());
         }
@@ -259,35 +267,26 @@ impl Processor {
             return Err(Error::SubmissonValueOutOfRange.into());
         }
 
-        let mut oracles = aggregator.oracles;
-        let clock = &Clock::from_account_info(clock_sysvar_info)?;
-
-        let mut found_oracle = false;
-        for oracle in oracles.iter_mut() {
-            if &oracle.authority == oracle_owner_info.key {
-                if !oracle_owner_info.is_signer {
-                    return Err(ProgramError::MissingRequiredSignature);
-                }
-                if oracle.next_submit_time > clock.unix_timestamp {
-                    return Err(Error::SubmissonCooling.into());
-                }
-                found_oracle = true;
-                oracle.submission = submission;
-
-                // pay oracle
-                oracle.withdrawable += PAYMENT_AMOUNT;
-                
-                oracle.next_submit_time = clock.unix_timestamp + SUBMIT_INTERVAL;
-            }
+        if !oracle_info.is_signer {
+            return Err(ProgramError::MissingRequiredSignature);
         }
 
-        if !found_oracle {
+        let mut oracle = Oracle::unpack_unchecked(&oracle_info.data.borrow())?;
+        if !oracle.is_initialized {
             return Err(Error::NotFoundOracle.into());
         }
 
-        aggregator.oracles = oracles;
-        Aggregator::pack(aggregator, &mut aggregator_info.data.borrow_mut())?;
-        
+        let clock = &Clock::from_account_info(clock_sysvar_info)?;
+        if oracle.next_submit_time > clock.unix_timestamp {
+            return Err(Error::SubmissonCooling.into());
+        }
+
+        oracle.submission = submission;
+        oracle.withdrawable += PAYMENT_AMOUNT;
+        oracle.next_submit_time = clock.unix_timestamp + SUBMIT_INTERVAL;
+
+        Oracle::pack(oracle, &mut oracle_info.data.borrow_mut())?;
+
         Ok(())
     }
 
@@ -304,7 +303,7 @@ impl Processor {
     /// 2. `[writable]` The token withdraw to
     /// 3. `[]` SPL Token program id
     /// 4. `[]` The faucet owner
-    /// 5. `[signer]` The oracle's authority.
+    /// 5. `[signer, writable]` The oracle's authority.
     pub fn process_withdraw(
         accounts: &[AccountInfo],
         amount: u64,
@@ -317,35 +316,26 @@ impl Processor {
         let token_program_info = next_account_info(account_info_iter)?;
 
         let faucet_owner_info = next_account_info(account_info_iter)?;
-        let oracle_owner_info = next_account_info(account_info_iter)?;
+        let oracle_info = next_account_info(account_info_iter)?;
 
-        let mut aggregator = Aggregator::unpack_unchecked(&aggregator_info.data.borrow())?;
+        if !oracle_info.is_signer {
+            return Err(ProgramError::MissingRequiredSignature);
+        }
+
+        let aggregator = Aggregator::unpack_unchecked(&aggregator_info.data.borrow())?;
         if !aggregator.is_initialized {
             return Err(Error::NotFoundAggregator.into());
         }
 
-        let mut oracles = aggregator.oracles;
-        let mut oracle_idx: i8 = -1;
-        
-        // find oracle
-        for (idx, oracle) in oracles.iter().enumerate() {
-            if &oracle.authority == oracle_owner_info.key {
-                oracle_idx = idx as i8;
-            }
-        }
-        if oracle_idx < 0 {
+        let mut oracle = Oracle::unpack_unchecked(&oracle_info.data.borrow())?;
+        if !oracle.is_initialized {
             return Err(Error::NotFoundOracle.into());
         }
 
-        // must be signer
-        if !oracle_owner_info.is_signer {
-            return Err(ProgramError::MissingRequiredSignature);
-        }
-
-        if oracles[oracle_idx as usize].withdrawable < amount {
+        if oracle.withdrawable < amount {
             return Err(Error::InsufficientWithdrawable.into());
         }
-
+       
         let authority_signature_seeds = [
             &aggregator_info.key.to_bytes()[..32], 
             b"faucet", 
@@ -377,10 +367,8 @@ impl Processor {
         )?;
 
         // update oracle
-        oracles[oracle_idx as usize].withdrawable -= amount;
-        aggregator.oracles = oracles;
-
-        Aggregator::pack(aggregator, &mut aggregator_info.data.borrow_mut())?;
+        oracle.withdrawable -= amount;
+        Oracle::pack(oracle, &mut oracle_info.data.borrow_mut())?;
 
         Ok(())
     }

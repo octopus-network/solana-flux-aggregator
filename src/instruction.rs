@@ -12,7 +12,7 @@ use std::convert::TryInto;
 /// Maximum number of aggregators in this program
 pub const MAX_AGGREGATORS: usize = 32;
 /// Maximum number of oracles
-pub const MAX_ORACLES: usize = 18;
+pub const MAX_ORACLES: usize = 21;
 /// The interval(seconds) of an oracle's each submission
 pub const SUBMIT_INTERVAL: i64 = 6;
 /// The amount paid of TOKEN paid to each oracle per submission, in lamports (10e-10 SOL)
@@ -40,18 +40,14 @@ pub enum Instruction {
     /// 0. `[writable]` The aggregator.
     /// 1. `[signer]` The aggregator's authority.
     AddOracle {
-        /// The oracle authority
-        authority: Pubkey,
         /// Is usually the oracle name
         description: [u8; 32],
-        /// The oracle's index
-        seat: u8,
     },
 
     /// Remove an oracle
     RemoveOracle {
-        /// The oracle's index
-        seat: u8,
+        /// The oracle key
+        oracle: Pubkey,
     },
 
     /// Called by oracles when they have witnessed a need to update
@@ -76,27 +72,27 @@ impl Instruction {
         let (&tag, rest) = input.split_first().ok_or(InvalidInstruction)?;
         Ok(match tag {
             0 => {
-               
+              
                 let (description, rest) = rest.split_at(32);
                 let description = description
                     .try_into()
                     .ok()
                     .ok_or(InvalidInstruction)?;
-                
+              
                 let (min_submission_value, rest) = rest.split_at(8);
                 let min_submission_value = min_submission_value
                     .try_into()
                     .ok()
                     .map(u64::from_le_bytes)
                     .ok_or(InvalidInstruction)?;
-
+               
                 let (max_submission_value, rest) = rest.split_at(8);
                 let max_submission_value = max_submission_value
                     .try_into()
                     .ok()
                     .map(u64::from_le_bytes)
                     .ok_or(InvalidInstruction)?;
-
+              
                 let (payment_token, _rest) = Self::unpack_pubkey(rest)?;
 
                 Self::Initialize { 
@@ -107,8 +103,6 @@ impl Instruction {
                 }
             },
             1 => {
-                let (authority, rest) = Self::unpack_pubkey(rest)?;
-                let (seat, rest) = rest.split_first().ok_or(InvalidInstruction)?;
                 let (description, _rest) = rest.split_at(32);
                 let description = description
                     .try_into()
@@ -116,15 +110,13 @@ impl Instruction {
                     .ok_or(InvalidInstruction)?;
                     
                 Self::AddOracle { 
-                    authority,
                     description,
-                    seat: *seat,
                 }
             },
             2 => {
-                let (seat, _rest) = rest.split_first().ok_or(InvalidInstruction)?;
+                let (oracle, _rest) = Self::unpack_pubkey(rest)?;
                 Self::RemoveOracle { 
-                    seat: *seat,
+                    oracle,
                 }
             },
             3 => {

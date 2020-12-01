@@ -37,7 +37,7 @@ pub enum Error {
     /// Submit cooling
     #[error("Submission cooling")]
     SubmissonCooling,
-    /// InsufficientWithdrawable
+    /// Insufficient withdrawable
     #[error("Insufficient withdrawable")]
     InsufficientWithdrawable,
 }

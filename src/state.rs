@@ -7,7 +7,7 @@ use solana_program::{
     program_error::ProgramError,
     program_pack::{IsInitialized, Pack, Sealed},
     pubkey::Pubkey,
-    clock::{UnixTimestamp}
+    clock::{UnixTimestamp},
 };
 
 /// Program data
@@ -61,8 +61,8 @@ pub struct Aggregator {
     pub faucet_owner: Pubkey,
     /// faucet bump seed
     pub faucet_bump_seed: u8,
-    /// submissions
-    pub oracles: [Oracle; MAX_ORACLES],
+    /// oracles
+    pub oracles: [Pubkey; MAX_ORACLES],
 }
 
 impl IsInitialized for Aggregator {
@@ -73,9 +73,9 @@ impl IsInitialized for Aggregator {
 
 impl Sealed for Aggregator {}
 impl Pack for Aggregator {
-    const LEN: usize = 146 + MAX_ORACLES*88;
+    const LEN: usize = 146 + MAX_ORACLES*32;
     fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
-        let src = array_ref![src, 0, 146 + MAX_ORACLES*88];
+        let src = array_ref![src, 0, 146 + MAX_ORACLES*32];
         let (
             min_submission_value, max_submission_value, description, is_initialized, 
             authority, payment_token, faucet_owner, faucet_bump_seed, rem,
@@ -101,7 +101,8 @@ impl Pack for Aggregator {
     }
 
     fn pack_into_slice(&self, dst: &mut [u8]) {
-        let dst = array_mut_ref![dst, 0, 146 + MAX_ORACLES*88];
+   
+        let dst = array_mut_ref![dst, 0, 146 + MAX_ORACLES*32];
         let (
             min_submission_value_dst, 
             max_submission_value_dst, 
@@ -125,7 +126,7 @@ impl Pack for Aggregator {
             faucet_bump_seed,
             ref oracles,
         } = self;
-        
+
         *min_submission_value_dst = min_submission_value.to_le_bytes();
         *max_submission_value_dst = max_submission_value.to_le_bytes();
         *description_dst = description;
@@ -151,62 +152,87 @@ pub struct Oracle {
     pub authority: Pubkey,
     /// is usually the oracle name
     pub description: [u8; 32],
+    /// is initialized
+    pub is_initialized: bool,
     /// withdrawable
     pub withdrawable: u64,
 }
 
-// Helpers
-fn unpack_oracles(mut dst: &[u8]) -> [Oracle; MAX_ORACLES] {
-    let mut arr = [Oracle::default(); MAX_ORACLES];
-    for i in 0 .. MAX_ORACLES {
-        let (
-            submission, 
-            next_submit_time, 
-            authority, 
-            description,
-            withdrawable, 
-            rem,
-        ) = array_refs![dst, 8, 8, 32, 32, 8; ..;];
+impl IsInitialized for Oracle {
+    fn is_initialized(&self) -> bool {
+        self.is_initialized
+    }
+}
 
-        arr[i] = Oracle {
+impl Sealed for Oracle {}
+impl Pack for Oracle {
+    const LEN: usize = 89;
+    fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
+
+        let src = array_ref![src, 0, 89];
+        let (
+            submission, next_submit_time, authority, description, is_initialized, withdrawable,
+        ) = array_refs![src, 8, 8, 32, 32, 1, 8];
+
+        let is_initialized = match is_initialized {
+            [0] => false,
+            [1] => true,
+            _ => return Err(ProgramError::InvalidAccountData),
+        };
+
+        Ok(Oracle {
             submission: u64::from_le_bytes(*submission),
             next_submit_time: i64::from_le_bytes(*next_submit_time),
             authority: Pubkey::new_from_array(*authority),
             description: *description,
+            is_initialized,
             withdrawable: u64::from_le_bytes(*withdrawable),
-        };
+        })
+    }
+
+    fn pack_into_slice(&self, dst: &mut [u8]) {
+
+        let dst = array_mut_ref![dst, 0, 89];
+        let (
+            submission_dst, next_submit_time_dst, authority_dst, 
+            description_dst, is_initialized_dst, withdrawable_dst,
+        ) = mut_array_refs![dst, 8, 8, 32, 32, 1, 8];
+
+        let &Oracle {
+            submission, 
+            next_submit_time, 
+            ref authority, 
+            description, 
+            is_initialized,
+            withdrawable,
+        } = self;
+
+        *submission_dst = submission.to_le_bytes();
+        *next_submit_time_dst = next_submit_time.to_le_bytes();
+        *description_dst = description;
+        authority_dst.copy_from_slice(authority.as_ref());
+        is_initialized_dst[0] = is_initialized as u8;
+        *withdrawable_dst = withdrawable.to_le_bytes();
+    }
+}
+
+// Helpers
+fn unpack_oracles(mut dst: &[u8]) -> [Pubkey; MAX_ORACLES] {
+    let mut arr = [Pubkey::default(); MAX_ORACLES];
+    for i in 0 .. MAX_ORACLES {
+        let ( pubkey, rem ) = array_refs![dst, 32; ..;];
+        arr[i] = Pubkey::new_from_array(*pubkey);
 
         dst = rem;
     }
     arr
 }
 
-fn pack_oracles(src: &[Oracle; MAX_ORACLES], mut dst: &mut [u8]) {
+fn pack_oracles(src: &[Pubkey; MAX_ORACLES], mut dst: &mut [u8]) {
     for i in 0 .. MAX_ORACLES {
-        let (s, rem) = mut_array_refs![dst, 88; ..;];
+        let (s, rem) = mut_array_refs![dst, 32; ..;];
 
-        let (
-            submission_dst, 
-            next_submit_time_dst, 
-            authority_dst, 
-            description_dst, 
-            withdrawable_dst,
-        ) = mut_array_refs![&mut *s, 8, 8, 32, 32, 8];
-
-        let &Oracle {
-            submission, 
-            next_submit_time, 
-            authority, 
-            description,
-            withdrawable, 
-        } = &src[i];
-
-        *submission_dst = submission.to_le_bytes();
-        *next_submit_time_dst = next_submit_time.to_le_bytes();
-        *description_dst = description;
-
-        authority_dst.copy_from_slice(authority.as_ref());
-        *withdrawable_dst = withdrawable.to_le_bytes();
+        s.copy_from_slice(src[i].as_ref());
 
         dst = rem;
     }
@@ -227,8 +253,7 @@ fn pack_aggregators(src: &[Pubkey; MAX_AGGREGATORS], mut dst: &mut [u8]) {
     for i in 0 .. MAX_AGGREGATORS {
         let (s, rem) = mut_array_refs![dst, 32; ..;];
 
-        let &pubkey = &src[i];
-        s.copy_from_slice(pubkey.as_ref());
+        s.copy_from_slice(src[i].as_ref());
 
         dst = rem;
     }
