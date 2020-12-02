@@ -3,18 +3,19 @@
 use crate::{
     error::Error,
     instruction::{Instruction, SUBMIT_INTERVAL, PAYMENT_AMOUNT},
-    state::{Aggregator, Oracle},
+    state::{Aggregator, Oracle, Program},
 };
 
 use num_traits::FromPrimitive;
 use solana_program::{
+    instruction::{AccountMeta, Instruction as SolInstruction},
     account_info::{next_account_info, AccountInfo},
     clock::{Clock},
     decode_error::DecodeError,
     entrypoint::ProgramResult,
     info, 
     program_pack::{Pack},
-    program::{invoke_signed},
+    program::{invoke, invoke_signed},
     program_error::{PrintProgramError, ProgramError},
     pubkey::Pubkey,
     sysvar::{rent::Rent, Sysvar},
@@ -25,7 +26,7 @@ pub struct Processor {}
 
 impl Processor {
     /// Processes an [Instruction](enum.Instruction.html).
-    pub fn process(_program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> ProgramResult {
+    pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> ProgramResult {
         let instruction = Instruction::unpack(input)?;
 
         match instruction {
@@ -37,7 +38,7 @@ impl Processor {
             } => {
                 info!("Instruction: Initialize");
                 Self::process_initialize(
-                    accounts, description, min_submission_value, 
+                    program_id, accounts, description, min_submission_value, 
                     max_submission_value, payment_token,
                 )
             },
@@ -73,6 +74,14 @@ impl Processor {
                     accounts, amount,
                 )
             },
+            Instruction::PutAggregator {
+                aggregator,
+            } => {
+                info!("Instruction: Put aggregator");
+                Self::put_aggregator(
+                    accounts, &aggregator,
+                )
+            },
         }
     }
 
@@ -80,30 +89,36 @@ impl Processor {
     /// 
     /// Accounts expected by this instruction:
     /// 
-    /// 0. `[writable]` The aggregator(key).
-    /// 1. `[writable]` The program id
-    /// 1. `[]` Sysvar rent
-    /// 2. `[signer]` The aggregator's authority.
+    /// 0. `[writable, signer]` The program storage
+    /// 1. `[]` The program id
+    /// 2. `[]` Sysvar rent
+    /// 3. `[writable]` The aggregator's authority.
     pub fn process_initialize(
+        _program_id: &Pubkey,
         accounts: &[AccountInfo],
         description: [u8; 32],
         min_submission_value: u64,
         max_submission_value: u64,
         payment_token: Pubkey,
     ) -> ProgramResult {
-      
+
         let account_info_iter = &mut accounts.iter();
-        let aggregator_info = next_account_info(account_info_iter)?;
+
+        let program_storage = next_account_info(account_info_iter)?;
         let program_info = next_account_info(account_info_iter)?;
         let rent_info = next_account_info(account_info_iter)?;
-       
-        let owner_info = next_account_info(account_info_iter)?;
+
+        let aggregator_info = next_account_info(account_info_iter)?;
+
+        // if program_info.key != program_id {
+        //     return Err(Error::ProgramKeyNotMatch.into());
+        // }
 
         // check signer
-        if !owner_info.is_signer {
+        if !program_storage.is_signer {
             return Err(ProgramError::MissingRequiredSignature);
         }
-  
+
         let rent = &Rent::from_account_info(rent_info)?;
 
         let mut aggregator = Aggregator::unpack_unchecked(&aggregator_info.data.borrow())?;
@@ -114,7 +129,7 @@ impl Processor {
         if !rent.is_exempt(aggregator_info.lamports(), aggregator_info.data_len()) {
             return Err(Error::NotRentExempt.into());
         }
-      
+
         let (faucet_owner, faucet_bump_seed) = find_authority_bump_seed(
             program_info.key,
             aggregator_info.key,
@@ -131,17 +146,24 @@ impl Processor {
         aggregator.faucet_owner = faucet_owner;
         aggregator.faucet_bump_seed = faucet_bump_seed;
 
-        aggregator.authority = *owner_info.key;
+        aggregator.authority = *aggregator_info.key;
 
         Aggregator::pack(aggregator, &mut aggregator_info.data.borrow_mut())?;
 
-        // let mut program = Program::unpack_unchecked(&program_info.data.borrow())?;
-        // for p in program.aggregators.iter_mut() {
-        //     if p == &Pubkey::default() {
-        //         *p = *aggregator_info.key;
-        //     }
-        // }
-
+        // call put aggregator instruction, to minimize stack size
+        invoke(&SolInstruction {
+            program_id: *program_info.key,
+            accounts: vec![
+                AccountMeta::new(*program_storage.key, false),
+            ],
+            data: Instruction::PutAggregator {
+                aggregator: *aggregator_info.key,
+            }.pack(),
+        }, &[
+            program_info.clone(),
+            program_storage.clone(),
+        ])?;
+        
         Ok(())
     }
 
@@ -151,31 +173,31 @@ impl Processor {
     /// 
     /// Accounts expected by this instruction:
     /// 
-    /// 0. `[writable]` The aggregator(key).
-    /// 1. `[writable]` The oracle(key)
-    /// 2. `[]` Clock sysvar
-    /// 3. `[signer]` The aggregator's authority.
+    /// 0. `[writable]` The oracle(key)
+    /// 1. `[]` Clock sysvar
+    /// 2. `[writable, signer]` The aggregator's authority.
     pub fn process_add_oracle(
         accounts: &[AccountInfo],
         description: [u8; 32],
     ) -> ProgramResult {
-      
+        
         let account_info_iter = &mut accounts.iter();
-        let aggregator_info = next_account_info(account_info_iter)?;
         let oracle_info = next_account_info(account_info_iter)?;
         let clock_sysvar_info = next_account_info(account_info_iter)?;
-        let mut aggregator = Aggregator::unpack_unchecked(&aggregator_info.data.borrow())?;
+        let aggregator_info = next_account_info(account_info_iter)?;
 
-        // Check aggregator authority
-        let owner_info = next_account_info(account_info_iter)?;
-        validate_owner(&aggregator.authority, owner_info)?;
+        if !aggregator_info.is_signer {
+            return Err(ProgramError::MissingRequiredSignature);
+        }
+
+        let mut aggregator = Aggregator::unpack_unchecked(&aggregator_info.data.borrow())?;
 
         if !aggregator.is_initialized {
             return Err(Error::NotFoundAggregator.into());
         }
-  
+
         let mut oracles = aggregator.oracles;
-       
+
         // append
         for o in oracles.iter_mut() {
             if o == &Pubkey::default() {
@@ -185,7 +207,7 @@ impl Processor {
 
         aggregator.oracles = oracles;
         Aggregator::pack(aggregator, &mut aggregator_info.data.borrow_mut())?;
-       
+
         let mut oracle = Oracle::unpack_unchecked(&oracle_info.data.borrow())?;
 
         let clock = &Clock::from_account_info(clock_sysvar_info)?;
@@ -208,8 +230,7 @@ impl Processor {
     /// 
     /// Accounts expected by this instruction:
     /// 
-    /// 0. `[writable]` The aggregator(key).
-    /// 1. `[signer]` The aggregator's authority.
+    /// 0. `[writable, signer]` The aggregator's authority.
     pub fn process_remove_oracle(
         accounts: &[AccountInfo],
         oracle: Pubkey,
@@ -217,11 +238,11 @@ impl Processor {
         let account_info_iter = &mut accounts.iter();
         let aggregator_info = next_account_info(account_info_iter)?;
 
+        if !aggregator_info.is_signer {
+            return Err(ProgramError::MissingRequiredSignature);
+        }
+       
         let mut aggregator = Aggregator::unpack_unchecked(&aggregator_info.data.borrow())?;
-
-        // Check aggregator authority
-        let owner_info = next_account_info(account_info_iter)?;
-        validate_owner(&aggregator.authority, owner_info)?;
 
         if !aggregator.is_initialized {
             return Err(Error::NotFoundAggregator.into());
@@ -372,23 +393,28 @@ impl Processor {
 
         Ok(())
     }
+
+    /// Put aggregator key to program account data
+    fn put_aggregator(
+        accounts: &[AccountInfo],
+        aggregator: &Pubkey
+    ) -> ProgramResult {
+        let account_info_iter = &mut accounts.iter();
+        let program_info = next_account_info(account_info_iter)?;
+        info!(&format!("{:?}", program_info));
+        let mut program = Program::unpack_unchecked(&program_info.data.borrow())?;
+        
+        for p in program.aggregators.iter_mut() {
+            if p == &Pubkey::default() {
+                *p = *aggregator;
+            }
+        }
+        Ok(())
+    }
+
 }
 
 // Helpers
-
-/// Validate aggregator owner
-fn validate_owner(
-    expected_owner: &Pubkey,
-    owner_account_info: &AccountInfo,
-) -> ProgramResult {
-    if expected_owner != owner_account_info.key {
-        return Err(Error::OwnerMismatch.into());
-    }
-    if !owner_account_info.is_signer {
-        return Err(ProgramError::MissingRequiredSignature);
-    }
-    Ok(())
-}
 
 /// Generates seed bump for stake pool authorities
 pub fn find_authority_bump_seed(
@@ -416,6 +442,7 @@ impl PrintProgramError for Error {
             Error::SubmissonValueOutOfRange => info!("Error: Submisson value out of range"),
             Error::SubmissonCooling => info!("Submission cooling"),
             Error::InsufficientWithdrawable => info!("Insufficient withdrawable"),
+            Error::ProgramKeyNotMatch => info!("Program key not match"),
         }
     }
 }

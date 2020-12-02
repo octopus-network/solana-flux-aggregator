@@ -7,6 +7,7 @@ use solana_program::{
     program_error::ProgramError,
     program_pack::{IsInitialized, Pack, Sealed},
     pubkey::Pubkey,
+    info,
     clock::{UnixTimestamp},
 };
 
@@ -23,7 +24,7 @@ impl Pack for Program {
     const LEN: usize = MAX_AGGREGATORS*32;
     fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
         let src = array_ref![src, 0, MAX_AGGREGATORS*32];
-       
+        info!("unpack aggregators");
         Ok(Program {
             aggregators: unpack_aggregators(src),
         })
@@ -243,7 +244,7 @@ fn unpack_aggregators(mut dst: &[u8]) -> [Pubkey; MAX_AGGREGATORS] {
     for i in 0 .. MAX_AGGREGATORS {
         let ( pubkey, rem ) = array_refs![dst, 32; ..;];
         arr[i] = Pubkey::new_from_array(*pubkey);
-
+        info!(&format!("{:?}", i));
         dst = rem;
     }
     arr

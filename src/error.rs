@@ -40,6 +40,9 @@ pub enum Error {
     /// Insufficient withdrawable
     #[error("Insufficient withdrawable")]
     InsufficientWithdrawable,
+    /// Program key not match
+    #[error("Program key not match")]
+    ProgramKeyNotMatch
 }
 
 impl From<Error> for ProgramError {
