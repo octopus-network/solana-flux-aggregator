@@ -32,13 +32,13 @@ impl Pack for Program {
 
     fn pack_into_slice(&self, dst: &mut [u8]) {
         let dst = array_mut_ref![dst, 0, MAX_AGGREGATORS*32];
-        let (aggregators_dst, _) = mut_array_refs![dst, 0;..;];
+        let (_, rem) = mut_array_refs![dst, 0;..;];
 
         let &Program {
             ref aggregators,
         } = self;
 
-        pack_aggregators(aggregators, aggregators_dst);
+        pack_aggregators(aggregators, rem);
     }
 }
 

@@ -89,12 +89,12 @@ impl Processor {
     /// 
     /// Accounts expected by this instruction:
     /// 
-    /// 0. `[writable, signer]` The program storage
-    /// 1. `[]` The program id
+    /// 0. `[writable]` The aggregator
+    /// 1. `[]` The program id, to `invoke` need this
     /// 2. `[]` Sysvar rent
-    /// 3. `[writable]` The aggregator's authority.
+    /// 3. `[writable, signer]` The program owner
     pub fn process_initialize(
-        _program_id: &Pubkey,
+        program_id: &Pubkey,
         accounts: &[AccountInfo],
         description: [u8; 32],
         min_submission_value: u64,
@@ -104,18 +104,17 @@ impl Processor {
 
         let account_info_iter = &mut accounts.iter();
 
-        let program_storage = next_account_info(account_info_iter)?;
+        let aggregator_info = next_account_info(account_info_iter)?;
         let program_info = next_account_info(account_info_iter)?;
         let rent_info = next_account_info(account_info_iter)?;
-
-        let aggregator_info = next_account_info(account_info_iter)?;
-
-        // if program_info.key != program_id {
-        //     return Err(Error::ProgramKeyNotMatch.into());
-        // }
+        let program_owner_info = next_account_info(account_info_iter)?;
+        
+        if program_info.key != program_id {
+            return Err(Error::ProgramKeyNotMatch.into());
+        }
 
         // check signer
-        if !program_storage.is_signer {
+        if !program_owner_info.is_signer {
             return Err(ProgramError::MissingRequiredSignature);
         }
 
@@ -154,14 +153,14 @@ impl Processor {
         invoke(&SolInstruction {
             program_id: *program_info.key,
             accounts: vec![
-                AccountMeta::new(*program_storage.key, false),
+                AccountMeta::new(*program_owner_info.key, false),
             ],
             data: Instruction::PutAggregator {
                 aggregator: *aggregator_info.key,
             }.pack(),
         }, &[
             program_info.clone(),
-            program_storage.clone(),
+            program_owner_info.clone(),
         ])?;
         
         Ok(())
@@ -407,8 +406,11 @@ impl Processor {
         for p in program.aggregators.iter_mut() {
             if p == &Pubkey::default() {
                 *p = *aggregator;
+                break;
             }
         }
+        
+        Program::pack(program, &mut program_info.data.borrow_mut())?;
         Ok(())
     }
 
