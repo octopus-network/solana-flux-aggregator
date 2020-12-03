@@ -31,15 +31,14 @@ impl Processor {
 
         match instruction {
             Instruction::Initialize {
-                description,
                 min_submission_value,
                 max_submission_value,
-                payment_token,
+                description,
             } => {
                 info!("Instruction: Initialize");
                 Self::process_initialize(
-                    program_id, accounts, description, min_submission_value, 
-                    max_submission_value, payment_token,
+                    program_id, accounts, min_submission_value, 
+                    max_submission_value, description, 
                 )
             },
             Instruction::AddOracle {
@@ -68,10 +67,11 @@ impl Processor {
             },
             Instruction::Withdraw {
                 amount,
+                seed,
             } => {
                 info!("Instruction: Withdraw");
                 Self::process_withdraw(
-                    accounts, amount,
+                    accounts, amount, seed.as_slice(),
                 )
             },
             Instruction::PutAggregator {
@@ -96,10 +96,9 @@ impl Processor {
     pub fn process_initialize(
         program_id: &Pubkey,
         accounts: &[AccountInfo],
-        description: [u8; 32],
         min_submission_value: u64,
         max_submission_value: u64,
-        payment_token: Pubkey,
+        description: [u8; 32],
     ) -> ProgramResult {
 
         let account_info_iter = &mut accounts.iter();
@@ -139,8 +138,6 @@ impl Processor {
         aggregator.max_submission_value = max_submission_value;
         aggregator.description = description;
         aggregator.is_initialized = true;
-
-        aggregator.payment_token = payment_token;
 
         aggregator.faucet_owner = faucet_owner;
         aggregator.faucet_bump_seed = faucet_bump_seed;
@@ -318,19 +315,20 @@ impl Processor {
     /// 
     /// Accounts expected by this instruction:
     /// 
-    /// 0. `[writable]` The aggregator(key).
-    /// 1. `[writable]` The token transfer from
-    /// 2. `[writable]` The token withdraw to
+    /// 0. `[writable]` The aggregator (key).
+    /// 1. `[writable]` The faucet (which token transfer from)
+    /// 2. `[writable]` The recevier (which token withdraw to)
     /// 3. `[]` SPL Token program id
     /// 4. `[]` The faucet owner
     /// 5. `[signer, writable]` The oracle's authority.
     pub fn process_withdraw(
         accounts: &[AccountInfo],
         amount: u64,
+        seed: &[u8],
     ) -> ProgramResult {
         let account_info_iter = &mut accounts.iter();
         let aggregator_info = next_account_info(account_info_iter)?;
-        let token_account_info = next_account_info(account_info_iter)?;
+        let faucet_info = next_account_info(account_info_iter)?;
         let receiver_info =  next_account_info(account_info_iter)?;
 
         let token_program_info = next_account_info(account_info_iter)?;
@@ -356,18 +354,10 @@ impl Processor {
             return Err(Error::InsufficientWithdrawable.into());
         }
        
-        let authority_signature_seeds = [
-            &aggregator_info.key.to_bytes()[..32], 
-            b"faucet", 
-            &[aggregator.faucet_bump_seed]
-        ];
-
-        let signers = &[&authority_signature_seeds[..]];
-
-        info!("Create transfer transaction...");
+        info!("Create transfer instruction...");
         let instruction = spl_token::instruction::transfer(
             token_program_info.key,
-            token_account_info.key,
+            faucet_info.key,
             receiver_info.key,
             faucet_owner_info.key,
             &[],
@@ -378,12 +368,12 @@ impl Processor {
         invoke_signed(
             &instruction, 
             &[
-                token_account_info.clone(),
+                faucet_info.clone(),
                 token_program_info.clone(),
                 receiver_info.clone(),
                 faucet_owner_info.clone(),
             ],
-            signers
+            &[&[seed]]
         )?;
 
         // update oracle

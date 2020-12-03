@@ -25,14 +25,12 @@ pub const PAYMENT_AMOUNT: u64 = 10;
 pub enum Instruction {
     /// Initializes a new Aggregator
     Initialize {
-        /// A short description of what is being reported
-        description: [u8; 32],
         /// min submission value
         min_submission_value: u64,
         /// max submission value
         max_submission_value: u64,
-        /// The payment token program
-        payment_token: Pubkey,
+        /// A short description of what is being reported
+        description: [u8; 32],
     },
 
     /// Add an oracle
@@ -61,6 +59,8 @@ pub enum Instruction {
     Withdraw {
         /// withdraw amount
         amount: u64,
+        /// 
+        seed: Vec<u8>,
     },
 
     /// Update program account data
@@ -96,13 +96,6 @@ impl Instruction {
         let (&tag, rest) = input.split_first().ok_or(InvalidInstruction)?;
         Ok(match tag {
             0 => {
-              
-                let (description, rest) = rest.split_at(32);
-                let description = description
-                    .try_into()
-                    .ok()
-                    .ok_or(InvalidInstruction)?;
-              
                 let (min_submission_value, rest) = rest.split_at(8);
                 let min_submission_value = min_submission_value
                     .try_into()
@@ -116,14 +109,17 @@ impl Instruction {
                     .ok()
                     .map(u64::from_le_bytes)
                     .ok_or(InvalidInstruction)?;
-              
-                let (payment_token, _rest) = Self::unpack_pubkey(rest)?;
 
+                let (description, _rest) = rest.split_at(32);
+                let description = description
+                    .try_into()
+                    .ok()
+                    .ok_or(InvalidInstruction)?;
+            
                 Self::Initialize { 
-                    description,
                     min_submission_value,
                     max_submission_value,
-                    payment_token,
+                    description,
                 }
             },
             1 => {
@@ -156,15 +152,16 @@ impl Instruction {
                 }
             },
             4 => {
-                let (amount, _rest) = rest.split_at(8);
+                let (amount, rest) = rest.split_at(8);
                 let amount = amount
                     .try_into()
                     .ok()
                     .map(u64::from_le_bytes)
                     .ok_or(InvalidInstruction)?;
-                
+
+               
                 Self::Withdraw {
-                    amount,
+                    amount, seed: rest.to_vec(),
                 }
             },
             5 => {
