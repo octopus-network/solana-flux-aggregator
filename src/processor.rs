@@ -128,19 +128,10 @@ impl Processor {
             return Err(Error::NotRentExempt.into());
         }
 
-        let (faucet_owner, faucet_bump_seed) = find_authority_bump_seed(
-            program_info.key,
-            aggregator_info.key,
-            b"faucet",
-        );
- 
         aggregator.min_submission_value = min_submission_value;
         aggregator.max_submission_value = max_submission_value;
         aggregator.description = description;
         aggregator.is_initialized = true;
-
-        aggregator.faucet_owner = faucet_owner;
-        aggregator.faucet_bump_seed = faucet_bump_seed;
 
         aggregator.authority = *aggregator_info.key;
 

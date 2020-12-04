@@ -56,12 +56,6 @@ pub struct Aggregator {
     pub is_initialized: bool,
     /// authority
     pub authority: Pubkey,
-    /// the payment token program
-    pub payment_token: Pubkey,
-    /// faucet owner (program derived address)
-    pub faucet_owner: Pubkey,
-    /// faucet bump seed
-    pub faucet_bump_seed: u8,
     /// oracles
     pub oracles: [Pubkey; MAX_ORACLES],
 }
@@ -74,13 +68,13 @@ impl IsInitialized for Aggregator {
 
 impl Sealed for Aggregator {}
 impl Pack for Aggregator {
-    const LEN: usize = 146 + MAX_ORACLES*32;
+    const LEN: usize = 81 + MAX_ORACLES*32;
     fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
-        let src = array_ref![src, 0, 146 + MAX_ORACLES*32];
+        let src = array_ref![src, 0, 81 + MAX_ORACLES*32];
         let (
-            min_submission_value, max_submission_value, description, is_initialized, 
-            authority, payment_token, faucet_owner, faucet_bump_seed, rem,
-        ) = array_refs![src, 8, 8, 32, 1, 32, 32, 32, 1; ..;];
+            min_submission_value, max_submission_value, description, 
+            is_initialized, authority, rem,
+        ) = array_refs![src, 8, 8, 32, 1, 32; ..;];
 
         let is_initialized = match is_initialized {
             [0] => false,
@@ -95,26 +89,20 @@ impl Pack for Aggregator {
             is_initialized,
             authority: Pubkey::new_from_array(*authority),
             oracles: unpack_oracles(rem),
-            payment_token: Pubkey::new_from_array(*payment_token),
-            faucet_owner: Pubkey::new_from_array(*faucet_owner),
-            faucet_bump_seed: faucet_bump_seed[0],
         })
     }
 
     fn pack_into_slice(&self, dst: &mut [u8]) {
    
-        let dst = array_mut_ref![dst, 0, 146 + MAX_ORACLES*32];
+        let dst = array_mut_ref![dst, 0, 81 + MAX_ORACLES*32];
         let (
             min_submission_value_dst, 
             max_submission_value_dst, 
             description_dst, 
             is_initialized_dst, 
             authority_dst,
-            payment_token_dst,
-            faucet_owner_dst,
-            faucet_bump_seed_dst,
             rem,
-        ) = mut_array_refs![dst, 8, 8, 32, 1, 32, 32, 32, 1; ..;];
+        ) = mut_array_refs![dst, 8, 8, 32, 1, 32; ..;];
 
         let &Aggregator {
             min_submission_value, 
@@ -122,9 +110,6 @@ impl Pack for Aggregator {
             description, 
             is_initialized, 
             ref authority,
-            ref payment_token,
-            ref faucet_owner,
-            faucet_bump_seed,
             ref oracles,
         } = self;
 
@@ -133,10 +118,7 @@ impl Pack for Aggregator {
         *description_dst = description;
         is_initialized_dst[0] = is_initialized as u8;
         authority_dst.copy_from_slice(authority.as_ref());
-        payment_token_dst.copy_from_slice(payment_token.as_ref());
-        faucet_owner_dst.copy_from_slice(faucet_owner.as_ref());
-        faucet_bump_seed_dst[0] = faucet_bump_seed as u8;
-
+     
         pack_oracles(oracles, rem);
     }
 }
