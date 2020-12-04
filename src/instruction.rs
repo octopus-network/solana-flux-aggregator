@@ -8,10 +8,7 @@ use solana_program::{
 };
 
 use std::convert::TryInto;
-use std::mem::size_of;
 
-/// Maximum number of aggregators in this program
-pub const MAX_AGGREGATORS: usize = 32;
 /// Maximum number of oracles
 pub const MAX_ORACLES: usize = 21;
 /// The interval(seconds) of an oracle's each submission
@@ -62,33 +59,9 @@ pub enum Instruction {
         /// 
         seed: Vec<u8>,
     },
-
-    /// Update program account data
-    PutAggregator {
-        /// aggregator key
-        aggregator: Pubkey,
-    },
-    
 }
 
 impl Instruction {
-    /// Packs a [Instruction](enum.Instruction.html) into a byte buffer.
-    pub fn pack(&self) -> Vec<u8> {
-        let mut buf = Vec::with_capacity(size_of::<Self>());
-        match self {
-            &Self::PutAggregator {
-                ref aggregator,
-            } => {
-                buf.push(5);
-                buf.extend_from_slice(aggregator.as_ref());
-            },
-            _ => {
-
-            }
-        };
-        buf
-    }
-
     /// Unpacks a byte buffer into a [Instruction](enum.Instruction.html).
     pub fn unpack(input: &[u8]) -> Result<Self, ProgramError> {
         use Error::InvalidInstruction;
@@ -162,12 +135,6 @@ impl Instruction {
                
                 Self::Withdraw {
                     amount, seed: rest.to_vec(),
-                }
-            },
-            5 => {
-                let (aggregator, _rest) = Self::unpack_pubkey(rest)?;
-                Self::PutAggregator { 
-                    aggregator,
                 }
             },
             _ => return Err(Error::InvalidInstruction.into()),

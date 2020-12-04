@@ -3,19 +3,18 @@
 use crate::{
     error::Error,
     instruction::{Instruction, SUBMIT_INTERVAL, PAYMENT_AMOUNT},
-    state::{Aggregator, Oracle, Program},
+    state::{Aggregator, Oracle},
 };
 
 use num_traits::FromPrimitive;
 use solana_program::{
-    instruction::{AccountMeta, Instruction as SolInstruction},
     account_info::{next_account_info, AccountInfo},
     clock::{Clock},
     decode_error::DecodeError,
     entrypoint::ProgramResult,
     info, 
     program_pack::{Pack},
-    program::{invoke, invoke_signed},
+    program::{invoke_signed},
     program_error::{PrintProgramError, ProgramError},
     pubkey::Pubkey,
     sysvar::{rent::Rent, Sysvar},
@@ -74,14 +73,6 @@ impl Processor {
                     accounts, amount, seed.as_slice(),
                 )
             },
-            Instruction::PutAggregator {
-                aggregator,
-            } => {
-                info!("Instruction: Put aggregator");
-                Self::put_aggregator(
-                    accounts, &aggregator,
-                )
-            },
         }
     }
 
@@ -89,10 +80,8 @@ impl Processor {
     /// 
     /// Accounts expected by this instruction:
     /// 
-    /// 0. `[writable]` The aggregator
-    /// 1. `[]` The program id, to `invoke` need this
-    /// 2. `[]` Sysvar rent
-    /// 3. `[writable, signer]` The program owner
+    /// 1. `[]` Sysvar rent
+    /// 2. `[writable, signer]` The aggregator autority
     pub fn process_initialize(
         program_id: &Pubkey,
         accounts: &[AccountInfo],
@@ -103,17 +92,11 @@ impl Processor {
 
         let account_info_iter = &mut accounts.iter();
 
-        let aggregator_info = next_account_info(account_info_iter)?;
-        let program_info = next_account_info(account_info_iter)?;
         let rent_info = next_account_info(account_info_iter)?;
-        let program_owner_info = next_account_info(account_info_iter)?;
-        
-        if program_info.key != program_id {
-            return Err(Error::ProgramKeyNotMatch.into());
-        }
-
+        let aggregator_info = next_account_info(account_info_iter)?;
+  
         // check signer
-        if !program_owner_info.is_signer {
+        if !aggregator_info.is_signer {
             return Err(ProgramError::MissingRequiredSignature);
         }
 
@@ -133,23 +116,7 @@ impl Processor {
         aggregator.description = description;
         aggregator.is_initialized = true;
 
-        aggregator.authority = *aggregator_info.key;
-
         Aggregator::pack(aggregator, &mut aggregator_info.data.borrow_mut())?;
-
-        // call put aggregator instruction, to minimize stack size
-        invoke(&SolInstruction {
-            program_id: *program_info.key,
-            accounts: vec![
-                AccountMeta::new(*program_owner_info.key, false),
-            ],
-            data: Instruction::PutAggregator {
-                aggregator: *aggregator_info.key,
-            }.pack(),
-        }, &[
-            program_info.clone(),
-            program_owner_info.clone(),
-        ])?;
         
         Ok(())
     }
@@ -183,25 +150,29 @@ impl Processor {
             return Err(Error::NotFoundAggregator.into());
         }
 
+
+        let mut oracle = Oracle::unpack_unchecked(&oracle_info.data.borrow())?;
+        if oracle.is_initialized {
+            return Err(Error::AlreadyInUse.into());
+        }
+
         let mut oracles = aggregator.oracles;
 
         // append
         for o in oracles.iter_mut() {
             if o == &Pubkey::default() {
                 *o = *oracle_info.key;
+                break;
             }
         }
 
         aggregator.oracles = oracles;
         Aggregator::pack(aggregator, &mut aggregator_info.data.borrow_mut())?;
 
-        let mut oracle = Oracle::unpack_unchecked(&oracle_info.data.borrow())?;
-
         let clock = &Clock::from_account_info(clock_sysvar_info)?;
 
         oracle.submission = 0;
         oracle.next_submit_time = clock.unix_timestamp;
-        oracle.authority = *oracle_info.key;
         oracle.description = description;
         oracle.is_initialized = true;
         oracle.withdrawable = 0;
@@ -237,10 +208,17 @@ impl Processor {
 
         let mut oracles = aggregator.oracles;
 
+        let mut found = false;
         for o in oracles.iter_mut() {
             if o == &oracle {
                 *o = Pubkey::default();
+                found = true;
+                break;
             }
+        }
+
+        if !found {
+            return Err(Error::NotFoundOracle.into());
         }
 
         aggregator.oracles = oracles;
@@ -374,38 +352,6 @@ impl Processor {
         Ok(())
     }
 
-    /// Put aggregator key to program account data
-    fn put_aggregator(
-        accounts: &[AccountInfo],
-        aggregator: &Pubkey
-    ) -> ProgramResult {
-        let account_info_iter = &mut accounts.iter();
-        let program_info = next_account_info(account_info_iter)?;
-        info!(&format!("{:?}", program_info));
-        let mut program = Program::unpack_unchecked(&program_info.data.borrow())?;
-        
-        for p in program.aggregators.iter_mut() {
-            if p == &Pubkey::default() {
-                *p = *aggregator;
-                break;
-            }
-        }
-        
-        Program::pack(program, &mut program_info.data.borrow_mut())?;
-        Ok(())
-    }
-
-}
-
-// Helpers
-
-/// Generates seed bump for stake pool authorities
-pub fn find_authority_bump_seed(
-    program_id: &Pubkey,
-    my_info: &Pubkey,
-    authority_type: &[u8],
-) -> (Pubkey, u8) {
-    Pubkey::find_program_address(&[&my_info.to_bytes()[..32], authority_type], program_id)
 }
 
 impl PrintProgramError for Error {
@@ -420,12 +366,10 @@ impl PrintProgramError for Error {
             Error::NotFoundAggregator => info!("Error: no found aggregator"),
             Error::OracleAdded => info!("Error: Oracle added"),
             Error::OwnerMismatch => info!("Error: Owner mismatch"),
-            Error::SeatAlreadyBeenTaken => info!("Error: Seat already been taken"),
             Error::NotFoundOracle => info!("Error: Not found oracle"),
             Error::SubmissonValueOutOfRange => info!("Error: Submisson value out of range"),
             Error::SubmissonCooling => info!("Submission cooling"),
             Error::InsufficientWithdrawable => info!("Insufficient withdrawable"),
-            Error::ProgramKeyNotMatch => info!("Program key not match"),
         }
     }
 }

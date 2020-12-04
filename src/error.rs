@@ -25,9 +25,6 @@ pub enum Error {
     /// Oracle added
     #[error("Owner mismatch")]
     OwnerMismatch,
-    /// Seat already taken
-    #[error("Seat already been taken")]
-    SeatAlreadyBeenTaken,
     /// Not found oracle
     #[error("Not found oracle")]
     NotFoundOracle,
@@ -40,9 +37,6 @@ pub enum Error {
     /// Insufficient withdrawable
     #[error("Insufficient withdrawable")]
     InsufficientWithdrawable,
-    /// Program key not match
-    #[error("Program key not match")]
-    ProgramKeyNotMatch
 }
 
 impl From<Error> for ProgramError {
