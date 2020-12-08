@@ -2,8 +2,8 @@
 
 use crate::{
     error::Error,
-    instruction::{Instruction, SUBMIT_INTERVAL, PAYMENT_AMOUNT},
-    state::{Aggregator, Oracle},
+    instruction::{Instruction, PAYMENT_AMOUNT},
+    state::{Aggregator, Oracle, Submission},
 };
 
 use num_traits::FromPrimitive;
@@ -30,13 +30,14 @@ impl Processor {
 
         match instruction {
             Instruction::Initialize {
+                submit_interval,
                 min_submission_value,
                 max_submission_value,
                 description,
             } => {
                 info!("Instruction: Initialize");
                 Self::process_initialize(
-                    program_id, accounts, min_submission_value, 
+                    program_id, accounts, submit_interval, min_submission_value, 
                     max_submission_value, description, 
                 )
             },
@@ -83,8 +84,9 @@ impl Processor {
     /// 1. `[]` Sysvar rent
     /// 2. `[writable, signer]` The aggregator autority
     pub fn process_initialize(
-        program_id: &Pubkey,
+        _program_id: &Pubkey,
         accounts: &[AccountInfo],
+        submit_interval: u32,
         min_submission_value: u64,
         max_submission_value: u64,
         description: [u8; 32],
@@ -111,6 +113,7 @@ impl Processor {
             return Err(Error::NotRentExempt.into());
         }
 
+        aggregator.submit_interval = submit_interval;
         aggregator.min_submission_value = min_submission_value;
         aggregator.max_submission_value = max_submission_value;
         aggregator.description = description;
@@ -150,32 +153,37 @@ impl Processor {
             return Err(Error::NotFoundAggregator.into());
         }
 
-
         let mut oracle = Oracle::unpack_unchecked(&oracle_info.data.borrow())?;
         if oracle.is_initialized {
             return Err(Error::AlreadyInUse.into());
         }
 
-        let mut oracles = aggregator.oracles;
+        // sys clock
+        let clock = &Clock::from_account_info(clock_sysvar_info)?;
 
-        // append
-        for o in oracles.iter_mut() {
-            if o == &Pubkey::default() {
-                *o = *oracle_info.key;
+        let mut submissions = aggregator.submissions;
+
+        // default submission
+        for s in submissions.iter_mut() {
+            if s.oracle == Pubkey::default() {
+                *s = Submission {
+                    time: clock.unix_timestamp,
+                    value: 0,
+                    oracle: *oracle_info.key,
+                };
                 break;
             }
         }
 
-        aggregator.oracles = oracles;
+        aggregator.submissions = submissions;
         Aggregator::pack(aggregator, &mut aggregator_info.data.borrow_mut())?;
-
-        let clock = &Clock::from_account_info(clock_sysvar_info)?;
 
         oracle.submission = 0;
         oracle.next_submit_time = clock.unix_timestamp;
         oracle.description = description;
         oracle.is_initialized = true;
         oracle.withdrawable = 0;
+        oracle.aggregator = *aggregator_info.key;
 
         Oracle::pack(oracle, &mut oracle_info.data.borrow_mut())?;
 
@@ -206,12 +214,13 @@ impl Processor {
             return Err(Error::NotFoundAggregator.into());
         }
 
-        let mut oracles = aggregator.oracles;
+        // remove submission
+        let mut submissions = aggregator.submissions;
 
         let mut found = false;
-        for o in oracles.iter_mut() {
-            if o == &oracle {
-                *o = Pubkey::default();
+        for s in submissions.iter_mut() {
+            if s.oracle == oracle {
+                *s = Submission::default();
                 found = true;
                 break;
             }
@@ -221,7 +230,7 @@ impl Processor {
             return Err(Error::NotFoundOracle.into());
         }
 
-        aggregator.oracles = oracles;
+        aggregator.submissions = submissions;
         Aggregator::pack(aggregator, &mut aggregator_info.data.borrow_mut())?;
 
         Ok(())
@@ -244,7 +253,7 @@ impl Processor {
         let clock_sysvar_info = next_account_info(account_info_iter)?;
         let oracle_info = next_account_info(account_info_iter)?;
 
-        let aggregator = Aggregator::unpack_unchecked(&aggregator_info.data.borrow())?;
+        let mut aggregator = Aggregator::unpack_unchecked(&aggregator_info.data.borrow())?;
         if !aggregator.is_initialized {
             return Err(Error::NotFoundAggregator.into());
         }
@@ -262,14 +271,38 @@ impl Processor {
             return Err(Error::NotFoundOracle.into());
         }
 
+        if &oracle.aggregator != aggregator_info.key {
+            return Err(Error::AggregatorKeyNotMatch.into());
+        }
+
         let clock = &Clock::from_account_info(clock_sysvar_info)?;
+
+        // check whether the aggregator owned this oracle
+        let mut found = false;
+        let mut submissions = aggregator.submissions;
+        for s in submissions.iter_mut() {
+            if &s.oracle == oracle_info.key {
+                s.value = submission;
+                s.time = clock.unix_timestamp;
+                found = true;
+                break;
+            }
+        }
+
+        if !found {
+            return Err(Error::NotFoundOracle.into());
+        }
+
+        aggregator.submissions = submissions;
+        Aggregator::pack(aggregator, &mut aggregator_info.data.borrow_mut())?;
+
         if oracle.next_submit_time > clock.unix_timestamp {
             return Err(Error::SubmissonCooling.into());
         }
 
         oracle.submission = submission;
         oracle.withdrawable += PAYMENT_AMOUNT;
-        oracle.next_submit_time = clock.unix_timestamp + SUBMIT_INTERVAL;
+        oracle.next_submit_time = clock.unix_timestamp + aggregator.submit_interval as i64;
 
         Oracle::pack(oracle, &mut oracle_info.data.borrow_mut())?;
 
@@ -370,6 +403,7 @@ impl PrintProgramError for Error {
             Error::SubmissonValueOutOfRange => info!("Error: Submisson value out of range"),
             Error::SubmissonCooling => info!("Submission cooling"),
             Error::InsufficientWithdrawable => info!("Insufficient withdrawable"),
+            Error::AggregatorKeyNotMatch => info!("Aggregator key not match"),
         }
     }
 }

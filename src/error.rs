@@ -37,6 +37,9 @@ pub enum Error {
     /// Insufficient withdrawable
     #[error("Insufficient withdrawable")]
     InsufficientWithdrawable,
+    /// Aggregator key not match
+    #[error("Aggregator key not match")]
+    AggregatorKeyNotMatch,
 }
 
 impl From<Error> for ProgramError {

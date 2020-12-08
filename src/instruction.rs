@@ -5,14 +5,13 @@ use crate::error::Error;
 use solana_program::{
     program_error::ProgramError,
     pubkey::Pubkey,
+    info,
 };
 
 use std::convert::TryInto;
 
 /// Maximum number of oracles
 pub const MAX_ORACLES: usize = 21;
-/// The interval(seconds) of an oracle's each submission
-pub const SUBMIT_INTERVAL: i64 = 6;
 /// The amount paid of TOKEN paid to each oracle per submission, in lamports (10e-10 SOL)
 pub const PAYMENT_AMOUNT: u64 = 10;
 
@@ -22,6 +21,8 @@ pub const PAYMENT_AMOUNT: u64 = 10;
 pub enum Instruction {
     /// Initializes a new Aggregator
     Initialize {
+        /// The interval(seconds) of an oracle's each submission
+        submit_interval: u32,
         /// min submission value
         min_submission_value: u64,
         /// max submission value
@@ -69,31 +70,41 @@ impl Instruction {
         let (&tag, rest) = input.split_first().ok_or(InvalidInstruction)?;
         Ok(match tag {
             0 => {
+                let (submit_interval, rest) = rest.split_at(4);
+                info!("1");
+                let submit_interval = submit_interval
+                    .try_into()
+                    .ok()
+                    .map(u32::from_le_bytes)
+                    .ok_or(InvalidInstruction)?;
+                info!("2");
                 let (min_submission_value, rest) = rest.split_at(8);
                 let min_submission_value = min_submission_value
                     .try_into()
                     .ok()
                     .map(u64::from_le_bytes)
                     .ok_or(InvalidInstruction)?;
-               
+                info!("3");
                 let (max_submission_value, rest) = rest.split_at(8);
                 let max_submission_value = max_submission_value
                     .try_into()
                     .ok()
                     .map(u64::from_le_bytes)
                     .ok_or(InvalidInstruction)?;
-
+                info!("4");
                 let (description, _rest) = rest.split_at(32);
                 let description = description
                     .try_into()
                     .ok()
                     .ok_or(InvalidInstruction)?;
-            
+                info!("5");
                 Self::Initialize { 
+                    submit_interval,
                     min_submission_value,
                     max_submission_value,
                     description,
                 }
+                
             },
             1 => {
                 let (description, _rest) = rest.split_at(32);

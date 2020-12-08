@@ -7,7 +7,6 @@ use solana_program::{
     program_error::ProgramError,
     program_pack::{IsInitialized, Pack, Sealed},
     pubkey::Pubkey,
-    info,
     clock::{UnixTimestamp},
 };
 
@@ -15,6 +14,8 @@ use solana_program::{
 #[repr(C)]
 #[derive(Clone, Debug, Copy, Default, PartialEq)]
 pub struct Aggregator {
+   /// The interval(seconds) of an oracle's each submission
+    pub submit_interval: u32,
     /// min submission value
     pub min_submission_value: u64,
     /// max submission value
@@ -23,8 +24,8 @@ pub struct Aggregator {
     pub description: [u8; 32],
     /// is initialized
     pub is_initialized: bool,
-    /// oracles
-    pub oracles: [Pubkey; MAX_ORACLES],
+    /// submissions
+    pub submissions: [Submission; MAX_ORACLES],
 }
 
 impl IsInitialized for Aggregator {
@@ -35,16 +36,17 @@ impl IsInitialized for Aggregator {
 
 impl Sealed for Aggregator {}
 impl Pack for Aggregator {
-    const LEN: usize = 49 + MAX_ORACLES*32;
+    const LEN: usize = 53 + MAX_ORACLES*48;
     fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
-        let src = array_ref![src, 0, 49 + MAX_ORACLES*32];
+        let src = array_ref![src, 0, 53 + MAX_ORACLES*48];
         let (
+            submit_interval,
             min_submission_value, 
             max_submission_value, 
             description, 
             is_initialized, 
-            rem,
-        ) = array_refs![src, 8, 8, 32, 1; ..;];
+            submissions,
+        ) = array_refs![src, 4, 8, 8, 32, 1, MAX_ORACLES*48];
 
         let is_initialized = match is_initialized {
             [0] => false,
@@ -53,39 +55,43 @@ impl Pack for Aggregator {
         };
 
         Ok(Aggregator {
+            submit_interval: u32::from_le_bytes(*submit_interval),
             min_submission_value: u64::from_le_bytes(*min_submission_value),
             max_submission_value: u64::from_le_bytes(*max_submission_value),
             description: *description,
             is_initialized,
-            oracles: unpack_oracles(rem),
+            submissions: unpack_submissions(submissions),
         })
     }
 
     fn pack_into_slice(&self, dst: &mut [u8]) {
-   
-        let dst = array_mut_ref![dst, 0, 49 + MAX_ORACLES*32];
+        
+        let dst = array_mut_ref![dst, 0, 53 + MAX_ORACLES*48];
         let (
+            submit_interval_dst,
             min_submission_value_dst, 
             max_submission_value_dst, 
             description_dst, 
             is_initialized_dst, 
-            rem,
-        ) = mut_array_refs![dst, 8, 8, 32, 1; ..;];
+            submissions_dst,
+        ) = mut_array_refs![dst, 4, 8, 8, 32, 1, MAX_ORACLES*48];
 
         let &Aggregator {
+            submit_interval,
             min_submission_value, 
             max_submission_value, 
             description, 
             is_initialized, 
-            ref oracles,
+            ref submissions,
         } = self;
 
+        *submit_interval_dst = submit_interval.to_le_bytes();
         *min_submission_value_dst = min_submission_value.to_le_bytes();
         *max_submission_value_dst = max_submission_value.to_le_bytes();
         *description_dst = description;
         is_initialized_dst[0] = is_initialized as u8;
   
-        pack_oracles(oracles, rem);
+        pack_submissions(submissions, submissions_dst);
     }
 }
 
@@ -95,7 +101,7 @@ impl Pack for Aggregator {
 pub struct Oracle {
     /// submission
     pub submission: u64,
-    /// submit times
+    /// submit time
     pub next_submit_time: UnixTimestamp,
     /// is usually the oracle name
     pub description: [u8; 32],
@@ -103,6 +109,8 @@ pub struct Oracle {
     pub is_initialized: bool,
     /// withdrawable
     pub withdrawable: u64,
+    /// aggregator
+    pub aggregator: Pubkey,
 }
 
 impl IsInitialized for Oracle {
@@ -113,13 +121,14 @@ impl IsInitialized for Oracle {
 
 impl Sealed for Oracle {}
 impl Pack for Oracle {
-    const LEN: usize = 57;
+    const LEN: usize = 89;
     fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
 
-        let src = array_ref![src, 0, 57];
+        let src = array_ref![src, 0, 89];
         let (
-            submission, next_submit_time, description, is_initialized, withdrawable,
-        ) = array_refs![src, 8, 8, 32, 1, 8];
+            submission, next_submit_time, description, is_initialized, 
+            withdrawable, aggregator,
+        ) = array_refs![src, 8, 8, 32, 1, 8, 32];
 
         let is_initialized = match is_initialized {
             [0] => false,
@@ -133,19 +142,21 @@ impl Pack for Oracle {
             description: *description,
             is_initialized,
             withdrawable: u64::from_le_bytes(*withdrawable),
+            aggregator: Pubkey::new_from_array(*aggregator),
         })
     }
 
     fn pack_into_slice(&self, dst: &mut [u8]) {
 
-        let dst = array_mut_ref![dst, 0, 57];
+        let dst = array_mut_ref![dst, 0, 89];
         let (
             submission_dst, 
             next_submit_time_dst, 
             description_dst, 
             is_initialized_dst, 
             withdrawable_dst,
-        ) = mut_array_refs![dst, 8, 8, 32, 1, 8];
+            aggregator_dst,
+        ) = mut_array_refs![dst, 8, 8, 32, 1, 8, 32];
 
         let &Oracle {
             submission, 
@@ -153,6 +164,7 @@ impl Pack for Oracle {
             description, 
             is_initialized,
             withdrawable,
+            aggregator,
         } = self;
 
         *submission_dst = submission.to_le_bytes();
@@ -160,26 +172,55 @@ impl Pack for Oracle {
         *description_dst = description;
         is_initialized_dst[0] = is_initialized as u8;
         *withdrawable_dst = withdrawable.to_le_bytes();
+        aggregator_dst.copy_from_slice(aggregator.as_ref());
     }
 }
 
+/// Submission data.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Submission {
+    /// submit time
+    pub time: UnixTimestamp,
+    /// value
+    pub value: u64,
+    /// oracle
+    pub oracle: Pubkey,
+}
+
 // Helpers
-fn unpack_oracles(mut dst: &[u8]) -> [Pubkey; MAX_ORACLES] {
-    let mut arr = [Pubkey::default(); MAX_ORACLES];
+fn unpack_submissions(mut dst: &[u8]) -> [Submission; MAX_ORACLES] {
+    let mut arr = [Submission::default(); MAX_ORACLES];
     for i in 0 .. MAX_ORACLES {
-        let ( pubkey, rem ) = array_refs![dst, 32; ..;];
-        arr[i] = Pubkey::new_from_array(*pubkey);
+        let ( submission, rem ) = array_refs![dst, 48; ..;];
+
+        let ( time, value, oracle ) = array_refs![submission, 8, 8, 32];
+        arr[i] = Submission {
+            time: i64::from_le_bytes(*time),
+            value: u64::from_le_bytes(*value),
+            oracle: Pubkey::new_from_array(*oracle),
+        };
 
         dst = rem;
     }
     arr
 }
 
-fn pack_oracles(src: &[Pubkey; MAX_ORACLES], mut dst: &mut [u8]) {
+fn pack_submissions(src: &[Submission; MAX_ORACLES], mut dst: &mut [u8]) {
     for i in 0 .. MAX_ORACLES {
-        let (s, rem) = mut_array_refs![dst, 32; ..;];
+        let ( submission, rem ) = mut_array_refs![dst, 48; ..;];
 
-        s.copy_from_slice(src[i].as_ref());
+        let ( 
+            time_dst, 
+            value_dst, 
+            oracle_dst, 
+        ) = mut_array_refs![&mut *submission, 8, 8, 32];
+
+        let &Submission { time, value, oracle } = &src[i];
+
+        *time_dst = time.to_le_bytes();
+        *value_dst = value.to_le_bytes();
+        oracle_dst.copy_from_slice(oracle.as_ref());
 
         dst = rem;
     }
