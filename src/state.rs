@@ -24,8 +24,11 @@ pub struct Aggregator {
     pub description: [u8; 32],
     /// is initialized
     pub is_initialized: bool,
+    /// authority
+    pub owner: Pubkey,
     /// submissions
     pub submissions: [Submission; MAX_ORACLES],
+   
 }
 
 impl IsInitialized for Aggregator {
@@ -36,17 +39,18 @@ impl IsInitialized for Aggregator {
 
 impl Sealed for Aggregator {}
 impl Pack for Aggregator {
-    const LEN: usize = 53 + MAX_ORACLES*48;
+    const LEN: usize = 85 + MAX_ORACLES*48;
     fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
-        let src = array_ref![src, 0, 53 + MAX_ORACLES*48];
+        let src = array_ref![src, 0, 85 + MAX_ORACLES*48];
         let (
             submit_interval,
             min_submission_value, 
             max_submission_value, 
             description, 
             is_initialized, 
+            owner,
             submissions,
-        ) = array_refs![src, 4, 8, 8, 32, 1, MAX_ORACLES*48];
+        ) = array_refs![src, 4, 8, 8, 32, 1, 32, MAX_ORACLES*48];
 
         let is_initialized = match is_initialized {
             [0] => false,
@@ -60,21 +64,23 @@ impl Pack for Aggregator {
             max_submission_value: u64::from_le_bytes(*max_submission_value),
             description: *description,
             is_initialized,
+            owner: Pubkey::new_from_array(*owner),
             submissions: unpack_submissions(submissions),
         })
     }
 
     fn pack_into_slice(&self, dst: &mut [u8]) {
         
-        let dst = array_mut_ref![dst, 0, 53 + MAX_ORACLES*48];
+        let dst = array_mut_ref![dst, 0, 85 + MAX_ORACLES*48];
         let (
             submit_interval_dst,
             min_submission_value_dst, 
             max_submission_value_dst, 
             description_dst, 
             is_initialized_dst, 
+            owner_dst,
             submissions_dst,
-        ) = mut_array_refs![dst, 4, 8, 8, 32, 1, MAX_ORACLES*48];
+        ) = mut_array_refs![dst, 4, 8, 8, 32, 1, 32, MAX_ORACLES*48];
 
         let &Aggregator {
             submit_interval,
@@ -82,6 +88,7 @@ impl Pack for Aggregator {
             max_submission_value, 
             description, 
             is_initialized, 
+            owner,
             ref submissions,
         } = self;
 
@@ -89,6 +96,7 @@ impl Pack for Aggregator {
         *min_submission_value_dst = min_submission_value.to_le_bytes();
         *max_submission_value_dst = max_submission_value.to_le_bytes();
         *description_dst = description;
+        owner_dst.copy_from_slice(owner.as_ref());
         is_initialized_dst[0] = is_initialized as u8;
   
         pack_submissions(submissions, submissions_dst);
@@ -111,6 +119,8 @@ pub struct Oracle {
     pub withdrawable: u64,
     /// aggregator
     pub aggregator: Pubkey,
+    /// owner
+    pub owner: Pubkey,
 }
 
 impl IsInitialized for Oracle {
@@ -121,14 +131,14 @@ impl IsInitialized for Oracle {
 
 impl Sealed for Oracle {}
 impl Pack for Oracle {
-    const LEN: usize = 89;
+    const LEN: usize = 121;
     fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
 
-        let src = array_ref![src, 0, 89];
+        let src = array_ref![src, 0, 121];
         let (
             submission, next_submit_time, description, is_initialized, 
-            withdrawable, aggregator,
-        ) = array_refs![src, 8, 8, 32, 1, 8, 32];
+            withdrawable, aggregator, owner,
+        ) = array_refs![src, 8, 8, 32, 1, 8, 32, 32];
 
         let is_initialized = match is_initialized {
             [0] => false,
@@ -143,12 +153,13 @@ impl Pack for Oracle {
             is_initialized,
             withdrawable: u64::from_le_bytes(*withdrawable),
             aggregator: Pubkey::new_from_array(*aggregator),
+            owner: Pubkey::new_from_array(*owner),
         })
     }
 
     fn pack_into_slice(&self, dst: &mut [u8]) {
 
-        let dst = array_mut_ref![dst, 0, 89];
+        let dst = array_mut_ref![dst, 0, 121];
         let (
             submission_dst, 
             next_submit_time_dst, 
@@ -156,7 +167,8 @@ impl Pack for Oracle {
             is_initialized_dst, 
             withdrawable_dst,
             aggregator_dst,
-        ) = mut_array_refs![dst, 8, 8, 32, 1, 8, 32];
+            owner_dst,
+        ) = mut_array_refs![dst, 8, 8, 32, 1, 8, 32, 32];
 
         let &Oracle {
             submission, 
@@ -165,6 +177,7 @@ impl Pack for Oracle {
             is_initialized,
             withdrawable,
             aggregator,
+            owner,
         } = self;
 
         *submission_dst = submission.to_le_bytes();
@@ -173,6 +186,7 @@ impl Pack for Oracle {
         is_initialized_dst[0] = is_initialized as u8;
         *withdrawable_dst = withdrawable.to_le_bytes();
         aggregator_dst.copy_from_slice(aggregator.as_ref());
+        owner_dst.copy_from_slice(owner.as_ref());
     }
 }
 

@@ -82,7 +82,8 @@ impl Processor {
     /// Accounts expected by this instruction:
     /// 
     /// 1. `[]` Sysvar rent
-    /// 2. `[writable, signer]` The aggregator autority
+    /// 2. `[writable]` The aggregator
+    /// 3. `[signer]` The aggregator owner
     pub fn process_initialize(
         _program_id: &Pubkey,
         accounts: &[AccountInfo],
@@ -96,9 +97,10 @@ impl Processor {
 
         let rent_info = next_account_info(account_info_iter)?;
         let aggregator_info = next_account_info(account_info_iter)?;
+        let owner_info = next_account_info(account_info_iter)?;
   
         // check signer
-        if !aggregator_info.is_signer {
+        if !owner_info.is_signer {
             return Err(ProgramError::MissingRequiredSignature);
         }
 
@@ -118,6 +120,7 @@ impl Processor {
         aggregator.max_submission_value = max_submission_value;
         aggregator.description = description;
         aggregator.is_initialized = true;
+        aggregator.owner = *owner_info.key;
 
         Aggregator::pack(aggregator, &mut aggregator_info.data.borrow_mut())?;
         
@@ -130,9 +133,11 @@ impl Processor {
     /// 
     /// Accounts expected by this instruction:
     /// 
-    /// 0. `[writable]` The oracle(key)
-    /// 1. `[]` Clock sysvar
-    /// 2. `[writable, signer]` The aggregator's authority.
+    /// 0. `[writable]` The oracle
+    /// 1. `[]` The oracle owner
+    /// 2. `[]` Clock sysvar
+    /// 3. `[writable]` The aggregator
+    /// 4. `[signer]` The aggregator owner
     pub fn process_add_oracle(
         accounts: &[AccountInfo],
         description: [u8; 32],
@@ -140,14 +145,20 @@ impl Processor {
         
         let account_info_iter = &mut accounts.iter();
         let oracle_info = next_account_info(account_info_iter)?;
+        let oracle_owner_info = next_account_info(account_info_iter)?;
         let clock_sysvar_info = next_account_info(account_info_iter)?;
         let aggregator_info = next_account_info(account_info_iter)?;
+        let aggregator_owner_info = next_account_info(account_info_iter)?;
 
-        if !aggregator_info.is_signer {
+        if !aggregator_owner_info.is_signer {
             return Err(ProgramError::MissingRequiredSignature);
         }
-
+       
         let mut aggregator = Aggregator::unpack_unchecked(&aggregator_info.data.borrow())?;
+
+        if &aggregator.owner != aggregator_owner_info.key {
+            return Err(Error::OwnerMismatch.into());
+        }
 
         if !aggregator.is_initialized {
             return Err(Error::NotFoundAggregator.into());
@@ -184,6 +195,7 @@ impl Processor {
         oracle.is_initialized = true;
         oracle.withdrawable = 0;
         oracle.aggregator = *aggregator_info.key;
+        oracle.owner = *oracle_owner_info.key;
 
         Oracle::pack(oracle, &mut oracle_info.data.borrow_mut())?;
 
@@ -196,15 +208,17 @@ impl Processor {
     /// 
     /// Accounts expected by this instruction:
     /// 
-    /// 0. `[writable, signer]` The aggregator's authority.
+    /// 0. `[writable]` The aggregator.
+    /// 1. `[signer]` The aggregator onwer.
     pub fn process_remove_oracle(
         accounts: &[AccountInfo],
         oracle: Pubkey,
     ) -> ProgramResult {
         let account_info_iter = &mut accounts.iter();
         let aggregator_info = next_account_info(account_info_iter)?;
+        let owner_info = next_account_info(account_info_iter)?;
 
-        if !aggregator_info.is_signer {
+        if !owner_info.is_signer {
             return Err(ProgramError::MissingRequiredSignature);
         }
        
@@ -212,6 +226,10 @@ impl Processor {
 
         if !aggregator.is_initialized {
             return Err(Error::NotFoundAggregator.into());
+        }
+
+        if &aggregator.owner != owner_info.key {
+            return Err(Error::OwnerMismatch.into());
         }
 
         // remove submission
@@ -243,7 +261,8 @@ impl Processor {
     /// 
     /// 0. `[writable]` The aggregator(key).
     /// 1. `[]` Clock sysvar
-    /// 1. `[signer, writable]` The oracle's authority.
+    /// 2. `[writable]` The oracle key.
+    /// 3. `[signer]` The oracle owner.
     pub fn process_submit(
         accounts: &[AccountInfo],
         submission: u64,
@@ -252,6 +271,7 @@ impl Processor {
         let aggregator_info = next_account_info(account_info_iter)?;
         let clock_sysvar_info = next_account_info(account_info_iter)?;
         let oracle_info = next_account_info(account_info_iter)?;
+        let oracle_owner_info = next_account_info(account_info_iter)?;
 
         let mut aggregator = Aggregator::unpack_unchecked(&aggregator_info.data.borrow())?;
         if !aggregator.is_initialized {
@@ -262,13 +282,17 @@ impl Processor {
             return Err(Error::SubmissonValueOutOfRange.into());
         }
 
-        if !oracle_info.is_signer {
+        if !oracle_owner_info.is_signer {
             return Err(ProgramError::MissingRequiredSignature);
         }
 
         let mut oracle = Oracle::unpack_unchecked(&oracle_info.data.borrow())?;
         if !oracle.is_initialized {
             return Err(Error::NotFoundOracle.into());
+        }
+
+        if &oracle.owner != oracle_owner_info.key {
+            return Err(Error::OwnerMismatch.into());
         }
 
         if &oracle.aggregator != aggregator_info.key {
