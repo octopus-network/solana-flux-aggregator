@@ -1,6 +1,6 @@
 import { Connection, BpfLoader, PublicKey } from "@solana/web3.js"
 
-import { AggregatorLayout, SubmissionLayout } from "./FluxAggregator"
+import { AggregatorLayout, SubmissionLayout, OracleLayout } from "./FluxAggregator"
 
 import { solana, Wallet, NetworkName } from "solray"
 
@@ -90,6 +90,22 @@ export function decodeAggregatorInfo(accountInfo) {
     oracles,
     updateTime,
   }
+}
+
+export function decodeOracleInfo(accountInfo) {
+  const data = Buffer.from(accountInfo.data)
+ 
+  const oracle = OracleLayout.decode(data)
+
+  oracle.submission = oracle.submission.readBigUInt64LE().toString()
+  oracle.nextSubmitTime = oracle.nextSubmitTime.readBigUInt64LE().toString()
+  oracle.description = oracle.description.toString()
+  oracle.isInitialized = oracle.isInitialized != 0
+  oracle.withdrawable = oracle.withdrawable.readBigUInt64LE().toString()
+  oracle.aggregator = new PublicKey(oracle.aggregator).toBase58()
+  oracle.owner = new PublicKey(oracle.owner).toBase58()
+
+  return oracle
 }
 
 export async function connectTo(network: NetworkName): Promise<Connection> {

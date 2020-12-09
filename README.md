@@ -19,18 +19,26 @@ request some airdrop:
 
 `npm run deploy`
 
-## Create Aggregator
+## Create Aggregator Owner
 
-`npm run create:aggregator`
+`npm run create:aggregatorOwner`
 
-request some airdrop:
+## Add An Aggregator
 
-`npm run airdrop:aggregator`
+`npm run add:aggregator`
 
-## Create Oracle
+## Create Oracle Owner
 
-`npm run create:oracle`
+`npm run create:oracleOwner`
 
-request some airdrop:
+## Add An Oracle
 
-`npm run airdrop:oracle`
+`npm run add:oracle`
+
+## Show Aggregators/Oracles
+
+`npm run show:aggregators|oracles`
+
+## Start to feed
+
+`npm run feed`
