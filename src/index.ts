@@ -14,6 +14,11 @@ dotenv.config()
 
 const { NETWORK, SOLANA_PAYER_MNEMONIC } = process.env
 
+const args = process.argv.splice(2)
+const cmd = args[0]
+
+const params = args[1]
+
 // so file path
 const soPath = "../build/flux_aggregator.so"
 
@@ -37,7 +42,7 @@ async function main() {
   let fees = await calculatePayfees(programBinary.length, conn)
 
   const programAccount = await deployer.ensure("programAccount", async () => {
-    console.log("loading program...")
+    console.log("loading program... Network:", NETWORK)
     
     if (walletBalance < fees) {
       // throw new Error("Insufficient balance to pay fees");
