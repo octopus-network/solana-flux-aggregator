@@ -1,0 +1,10 @@
+{
+  "aggregatorProgram": {
+    "pubkey": "9KXbVqUrMgtti7Jx4rrV1NqXjQNxWaKgtYCEwJ8AESS5",
+    "secret": "a2b92fa9514ac18a40c2bc895db0f97cabc1870205a74d84a0fb4a8167e6cba37b9c8b296cb261a7f3b17b294c72c4b6d427ab499b4ad6323b844289bcfebf6a"
+  },
+  "btc:usd": {
+    "pubkey": "AUK9X6QLgauAUvEA3Ajc91fZytb9ccA7qVR72ErDFNg2",
+    "secret": "233f1f8df9bf0e98c054f4b012eba361ec5050d93f7b06cdb0b2d0242cdf9a2e8cb862071d89cbf390570fa521c0daff5ca0e47f767dc32940801b449e50ad1b"
+  }
+}
