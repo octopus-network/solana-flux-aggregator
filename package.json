@@ -15,7 +15,8 @@
     "@solana/web3.js": "^0.87.1",
     "buffer-layout": "^1.2.0",
     "commander": "^6.2.0",
-    "dotenv": "^8.2.0"
+    "dotenv": "^8.2.0",
+    "solray": "git+https://github.com/defactojob/solray.git"
   },
   "devDependencies": {
     "@tsconfig/recommended": "^1.0.1",

@@ -1,10 +1,10 @@
 {
   "aggregatorProgram": {
-    "pubkey": "9KXbVqUrMgtti7Jx4rrV1NqXjQNxWaKgtYCEwJ8AESS5",
-    "secret": "a2b92fa9514ac18a40c2bc895db0f97cabc1870205a74d84a0fb4a8167e6cba37b9c8b296cb261a7f3b17b294c72c4b6d427ab499b4ad6323b844289bcfebf6a"
+    "pubkey": "HFHbe2uckzz9Xh633mbJPYcukzpyJRVcwL87fUrVddiq",
+    "secret": "46046129c833cdf42b541357fc7c0667a369ca8ab7aed7f4ce653c710d3650b2f163e380895f9fa347f75834f3be6196919bacc3c769338b7f15d6a4ee1e814a"
   },
   "btc:usd": {
-    "pubkey": "AUK9X6QLgauAUvEA3Ajc91fZytb9ccA7qVR72ErDFNg2",
-    "secret": "233f1f8df9bf0e98c054f4b012eba361ec5050d93f7b06cdb0b2d0242cdf9a2e8cb862071d89cbf390570fa521c0daff5ca0e47f767dc32940801b449e50ad1b"
+    "pubkey": "2jReuMRoYi3pKTF8YLnZEvT2bXcw56SdBxvssrVzu41v",
+    "secret": "9feec34f2157b6deefc08c2132b321fb379b65fe6901d07e9a4df69fe8bad75a19b9f4ea63a705fc4b822d70015680c6f1cb0d4df30548a673604680760a9d11"
   }
 }

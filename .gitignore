@@ -1,2 +1,4 @@
 /node_modules
 /program/target
+/intergration-example/target
+yarn.lock

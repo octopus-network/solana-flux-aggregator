@@ -40,6 +40,9 @@ pub enum Error {
     /// Aggregator key not match
     #[error("Aggregator key not match")]
     AggregatorKeyNotMatch,
+    /// Index have been used
+    #[error("Index have been used")]
+    IndexHaveBeenUsed,
 }
 
 impl From<Error> for ProgramError {

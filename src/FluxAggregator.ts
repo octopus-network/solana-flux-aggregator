@@ -56,6 +56,8 @@ interface InitializeInstructionParams extends InitializeParams {
 }
 
 interface AddOracleParams {
+  // oracle index
+  index: number;
   owner: PublicKey;
   description: string;
   aggregator: PublicKey;
@@ -68,11 +70,13 @@ interface AddOracleInstructionParams extends AddOracleParams {
 }
 
 interface RemoveOracleParams {
-  aggregator: PublicKey,
+  // oracle index
+  index: number;
+  aggregator: PublicKey;
   // The oracle key
-  oracle: PublicKey,
+  oracle: PublicKey;
   // To prove you are the aggregator owner
-  authority: Account,
+  authority: Account;
 }
 
 interface RemoveOracleInstructionParams extends RemoveOracleParams {
@@ -193,6 +197,7 @@ export default class FluxAggregator extends BaseProgram {
 
   private addOracleInstruction(params: AddOracleInstructionParams): TransactionInstruction {
     const {
+      index,
       oracle,
       owner,
       description,
@@ -202,11 +207,13 @@ export default class FluxAggregator extends BaseProgram {
 
     const layout = BufferLayout.struct([
       BufferLayout.u8("instruction"),
+      BufferLayout.u8("index"),
       BufferLayout.blob(32, "description"),
     ]);
 
     return this.instructionEncode(layout, {
       instruction: 1, // add oracle instruction
+      index,
       description: Buffer.from(description),
     }, [
       { write: oracle },
@@ -226,19 +233,18 @@ export default class FluxAggregator extends BaseProgram {
 
   private removeOracleInstruction(params: RemoveOracleInstructionParams): TransactionInstruction {
     const {
-      aggregator,
-      oracle,
+      index,
       authority,
     } = params;
 
     const layout = BufferLayout.struct([
       BufferLayout.u8("instruction"),
-      publicKey("oracle"),
+      BufferLayout.u8("index"),
     ]);
 
     return this.instructionEncode(layout, {
       instruction: 2, // remove oracle instruction
-      oracle: oracle.toBuffer(),
+      index,
     }, [
       { write: authority },
     ]);

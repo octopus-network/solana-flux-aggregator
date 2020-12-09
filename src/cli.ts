@@ -189,18 +189,23 @@ cli
 cli
   .command("add-oracle")
   .description("add an oracle to aggregator")
+  .option("--index <number>", "add to index (0-20)")
   .option("--feedAddress <string>", "feed address")
   .option("--oracleName <string>", "oracle name")
   .option("--oracleOwner <string>", "oracle owner address")
   .action(async (opts) => {
-    const { deployer, admin, aggregatorProgram } = await AdminContext.load()
+    const { admin, aggregatorProgram } = await AdminContext.load()
 
-    const { oracleName, oracleOwner, feedAddress } = opts
+    const { index, oracleName, oracleOwner, feedAddress } = opts
 
+    if (!index || index < 0 || index > 21) {
+      error("invalid index (0-20)")
+    }
     const program = new FluxAggregator(admin, aggregatorProgram.publicKey)
 
     log("add oracle...")
     const oracle = await program.addOracle({
+      index,
       owner: new PublicKey(oracleOwner),
       description: oracleName.substr(0, 32).padEnd(32),
       aggregator: new PublicKey(feedAddress),

@@ -37,14 +37,16 @@ pub enum Instruction {
     /// 0. `[writable]` The aggregator.
     /// 1. `[signer]` The aggregator's authority.
     AddOracle {
+        /// add to index
+        index: u8,
         /// Is usually the oracle name
         description: [u8; 32],
     },
 
     /// Remove an oracle
     RemoveOracle {
-        /// The oracle key
-        oracle: Pubkey,
+        /// index
+        index: u8,
     },
 
     /// Called by oracles when they have witnessed a need to update
@@ -71,33 +73,33 @@ impl Instruction {
         Ok(match tag {
             0 => {
                 let (submit_interval, rest) = rest.split_at(4);
-                info!("1");
+                
                 let submit_interval = submit_interval
                     .try_into()
                     .ok()
                     .map(u32::from_le_bytes)
                     .ok_or(InvalidInstruction)?;
-                info!("2");
+             
                 let (min_submission_value, rest) = rest.split_at(8);
                 let min_submission_value = min_submission_value
                     .try_into()
                     .ok()
                     .map(u64::from_le_bytes)
                     .ok_or(InvalidInstruction)?;
-                info!("3");
+      
                 let (max_submission_value, rest) = rest.split_at(8);
                 let max_submission_value = max_submission_value
                     .try_into()
                     .ok()
                     .map(u64::from_le_bytes)
                     .ok_or(InvalidInstruction)?;
-                info!("4");
+        
                 let (description, _rest) = rest.split_at(32);
                 let description = description
                     .try_into()
                     .ok()
                     .ok_or(InvalidInstruction)?;
-                info!("5");
+         
                 Self::Initialize { 
                     submit_interval,
                     min_submission_value,
@@ -107,6 +109,9 @@ impl Instruction {
                 
             },
             1 => {
+                let (&index, rest) = rest.split_first().ok_or(InvalidInstruction)?;
+
+                info!(format!("das index: {:?}", index));
                 let (description, _rest) = rest.split_at(32);
                 let description = description
                     .try_into()
@@ -114,13 +119,13 @@ impl Instruction {
                     .ok_or(InvalidInstruction)?;
                     
                 Self::AddOracle { 
-                    description,
+                    index, description,
                 }
             },
             2 => {
-                let (oracle, _rest) = Self::unpack_pubkey(rest)?;
+                let (&index, _rest) = rest.split_first().ok_or(InvalidInstruction)?;
                 Self::RemoveOracle { 
-                    oracle,
+                    index,
                 }
             },
             3 => {

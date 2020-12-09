@@ -42,19 +42,21 @@ impl Processor {
                 )
             },
             Instruction::AddOracle {
+                index,
                 description,
             } => {
                 info!("Instruction: AddOracle");
+                info!(format!("index: {:?}", index));
                 Self::process_add_oracle(
-                    accounts, description,
+                    accounts, index, description,
                 )
             },
             Instruction::RemoveOracle {
-                oracle,
+                index,
             } => {
                 info!("Instruction: RemoveOracle");
                 Self::process_remove_oracle(
-                    accounts, oracle,
+                    accounts, index,
                 )
             },
             Instruction::Submit {
@@ -140,6 +142,7 @@ impl Processor {
     /// 4. `[signer]` The aggregator owner
     pub fn process_add_oracle(
         accounts: &[AccountInfo],
+        index: u8,
         description: [u8; 32],
     ) -> ProgramResult {
         
@@ -174,17 +177,24 @@ impl Processor {
 
         let mut submissions = aggregator.submissions;
 
-        // default submission
-        for s in submissions.iter_mut() {
-            if s.oracle == Pubkey::default() {
-                *s = Submission {
-                    time: clock.unix_timestamp,
-                    value: 0,
-                    oracle: *oracle_info.key,
-                };
-                break;
-            }
+        let submission = &mut submissions[index as usize];
+        if submission.oracle == Pubkey::default() {
+            submission.oracle = *oracle_info.key;
+        } else {
+            return Err(Error::IndexHaveBeenUsed.into());
         }
+
+        // // default submission
+        // for s in submissions.iter_mut() {
+        //     if s.oracle == Pubkey::default() {
+        //         *s = Submission {
+        //             time: clock.unix_timestamp,
+        //             value: 0,
+        //             oracle: *oracle_info.key,
+        //         };
+        //         break;
+        //     }
+        // }
 
         aggregator.submissions = submissions;
         Aggregator::pack(aggregator, &mut aggregator_info.data.borrow_mut())?;
@@ -212,7 +222,7 @@ impl Processor {
     /// 1. `[signer]` The aggregator onwer.
     pub fn process_remove_oracle(
         accounts: &[AccountInfo],
-        oracle: Pubkey,
+        index: u8,
     ) -> ProgramResult {
         let account_info_iter = &mut accounts.iter();
         let aggregator_info = next_account_info(account_info_iter)?;
@@ -235,18 +245,25 @@ impl Processor {
         // remove submission
         let mut submissions = aggregator.submissions;
 
-        let mut found = false;
-        for s in submissions.iter_mut() {
-            if s.oracle == oracle {
-                *s = Submission::default();
-                found = true;
-                break;
-            }
-        }
-
-        if !found {
+        let submission = &mut submissions[index as usize];
+        if submission.oracle != Pubkey::default() {
+            *submission = Submission::default();
+        } else {
             return Err(Error::NotFoundOracle.into());
         }
+
+        // let mut found = false;
+        // for s in submissions.iter_mut() {
+        //     if s.oracle == oracle {
+        //         *s = Submission::default();
+        //         found = true;
+        //         break;
+        //     }
+        // }
+
+        // if !found {
+        //     return Err(Error::NotFoundOracle.into());
+        // }
 
         aggregator.submissions = submissions;
         Aggregator::pack(aggregator, &mut aggregator_info.data.borrow_mut())?;
@@ -428,6 +445,7 @@ impl PrintProgramError for Error {
             Error::SubmissonCooling => info!("Submission cooling"),
             Error::InsufficientWithdrawable => info!("Insufficient withdrawable"),
             Error::AggregatorKeyNotMatch => info!("Aggregator key not match"),
+            Error::IndexHaveBeenUsed => info!("Index have been used"),
         }
     }
 }

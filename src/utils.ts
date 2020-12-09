@@ -102,7 +102,7 @@ export async function walletFromEnv(key: string, conn: Connection): Promise<Wall
 
 export async function openDeployer(): Promise<Deployer> {
   const deployFile = process.env.DEPLOY_FILE
-
+  
   if (!deployFile) {
     throw new Error(`Set DEPLOY_FILE in .env`)
   }

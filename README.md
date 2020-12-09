@@ -13,7 +13,7 @@ yarn install
 Setup a wallet for the flux aggregator admin:
 
 ```
-yarn generate-wallet
+yarn solink generate-wallet
 
 address: 7YMUUCzZir7AAuoy4CtZih9JFBqYwtQiCxjA5dtqwRxU
 mnemonic: wine vault fancy enhance trade dolphin hard traffic social butter client pave
@@ -62,7 +62,7 @@ feed initialized, pubkey: AUK9X6QLgauAUvEA3Ajc91fZytb9ccA7qVR72ErDFNg2
 Next, we create a separate wallet to control oracles:
 
 ```
-yarn generate-wallet
+yarn solink generate-wallet
 
 address: FosLwbttPgkEDv36VJLU3wwXcBSSoUGkh7dyZPsXNtT4
 mnemonic: amount smoke bar coil current trial toward minimum model pass moral liberty
@@ -82,6 +82,7 @@ Next we create a new oracle to the feed we've created previously, and set its ow
 
 ```
 yarn solink add-oracle \
+  --index 0 \
   --feedAddress AUK9X6QLgauAUvEA3Ajc91fZytb9ccA7qVR72ErDFNg2 \
   --oracleName solink-test \
   --oracleOwner FosLwbttPgkEDv36VJLU3wwXcBSSoUGkh7dyZPsXNtT4
