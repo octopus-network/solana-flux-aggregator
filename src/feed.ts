@@ -1,44 +1,40 @@
 import { PublicKey, Account, Wallet } from "solray"
 import WebSocket from "ws"
 
-import { decodeOracleInfo } from "./utils"
+import { decodeOracleInfo, sleep } from "./utils"
 
 import FluxAggregator from "./FluxAggregator"
 
-let nextSubmitTime = new Date().getTime()
-let submiting = false
 const submitInterval = 10 * 1000
 
 interface StartParams {
   oracle: PublicKey;
   oracleOwner: Account;
-  aggregator: PublicKey;
-  pair: string;
+  feed: PublicKey;
+  pairSymbol: string;
   payerWallet: Wallet;
   programId: PublicKey;
 }
 
 export async function start(params: StartParams) {
   const {
-    oracle, 
-    oracleOwner, 
-    aggregator, 
-    pair, 
+    oracle,
+    oracleOwner,
+    feed,
+    pairSymbol,
     payerWallet,
     programId,
   } = params
 
-  console.log("ready to feeds...")
+  console.log("connecting to wss://ws-feed.pro.coinbase.com ()")
   const ws = new WebSocket("wss://ws-feed.pro.coinbase.com")
 
-  const program = new FluxAggregator(payerWallet, programId)
-  
   ws.on("open", () => {
-    console.log(`${pair} price feed connected`)
+    console.log(`${pairSymbol} price feed connected`)
     ws.send(JSON.stringify({
       "type": "subscribe",
       "product_ids": [
-        pair.replace("/", "-").toUpperCase(),
+        pairSymbol.replace("/", "-").toUpperCase(),
       ],
       "channels": [
         "ticker"
@@ -46,45 +42,49 @@ export async function start(params: StartParams) {
     }))
   })
 
-  ws.on("message", (data) => {
+  // in penny
+  let curPriceCent = 0
+
+  ws.on("message", async (data) => {
     const json = JSON.parse(data)
     if (!json || !json.price) {
       return console.log(data)
     }
-    
-    if (submiting) return false
 
-    console.log("new price:", json.price)
-    let now = new Date().getTime()
-    if (now < nextSubmitTime) {
-      console.log("submit cooling...")
-      return false
+    curPriceCent = Math.floor(json.price * 100)
+
+    console.log("current price:", json.price)
+  })
+
+  ws.on("close", (err) => {
+    console.error(`websocket closed: ${err}`)
+    process.exit(1)
+  })
+
+  const program = new FluxAggregator(payerWallet, programId)
+
+  console.log(await program.oracleInfo(oracle))
+  console.log({ owner: oracleOwner.publicKey.toString() })
+
+  while (true) {
+    if (curPriceCent == 0) {
+      await sleep(1000)
     }
 
-    submiting = true
-
-    program.submit({
-      aggregator,
+    await program.submit({
+      aggregator: feed,
       oracle,
-      submission: BigInt(parseInt((json.price * 100) as any)),
+      submission: BigInt(curPriceCent),
       owner: oracleOwner,
-    }).then(() => {
-      console.log("submit success!")
-      nextSubmitTime = now + submitInterval
-      payerWallet.conn.getAccountInfo(oracle).then((accountInfo) => {
-        console.log("oracle info:", decodeOracleInfo(accountInfo))
-      })
-      
-    }).catch((err) => {
-      console.log(err)
-    }).finally(() => {
-      submiting = false
     })
-    
-    
-  })
 
-  ws.on("close", (error) => {
-    console.error(error)
-  })
+    console.log("submit success!")
+
+    payerWallet.conn.getAccountInfo(oracle).then((accountInfo) => {
+      console.log("oracle info:", decodeOracleInfo(accountInfo))
+    })
+
+    console.log("wait for cooldown success!")
+    await sleep(submitInterval)
+  }
 }

@@ -1,17 +1,21 @@
-import { 
-  PublicKey, BaseProgram, Account, 
-  Wallet, System, SPLToken,
+import {
+  PublicKey, BaseProgram, Account,
+  Wallet, System, SPLToken
 } from "solray";
 
-import { 
-  SYSVAR_RENT_PUBKEY, SYSVAR_CLOCK_PUBKEY, 
+import {
+  SYSVAR_RENT_PUBKEY, SYSVAR_CLOCK_PUBKEY,
   TransactionInstruction, SystemProgram
 } from "@solana/web3.js";
 
-import { publicKey, u64LEBuffer, uint64 } from "solray/lib/util/encoding";
+import { publicKey, u64LEBuffer, uint64, BufferLayout } from "solray/lib/util/encoding";
+
+import {
+  decodeOracleInfo
+} from "./utils"
 
 // @ts-ignore
-import BufferLayout from "buffer-layout";
+// import BufferLayout from "buffer-layout";
 
 export const AggregatorLayout = BufferLayout.struct([
   BufferLayout.blob(4, "submitInterval"),
@@ -109,8 +113,9 @@ export default class FluxAggregator extends BaseProgram {
     this.sys = new System(this.wallet);
   }
 
-  public async initialize(params: InitializeParams): Promise<PublicKey> {
+  public async initialize(params: InitializeParams): Promise<Account> {
     const account = new Account();
+
     await this.sendTx([
       await this.sys.createRentFreeAccountInstruction({
         newPubicKey: account.publicKey,
@@ -123,11 +128,11 @@ export default class FluxAggregator extends BaseProgram {
       })
     ], [this.account, account, params.owner]);
 
-    return account.publicKey;
+    return account;
   }
 
   private initializeInstruction(params: InitializeInstructionParams): TransactionInstruction {
-    const {
+    let {
       aggregator,
       description,
       submitInterval,
@@ -135,7 +140,10 @@ export default class FluxAggregator extends BaseProgram {
       maxSubmissionValue,
       owner,
     } = params;
-   
+
+    // FIXME: hmm... should this throw error or what?
+    description = description.substr(0, 32).toUpperCase().padEnd(32)
+
     const layout = BufferLayout.struct([
       BufferLayout.u8("instruction"),
       BufferLayout.blob(4, "submitInterval"),
@@ -146,7 +154,7 @@ export default class FluxAggregator extends BaseProgram {
 
     const buf = Buffer.allocUnsafe(4);
     buf.writeUInt32LE(submitInterval);
-  
+
     return this.instructionEncode(layout, {
       instruction: 0, // initialize instruction
       submitInterval: buf,
@@ -162,7 +170,7 @@ export default class FluxAggregator extends BaseProgram {
 
   public async addOracle(params: AddOracleParams): Promise<PublicKey> {
     const account = new Account();
-    
+
     await this.sendTx([
       await this.sys.createRentFreeAccountInstruction({
         newPubicKey: account.publicKey,
@@ -178,9 +186,14 @@ export default class FluxAggregator extends BaseProgram {
     return account.publicKey;
   }
 
+  public async oracleInfo(pubkey: PublicKey) {
+    const info = await this.conn.getAccountInfo(pubkey)
+    return decodeOracleInfo(info)
+  }
+
   private addOracleInstruction(params: AddOracleInstructionParams): TransactionInstruction {
     const {
-      oracle, 
+      oracle,
       owner,
       description,
       aggregator,

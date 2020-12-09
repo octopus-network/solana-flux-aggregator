@@ -1,25 +1,8 @@
-import { Connection, BpfLoader, PublicKey } from "@solana/web3.js"
+import { Connection, PublicKey } from "@solana/web3.js"
 
 import { AggregatorLayout, SubmissionLayout, OracleLayout } from "./FluxAggregator"
 
-import { solana, Wallet, NetworkName } from "solray"
-
-export async function calculatePayfees(dataLength: number, conn: Connection): Promise<number> {
-  
-  let fees = 0
-  const { feeCalculator } = await conn.getRecentBlockhash()
-
-  const NUM_RETRIES = 500
-  fees +=
-    feeCalculator.lamportsPerSignature *
-      (BpfLoader.getMinNumSignatures(dataLength) + NUM_RETRIES) +
-    (await conn.getMinimumBalanceForRentExemption(dataLength))
-
-  // Calculate the cost of sending the transactions
-  fees += feeCalculator.lamportsPerSignature * 100
-
-  return fees
-}
+import { solana, Wallet, NetworkName, Deployer } from "solray"
 
 export function getSubmissionValue(submissions: []): number {
   const values = submissions
@@ -56,7 +39,7 @@ export function decodeAggregatorInfo(accountInfo) {
   const maxSubmissionValue = aggregator.maxSubmissionValue.readBigUInt64LE().toString()
   const submitInterval = aggregator.submitInterval.readInt32LE()
   const description = aggregator.description.toString()
-  
+
   // decode oracles
   let submissions: [] = []
   let oracles: [] = []
@@ -68,13 +51,13 @@ export function decodeAggregatorInfo(accountInfo) {
       aggregator.submissions.slice(i*submissionSpace, (i+1)*submissionSpace)
     )
     submission.oracle = new PublicKey(submission.oracle)
-  
+
     submission.time = submission.time.readBigInt64LE().toString()
     submission.value = submission.value.readBigInt64LE().toString()*1
     if (!submission.oracle.equals(new PublicKey(0))) {
       submissions.push(submission as never)
       oracles.push(submission.oracle.toBase58() as never)
-      
+
     }
     if (submission.time > updateTime) {
       updateTime = submission.time
@@ -94,7 +77,7 @@ export function decodeAggregatorInfo(accountInfo) {
 
 export function decodeOracleInfo(accountInfo) {
   const data = Buffer.from(accountInfo.data)
- 
+
   const oracle = OracleLayout.decode(data)
 
   oracle.submission = oracle.submission.readBigUInt64LE().toString()
@@ -108,18 +91,21 @@ export function decodeOracleInfo(accountInfo) {
   return oracle
 }
 
-export async function connectTo(network: NetworkName): Promise<Connection> {
-  const conn = solana.connect(network as NetworkName)
-  return conn
+export async function walletFromEnv(key: string, conn: Connection): Promise<Wallet> {
+  const mnemonic = process.env[key]
+  if (!mnemonic) {
+    throw new Error(`Set ${key} in .env to be a mnemonic`)
+  }
+
+  return Wallet.fromMnemonic(mnemonic, conn)
 }
 
-export async function newWallet(): Promise<any> {
-  const mnemonic = Wallet.generateMnemonic()
+export async function openDeployer(): Promise<Deployer> {
+  const deployFile = process.env.DEPLOY_FILE
 
-  const wallet = await Wallet.fromMnemonic(mnemonic, null as any)
-
-  return {
-    mnemonic,
-    account: wallet.account
+  if (!deployFile) {
+    throw new Error(`Set DEPLOY_FILE in .env`)
   }
+
+  return Deployer.open(deployFile)
 }

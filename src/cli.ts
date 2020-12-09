@@ -1,17 +1,19 @@
 import { Command, option } from "commander"
-import inquirer from "inquirer"
 
 import fs from "fs"
 import path from "path"
 
-import { Connection, PublicKey } from "@solana/web3.js"
+import { BPFLoader, PublicKey, Wallet, NetworkName, solana, Deployer } from "solray"
 
-import { BPFLoader, Wallet, NetworkName} from "solray"
 import dotenv from "dotenv"
 
 import FluxAggregator, { AggregatorLayout, OracleLayout } from "./FluxAggregator"
 
-import { newWallet, calculatePayfees, connectTo, sleep, decodeAggregatorInfo } from "./utils"
+import {
+  decodeAggregatorInfo,
+  walletFromEnv,
+  openDeployer,
+} from "./utils"
 
 import * as feed from "./feed"
 
@@ -19,41 +21,66 @@ dotenv.config()
 
 const cli = new Command()
 
-const roles = ["payer", "aggregatorOwner", "oracleOwner"]
+const FLUX_AGGREGATOR_SO = path.resolve(__dirname, "../build/flux_aggregator.so")
+const network = (process.env.NETWORK || "local") as NetworkName
+const conn = solana.connect(network)
 
-const sofilePath = path.resolve(__dirname, "../build/flux_aggregator.so")
+class AdminContext {
 
-const deployedPath = path.resolve(__dirname, "./deployed.json")
+  static readonly AGGREGATOR_PROGRAM = "aggregatorProgram"
 
-const { NETWORK } = process.env
+  static async load() {
+    const deployer = await openDeployer()
+    const admin = await walletFromEnv("ADMIN_MNEMONIC", conn)
 
-const network = (NETWORK || "local") as NetworkName
-
-function checkRole(role) {
-  if (roles.indexOf(role) < 0) {
-    error("invalid role")
+    return new AdminContext(deployer, admin)
   }
 
-  const walletPath = path.resolve(`./wallets/${role}.json`)
+  constructor(public deployer: Deployer, public admin: Wallet) {}
 
-  return {
-    exist: fs.existsSync(walletPath),
-    walletPath
+  get aggregatorProgram() {
+    const program = this.deployer.account(AdminContext.AGGREGATOR_PROGRAM)
+
+    if (program == null) {
+      throw new Error(`flux aggregator program is not yet deployed`)
+    }
+
+    return program
   }
 }
 
-// 30m Black, 31m Red, 32m Green, 33m Yellow, 34m Blue, 35m Magenta, 36m Cyanic, 37m White
-function color(s, c="black", b=false): string {
+class OracleContext {
+
+  static readonly AGGREGATOR_PROGRAM = "aggregatorProgram"
+
+  static async load() {
+    const deployer = await openDeployer()
+    const wallet = await walletFromEnv("ORACLE_MNEMONIC", conn)
+
+    return new OracleContext(deployer, wallet)
+  }
+
+  constructor(public deployer: Deployer, public wallet: Wallet) {}
+
+  get aggregatorProgram() {
+    const program = this.deployer.account(AdminContext.AGGREGATOR_PROGRAM)
+
+    if (program == null) {
+      throw new Error(`flux aggregator program is not yet deployed`)
+    }
+
+    return program
+  }
+}
+
+function color(s, c = "black", b = false): string {
+  // 30m Black, 31m Red, 32m Green, 33m Yellow, 34m Blue, 35m Magenta, 36m Cyanic, 37m White
   const cArr = ["black", "red", "green", "yellow", "blue", "megenta", "cyanic", "white"]
-  
+
   let cIdx = cArr.indexOf(c)
   let bold = b ? "\x1b[1m" : ""
 
   return `\x1b[${30 + (cIdx > -1 ? cIdx : 0)}m${bold}${s}\x1b[0m`
-}
-
-function showNetwork() {
-  process.stdout.write(`${color(`Network: ${color(network, "blue")}`, "black", true)} \n\n`)
 }
 
 function error(message: string) {
@@ -67,500 +94,202 @@ function log(message: any) {
   console.log(message)
 }
 
-async function showRoleInfo(role, conn: Connection): Promise<void> {
- 
-  const res = checkRole(role)
-  if (!res) return
-
-  if (!res.exist) {
-    log(`role ${color(role, "red")} not created.`)
-    return
-  }
-
-  const fileData = fs.readFileSync(res.walletPath)
-  const wallet = JSON.parse(fileData.toString())
-
-  log(color(`[${role}]`, "cyanic", true))
-  log(`${color("public key: ", "blue")} ${wallet.pubkey}`)
-  log(`${color("mnemonic: ", "blue")} ${wallet.mnemonic}`)
-  process.stdout.write(`${color("balance: ", "blue")}...`)
-
-  const balance = await conn.getBalance(new PublicKey(wallet.pubkey))
-  process.stdout.clearLine(-1)
-  process.stdout.cursorTo(0)
-  process.stdout.write(`${color("balance: ", "blue")}${balance} \n\n`)
-
-}
-
 cli
-  .command("create <role>")
-  .description(`create role account, roles: ${roles.join("|")}`)
-  .action(async (role) => {
-    const res = checkRole(role)
-    if (!res) return
+  .command("generate-wallet").action(async () => {
+    const mnemonic = Wallet.generateMnemonic()
+    const wallet = await Wallet.fromMnemonic(mnemonic, conn)
 
-    if (res.exist) {
-      let fileData = fs.readFileSync(res.walletPath)
-      let wallet = JSON.parse(fileData.toString())
-      error(`role ${color(role, "red")} already created, public key: ${color(wallet.pubkey, "blue")}`)
-    } else {
-      const wallet = await newWallet()
-      fs.writeFileSync(res.walletPath, JSON.stringify({
-        pubkey: wallet.account.publicKey.toBase58(),
-        secretKey: "["+wallet.account.secretKey.toString()+"]",
-        mnemonic: wallet.mnemonic,
-      }))
-
-      log(`create role ${color(role, "blue)")} success!`)
-    }
-
-  })
-
-
-cli
-  .command("remove <role>")
-  .description(`remove role account, roles: ${roles.join("|")}`)
-  .action((role) => {
-    const res = checkRole(role)
-    if (!res) return
-
-    if (!res.exist) {
-      error(`role [${role}] not created.`)
-    }
-
-    fs.unlinkSync(res.walletPath)
-    log(`remove role ${color(role, "blue")} success!`)
-  })
-
-
-cli
-  .command("roleinfo [role]")
-  .description(`show role info, or all if no role supplied`)
-  .action(async (role, opts) => {
-
-    // show current network
-    showNetwork()
-    const conn = await connectTo(network)
-
-    if (role) {
-      showRoleInfo(role, conn)
-    } else {
-      for (let i = 0; i < roles.length; i++) {
-        await showRoleInfo(roles[i], conn)
-      }
-    }
+    log(`address: ${wallet.address}`)
+    log(`mnemonic: ${mnemonic}`)
   })
 
 cli
-  .command("airdrop <role>")
-  .description(`request airdrop to the role account, roles: ${roles.join("|")}`)
-  .option("-m, --amount <amount>", "request amount, default is 10e8", "100000000")
-  .action(async (role, opts) => {
-
-    // show current network
-    showNetwork()
-
-    const res = checkRole(role)
-    if (!res) return
-
-    if (!res.exist) {
-      error(`role [${role}] not created.`)
-    }
-
-    const fileData = fs.readFileSync(res.walletPath)
-    const wallet = JSON.parse(fileData.toString())
-    log(`payer public key: ${color(wallet.pubkey, "blue")}, request airdop...`)
+  .command("airdrop <address>")
+  .description(`request airdrop to the address`)
+  .option("-m, --amount <amount>", "request amount in sol (10e9)", "10")
+  .action(async (address, opts) => {
+    const dest = new PublicKey(address)
 
     const { amount } = opts
-    const conn = await connectTo(network)
 
-    await conn.requestAirdrop(new PublicKey(wallet.pubkey), amount*1)
-    await sleep(1000)
-    const balance = await conn.getBalance(new PublicKey(wallet.pubkey))
-
-    log(`airdop success, balance: ${color(balance, "blue")}`)
+    log(`requesting 10 sol airdrop to: ${address}`)
+    await conn.requestAirdrop(dest, amount * 1e9)
+    log("airdrop success")
   })
 
-
 cli
-  .command("deploy")
-  .description("deploy the program")
-  .action(async (opts) => {
+  .command("deploy-program")
+  .description("deploy the aggregator program")
+  .action(async () => {
+    const { admin, deployer } = await AdminContext.load()
 
-    // show current network
-    showNetwork()
+    const programAccount = await deployer.ensure(AdminContext.AGGREGATOR_PROGRAM, async () => {
+      const programBinary = fs.readFileSync(FLUX_AGGREGATOR_SO)
 
-    if (fs.existsSync(deployedPath)) {
-      const deployed = JSON.parse(fs.readFileSync(deployedPath).toString())
-      log(`already deployed, program id: ${color(deployed.programId, "blue")}`)
-      error("if you want to deployed again, try `npm run clean:deployed`")
-    }
+      log(`deploying ${FLUX_AGGREGATOR_SO}...`)
+      const bpfLoader = new BPFLoader(admin)
 
-    const res = checkRole("payer")
-    if (!res || !res.exist) {
-      error(`role [payer] not created`)
-    }
-    
-    const fileData = fs.readFileSync(res.walletPath)
-    const payer = JSON.parse(fileData.toString())
+      return bpfLoader.load(programBinary)
+    })
 
-    if (!fs.existsSync(sofilePath)) {
-      error("program file not exists")
-    }
-
-    const programBinary = fs.readFileSync(sofilePath)
-
-    const conn = await connectTo(network)
-  
-    const fees = await calculatePayfees(programBinary.length, conn)
-    let balance = await conn.getBalance(new PublicKey(payer.pubkey))
-    
-    log(`payer wallet: ${color(payer.pubkey, "blue")}, balance: ${color(balance, "blue")}`)
-    log(`deploy payfees: ${color(fees, "blue")}`)
-
-    if (balance < fees) {
-      error("insufficient balance to pay fees")
-    }
-
-    log("deploying...")
-    const wallet = await Wallet.fromMnemonic(payer.mnemonic, conn)
-    const bpfLoader = new BPFLoader(wallet)
-
-    const programAccount = await bpfLoader.load(programBinary)
-
-    log(`deploy success, program id: ${color(programAccount.publicKey.toBase58(), "blue")}`)
-    fs.writeFileSync(deployedPath, JSON.stringify({
-      network,
-      programId: programAccount.publicKey.toBase58()
-    }))
+    log(`deployed aggregator program. program id: ${color(programAccount.publicKey.toBase58(), "blue")}`)
   })
 
 cli
   .command("add-aggregator")
-  .description("add an aggregator")
-  .action(async () => {
-    // show current network
-    showNetwork()
+  .description("create an aggregator")
+  .option("--feedName <string>", "feed pair name")
+  .option("--submitInterval <number>", "min wait time between submissions", "6")
+  .option("--minSubmissionValue <number>", "minSubmissionValue", "0")
+  .option("--maxSubmissionValue <number>", "maxSubmissionValue", "18446744073709551615")
+  .action(async (opts) => {
+    const { deployer, admin, aggregatorProgram } = await AdminContext.load()
 
-    if (!fs.existsSync(deployedPath)) {
-      error("program haven't deployed yet")
-    }
+    const { feedName, submitInterval, minSubmissionValue, maxSubmissionValue } = opts
 
-    const deployed = JSON.parse(fs.readFileSync(deployedPath).toString())
+    const aggregator = new FluxAggregator(admin, aggregatorProgram.publicKey)
 
-    if (deployed.network != network) {
-      error("deployed network not match, please try `npm run clean:deployed`, and deploy again")
-    }
-
-    if (!deployed.programId) {
-      error("program haven't deployed yet")
-    }
- 
-    let res = checkRole("payer")
-    if (!res || !res.exist) {
-      error(`role ${color("payer", "blue")} not created`)
-    }
-    const payer = JSON.parse(fs.readFileSync(res.walletPath).toString())
-
-    res = checkRole("aggregatorOwner")
-
-    if (!res || !res.exist) {
-      error(`role ${color("aggregatorOwner", "blue")} not created, please create the role first`)
-    }
-    const aggregatorOwner = JSON.parse(fs.readFileSync(res.walletPath).toString())
-
-    const inputs = await inquirer
-      .prompt([
-        { message: "Pair name (eg. ETH/USD)", type: "input", name: "pairName", validate: (input) => {
-          if (!input) {
-            return "pair name cannot be empty"
-          }
-          if (deployed.pairs && deployed.pairs.some((p) => p.pairName == input)) {
-            return "pair name exist"
-          }
-          return true
-        }, transformer: (input) => {
-          return input.substr(0, 32).toUpperCase()
-        } },
-        { message: "Submit interval", type: "number", name: "submitInterval", default: 6 },
-        { message: "Min submission value", type: "number", name: "minSubmissionValue", default: 100 },
-        { message: "Max submission value", type: "number", name: "maxSubmissionValue", default: 10e9 },
-      ])
-    
-    const { pairName, submitInterval, minSubmissionValue, maxSubmissionValue } = inputs
-    
-    const conn = await connectTo(network)
-
-    const payerWallet = await Wallet.fromMnemonic(payer.mnemonic, conn)
-    const aggregatorOwnerWallet = await Wallet.fromMnemonic(aggregatorOwner.mnemonic, conn)
-
-    const payerWalletBalance = await conn.getBalance(payerWallet.pubkey)
-    const fees = await calculatePayfees(AggregatorLayout.span, conn)
-
-    if (payerWalletBalance < fees) {
-      error("insufficient balance to pay fees")
-    }
-
-    const program = new FluxAggregator(payerWallet, new PublicKey(deployed.programId))
-
-    let description = pairName.substr(0, 32).toUpperCase().padEnd(32)
-    const aggregator = await program.initialize({
-      submitInterval: submitInterval as number,
-      minSubmissionValue: BigInt(minSubmissionValue),
-      maxSubmissionValue: BigInt(maxSubmissionValue),
-      description,
-      owner: aggregatorOwnerWallet.account
+    const feed = await deployer.ensure(feedName, async () => {
+      return aggregator.initialize({
+        submitInterval: parseInt(submitInterval),
+        minSubmissionValue: BigInt(minSubmissionValue),
+        maxSubmissionValue: BigInt(maxSubmissionValue),
+        description: feedName.substr(0, 32).padEnd(32),
+        owner: admin.account
+      })
     })
 
-    log(`aggregator initialized, pubkey: ${color(aggregator.toBase58(), "blue")}, owner: ${color(aggregatorOwner.pubkey, "blue")}`)
-    fs.writeFileSync(deployedPath, JSON.stringify({
-      ...deployed,
-      pairs: (deployed.pairs || []).concat([{
-        pairName: description.trim(),
-        aggregator: aggregator.toBase58()
-      }])
-    }))
-
+    log(`feed initialized, pubkey: ${color(feed.publicKey.toBase58(), "blue")}`)
   })
 
-cli
-  .command("aggregators")
-  .description("show all aggregators")
-  .action(() => {
-    // show current network
-    showNetwork()
+// cli
+//   .command("aggregators")
+//   .description("show all aggregators")
+//   .action(() => {
+//     // show current network
+//     showNetwork()
 
-    if (!fs.existsSync(deployedPath)) {
-      error("program haven't deployed yet")
-    }
+//     if (!fs.existsSync(deployedPath)) {
+//       error("program haven't deployed yet")
+//     }
 
-    const deployed = JSON.parse(fs.readFileSync(deployedPath).toString())
+//     const deployed = JSON.parse(fs.readFileSync(deployedPath).toString())
 
-    if (deployed.network != network) {
-      error("deployed network not match, please try `npm run clean:deployed`, and deploy again")
-    }
+//     if (deployed.network != network) {
+//       error("deployed network not match, please try `npm run clean:deployed`, and deploy again")
+//     }
 
-    if (!deployed.programId) {
-      error("program haven't deployed yet")
-    }
+//     if (!deployed.programId) {
+//       error("program haven't deployed yet")
+//     }
 
-    log(deployed.pairs)
-  })
+//     log(deployed.pairs)
+//   })
 
 cli
   .command("add-oracle")
   .description("add an oracle to aggregator")
-  .action(async () => {
-    // show current network
-    showNetwork()
+  .option("--feedAddress <string>", "feed address")
+  .option("--oracleName <string>", "oracle name")
+  .option("--oracleOwner <string>", "oracle owner address")
+  .action(async (opts) => {
+    const { deployer, admin, aggregatorProgram } = await AdminContext.load()
 
-    if (!fs.existsSync(deployedPath)) {
-      error("program haven't deployed yet")
-    }
+    const { oracleName, oracleOwner, feedAddress } = opts
 
-    const deployed = JSON.parse(fs.readFileSync(deployedPath).toString())
-
-    if (deployed.network != network) {
-      error("deployed network not match, please try `npm run clean:deployed`, and deploy again")
-    }
-
-    if (!deployed.programId) {
-      error("program haven't deployed yet")
-    }
-
-    if (!deployed.pairs) {
-      error("no aggregators")
-    }
-
-    let res = checkRole("payer")
-    if (!res || !res.exist) {
-      error(`role ${color("payer", "blue")} not created`)
-    }
-    const payer = JSON.parse(fs.readFileSync(res.walletPath).toString())
-
-    res = checkRole("aggregatorOwner")
-    if (!res || !res.exist) {
-      error(`role ${color("aggregatorOwner", "blue")} not created, please create the role first`)
-    }
-    const aggregatorOwner = JSON.parse(fs.readFileSync(res.walletPath).toString())
-    
-    res = checkRole("oracleOwner")
-    if (!res || !res.exist) {
-      error(`role ${color("oracleOwner", "blue")} not created, please create the role first`)
-    }
-    const oracleOwner = JSON.parse(fs.readFileSync(res.walletPath).toString())
-
-    const inputs = await inquirer
-      .prompt([
-        { message: "Choose an aggregator", type: "list", name: "aggregator", choices: () => {
-          return deployed.pairs.map(p => ({ name: p.pairName.trim() + ` [${p.aggregator}]`, value: p.aggregator }))
-        }},
-        { message: "Oracle name (eg. Solink)", type: "input", name: "oracleName", validate: (input) => {
-          if (!input) {
-            return "oracle name cannot be empty"
-          }
-          return true
-        } }
-      ])
-    
-    const { oracleName, aggregator } = inputs
-    
-    const conn = await connectTo(network)
-
-    const payerWallet = await Wallet.fromMnemonic(payer.mnemonic, conn)
-    const aggregatorOwnerWallet = await Wallet.fromMnemonic(aggregatorOwner.mnemonic, conn)
-
-    const payerWalletBalance = await conn.getBalance(payerWallet.pubkey)
-    const fees = await calculatePayfees(OracleLayout.span, conn)
-
-    if (payerWalletBalance < fees) {
-      error("insufficient balance to pay fees")
-    }
-    
-    const program = new FluxAggregator(payerWallet, new PublicKey(deployed.programId))
+    const program = new FluxAggregator(admin, aggregatorProgram.publicKey)
 
     log("add oracle...")
     const oracle = await program.addOracle({
-      owner: new PublicKey(oracleOwner.pubkey),
-      description: oracleName.substr(0,32).padEnd(32),
-      aggregator: new PublicKey(aggregator),
-      aggregatorOwner: aggregatorOwnerWallet.account,
+      owner: new PublicKey(oracleOwner),
+      description: oracleName.substr(0, 32).padEnd(32),
+      aggregator: new PublicKey(feedAddress),
+      aggregatorOwner: admin.account,
     })
 
-    log(`add oracle success, pubkey: ${color(oracle.toBase58(), "blue")}, owner: ${color(oracleOwner.pubkey, "blue")}`)
-    fs.writeFileSync(deployedPath, JSON.stringify({
-      ...deployed,
-      oracles: (deployed.oracles || []).concat([{
-        name: oracleName,
-        aggregator,
-        pubkey: oracle.toBase58()
-      }])
-    }))
+    log(`added oracle. pubkey: ${color(oracle.toBase58(), "blue")}`)
   })
 
-cli
-  .command("oracles")
-  .description("show all oracles")
-  .action(() => {
-    // show current network
-    showNetwork()
+// cli
+//   .command("oracles")
+//   .description("show all oracles")
+//   .action(() => {
+//     // show current network
+//     showNetwork()
 
-    if (!fs.existsSync(deployedPath)) {
-      error("program haven't deployed yet")
-    }
+//     if (!fs.existsSync(deployedPath)) {
+//       error("program haven't deployed yet")
+//     }
 
-    const deployed = JSON.parse(fs.readFileSync(deployedPath).toString())
+//     const deployed = JSON.parse(fs.readFileSync(deployedPath).toString())
 
-    if (deployed.network != network) {
-      error("deployed network not match, please try `npm run clean:deployed`, and deploy again")
-    }
+//     if (deployed.network != network) {
+//       error("deployed network not match, please try `npm run clean:deployed`, and deploy again")
+//     }
 
-    if (!deployed.programId) {
-      error("program haven't deployed yet")
-    }
+//     if (!deployed.programId) {
+//       error("program haven't deployed yet")
+//     }
 
-    log(deployed.oracles)
-  })
+//     log(deployed.oracles)
+//   })
 
-cli
-  .command("aggregatorInfo")
-  .description("show aggregatorInfo")
-  .action(async () => {
-    // show current network
-    showNetwork()
+// cli
+//   .command("aggregatorInfo")
+//   .description("show aggregatorInfo")
+//   .action(async () => {
+//     // show current network
+//     showNetwork()
 
-    if (!fs.existsSync(deployedPath)) {
-      error("program haven't deployed yet")
-    }
+//     if (!fs.existsSync(deployedPath)) {
+//       error("program haven't deployed yet")
+//     }
 
-    const deployed = JSON.parse(fs.readFileSync(deployedPath).toString())
+//     const deployed = JSON.parse(fs.readFileSync(deployedPath).toString())
 
-    if (deployed.network != network) {
-      error("deployed network not match, please try `npm run clean:deployed`, and deploy again")
-    }
+//     if (deployed.network != network) {
+//       error("deployed network not match, please try `npm run clean:deployed`, and deploy again")
+//     }
 
-    if (!deployed.programId) {
-      error("program haven't deployed yet")
-    }
+//     if (!deployed.programId) {
+//       error("program haven't deployed yet")
+//     }
 
-    const inputs = await inquirer
-      .prompt([
-        { message: "Choose an aggregator", type: "list", name: "aggregator", choices: () => {
-          return deployed.pairs.map(p => ({ name: p.pairName.trim() + ` [${p.aggregator}]`, value: p.aggregator }))
-        }},
-      ])
+//     const inputs = await inquirer
+//       .prompt([
+//         {
+//           message: "Choose an aggregator", type: "list", name: "aggregator", choices: () => {
+//             return deployed.pairs.map(p => ({ name: p.pairName.trim() + ` [${p.aggregator}]`, value: p.aggregator }))
+//           }
+//         },
+//       ])
 
-    const { aggregator } = inputs
-    const conn = await connectTo(network)
- 
-    const accountInfo = await conn.getAccountInfo(new PublicKey(aggregator))
+//     const { aggregator } = inputs
+//     const conn = await connectTo(network)
 
-    log(decodeAggregatorInfo(accountInfo))
-  })
+//     const accountInfo = await conn.getAccountInfo(new PublicKey(aggregator))
+
+//     log(decodeAggregatorInfo(accountInfo))
+//   })
 
 cli
   .command("feed")
   .description("oracle feeds to aggregator")
-  .action(async () => {
-    // show current network
-    showNetwork()
+  .option("--feedAddress <string>", "feed address to submit values to")
+  .option("--oracleAddress <string>", "feed address to submit values to")
+  .action(async (opts) => {
 
-    if (!fs.existsSync(deployedPath)) {
-      error("program haven't deployed yet")
-    }
+    const { wallet, aggregatorProgram } = await OracleContext.load()
 
-    const deployed = JSON.parse(fs.readFileSync(deployedPath).toString())
-
-    if (deployed.network != network) {
-      error("deployed network not match, please try `npm run clean:deployed`, and deploy again")
-    }
-
-    if (!deployed.programId) {
-      error("program haven't deployed yet")
-    }
-
-    const inputs = await inquirer
-      .prompt([
-        { message: "Choose an oracle", type: "list", name: "oracle", choices: () => {
-          return deployed.oracles.map(p => ({ name: p.name+ ` [${p.pubkey}]`, value: `${p.pubkey}|${p.aggregator}` }))
-        }},
-      ])
-
-    const tmpArr = inputs.oracle.split("|")
-
-    let res = checkRole("payer")
-    if (!res || !res.exist) {
-      error(`role ${color("payer", "blue")} not created`)
-    }
-    const payer = JSON.parse(fs.readFileSync(res.walletPath).toString())
-
-    res = checkRole("oracleOwner")
-    if (!res || !res.exist) {
-      error(`role ${color("oracleOwner", "blue")} not created, please create the role first`)
-    }
-    const oracleOwner = JSON.parse(fs.readFileSync(res.walletPath).toString())
-
-    let oracle = tmpArr[0], aggregator = tmpArr[1]
-
-    let pair = ""
-    deployed.pairs.map((p) => {
-      if (p.aggregator == aggregator) {
-        pair = p.pairName
-      }
-    })
-
-    const conn = await connectTo(network)
-
-    const payerWallet = await Wallet.fromMnemonic(payer.mnemonic, conn)
-    const oracleOwnerWallet = await Wallet.fromMnemonic(oracleOwner.mnemonic, conn)
+    const { feedAddress, oracleAddress  } = opts
 
     feed.start({
-      oracle: new PublicKey(oracle), 
-      oracleOwner: oracleOwnerWallet.account,
-      aggregator: new PublicKey(aggregator), 
-      pair, 
-      payerWallet,
-      programId: new PublicKey(deployed.programId)
+      oracle: new PublicKey(oracleAddress),
+      oracleOwner: wallet.account,
+      feed: new PublicKey(feedAddress),
+      pairSymbol: "BTC-USD",
+      payerWallet: wallet,
+      programId: aggregatorProgram.publicKey,
     })
   })
 
