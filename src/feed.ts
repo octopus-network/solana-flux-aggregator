@@ -71,13 +71,15 @@ export async function start(params: StartParams) {
       await sleep(1000)
     }
 
-    await program.submit({
-      aggregator: feed,
-      oracle,
-      submission: BigInt(curPriceCent),
-      owner: oracleOwner,
-    })
-
+    try {
+      await program.submit({
+        aggregator: feed,
+        oracle,
+        submission: BigInt(curPriceCent),
+        owner: oracleOwner,
+      })
+    } catch(err) {}
+    
     console.log("submit success!")
 
     payerWallet.conn.getAccountInfo(oracle).then((accountInfo) => {
