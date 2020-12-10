@@ -117,10 +117,21 @@ yarn solink remove-oracle \
 
 ## Test Token
 
+For testing purposes, create a test token held by the aggregator program to reward:
+
 ```
 yarn solink testToken --amount 10000000000
 ```
 
 ## Program Integration
 
-Please refer to the integration-example
+Refer to the [integration-example][./integration-example].
+
+The gist is to pass in the feed address to the program, and call `get_median` from the flux_aggregator crate.
+
+```rust
+use flux_aggregator;
+
+let feed_info = next_account_info(accounts_iter)?;
+let value = flux_aggregator::get_median(feed_info)?;
+```
