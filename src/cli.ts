@@ -28,45 +28,28 @@ const FLUX_AGGREGATOR_SO = path.resolve(__dirname, "../build/flux_aggregator.so"
 const network = (process.env.NETWORK || "local") as NetworkName
 const conn = solana.connect(network)
 
-class AdminContext {
+class AppContext {
 
   static readonly AGGREGATOR_PROGRAM = "aggregatorProgram"
 
-  static async load() {
+  static async forAdmin() {
     const deployer = await openDeployer()
     const admin = await walletFromEnv("ADMIN_MNEMONIC", conn)
 
-    return new AdminContext(deployer, admin)
+    return new AppContext(deployer, admin)
   }
 
-  constructor(public deployer: Deployer, public admin: Wallet) {}
-
-  get aggregatorProgram() {
-    const program = this.deployer.account(AdminContext.AGGREGATOR_PROGRAM)
-
-    if (program == null) {
-      throw new Error(`flux aggregator program is not yet deployed`)
-    }
-
-    return program
-  }
-}
-
-class OracleContext {
-
-  static readonly AGGREGATOR_PROGRAM = "aggregatorProgram"
-
-  static async load() {
+  static async forOracle() {
     const deployer = await openDeployer()
     const wallet = await walletFromEnv("ORACLE_MNEMONIC", conn)
 
-    return new OracleContext(deployer, wallet)
+    return new AppContext(deployer, wallet)
   }
 
-  constructor(public deployer: Deployer, public wallet: Wallet) {}
+  constructor(public deployer: Deployer, public wallet: Wallet) { }
 
   get aggregatorProgram() {
-    const program = this.deployer.account(AdminContext.AGGREGATOR_PROGRAM)
+    const program = this.deployer.account(AppContext.AGGREGATOR_PROGRAM)
 
     if (program == null) {
       throw new Error(`flux aggregator program is not yet deployed`)
@@ -124,13 +107,13 @@ cli
   .command("deploy-program")
   .description("deploy the aggregator program")
   .action(async () => {
-    const { admin, deployer } = await AdminContext.load()
+    const { wallet, deployer } = await AppContext.forAdmin()
 
-    const programAccount = await deployer.ensure(AdminContext.AGGREGATOR_PROGRAM, async () => {
+    const programAccount = await deployer.ensure(AppContext.AGGREGATOR_PROGRAM, async () => {
       const programBinary = fs.readFileSync(FLUX_AGGREGATOR_SO)
 
       log(`deploying ${FLUX_AGGREGATOR_SO}...`)
-      const bpfLoader = new BPFLoader(admin)
+      const bpfLoader = new BPFLoader(wallet)
 
       return bpfLoader.load(programBinary)
     })
@@ -146,11 +129,11 @@ cli
   .option("--minSubmissionValue <number>", "minSubmissionValue", "0")
   .option("--maxSubmissionValue <number>", "maxSubmissionValue", "18446744073709551615")
   .action(async (opts) => {
-    const { deployer, admin, aggregatorProgram } = await AdminContext.load()
+    const { deployer, wallet, aggregatorProgram } = await AppContext.forAdmin()
 
     const { feedName, submitInterval, minSubmissionValue, maxSubmissionValue } = opts
 
-    const aggregator = new FluxAggregator(admin, aggregatorProgram.publicKey)
+    const aggregator = new FluxAggregator(wallet, aggregatorProgram.publicKey)
 
     const feed = await deployer.ensure(feedName, async () => {
       return aggregator.initialize({
@@ -158,7 +141,7 @@ cli
         minSubmissionValue: BigInt(minSubmissionValue),
         maxSubmissionValue: BigInt(maxSubmissionValue),
         description: feedName.substr(0, 32).padEnd(32),
-        owner: admin.account
+        owner: wallet.account
       })
     })
 
@@ -197,14 +180,14 @@ cli
   .option("--oracleName <string>", "oracle name")
   .option("--oracleOwner <string>", "oracle owner address")
   .action(async (opts) => {
-    const { admin, aggregatorProgram } = await AdminContext.load()
+    const { wallet, aggregatorProgram } = await AppContext.forAdmin()
 
     const { index, oracleName, oracleOwner, feedAddress } = opts
 
     if (!index || index < 0 || index > 21) {
       error("invalid index (0-20)")
     }
-    const program = new FluxAggregator(admin, aggregatorProgram.publicKey)
+    const program = new FluxAggregator(wallet, aggregatorProgram.publicKey)
 
     log("add oracle...")
     const oracle = await program.addOracle({
@@ -212,7 +195,7 @@ cli
       owner: new PublicKey(oracleOwner),
       description: oracleName.substr(0, 32).padEnd(32),
       aggregator: new PublicKey(feedAddress),
-      aggregatorOwner: admin.account,
+      aggregatorOwner: wallet.account,
     })
 
     log(`added oracle. pubkey: ${color(oracle.toBase58(), "blue")}`)
@@ -287,9 +270,9 @@ cli
   .option("--oracleAddress <string>", "feed address to submit values to")
   .action(async (opts) => {
 
-    const { wallet, aggregatorProgram } = await OracleContext.load()
+    const { wallet, aggregatorProgram } = await AppContext.forOracle()
 
-    const { feedAddress, oracleAddress  } = opts
+    const { feedAddress, oracleAddress } = opts
 
     feed.start({
       oracle: new PublicKey(oracleAddress),
