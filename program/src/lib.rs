@@ -21,14 +21,14 @@ use error::Error;
 use state::Aggregator;
 
 /// Get median value from the aggregator account
-pub fn get_submission_value(
+pub fn get_median(
     aggregator_info: &AccountInfo
 ) -> Result<u64, ProgramError> {
     let aggregator = Aggregator::unpack_unchecked(&aggregator_info.data.borrow())?;
     if !aggregator.is_initialized {
         return Err(Error::NotFoundAggregator.into());
     }
-    
+
     let submissions = aggregator.submissions;
 
     let mut values = vec![];
@@ -42,7 +42,7 @@ pub fn get_submission_value(
 
     // get median value
     values.sort();
-    
+
     let l = values.len();
     let i = l / 2;
     if l % 2 == 0 {
@@ -52,5 +52,5 @@ pub fn get_submission_value(
     }
 }
 
-// Export current sdk types for downstream users building with a different 
+// Export current sdk types for downstream users building with a different
 pub use solana_program;

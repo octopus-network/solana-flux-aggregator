@@ -176,6 +176,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "flux-aggregator-demo"
+version = "0.1.0"
+dependencies = [
+ "byteorder",
+ "flux-aggregator",
+ "solana-program",
+]
+
+[[package]]
 name = "generic-array"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -565,15 +574,6 @@ dependencies = [
  "solana-logger",
  "solana-sdk-macro",
  "thiserror",
-]
-
-[[package]]
-name = "solana-program-demo"
-version = "0.1.0"
-dependencies = [
- "byteorder",
- "flux-aggregator",
- "solana-program",
 ]
 
 [[package]]
