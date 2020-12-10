@@ -111,7 +111,6 @@ impl Instruction {
             1 => {
                 let (&index, rest) = rest.split_first().ok_or(InvalidInstruction)?;
 
-                info!(format!("das index: {:?}", index));
                 let (description, _rest) = rest.split_at(32);
                 let description = description
                     .try_into()
@@ -157,13 +156,4 @@ impl Instruction {
         })
     }
 
-    fn unpack_pubkey(input: &[u8]) -> Result<(Pubkey, &[u8]), ProgramError> {
-        if input.len() >= 32 {
-            let (key, rest) = input.split_at(32);
-            let pk = Pubkey::new(key);
-            Ok((pk, rest))
-        } else {
-            Err(Error::InvalidInstruction.into())
-        }
-    }
 }

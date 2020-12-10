@@ -3,7 +3,10 @@ import { Command, option } from "commander"
 import fs from "fs"
 import path from "path"
 
-import { BPFLoader, PublicKey, Wallet, NetworkName, solana, Deployer } from "solray"
+import { 
+  BPFLoader, PublicKey, Wallet, NetworkName, 
+  solana, Deployer, SPLToken, ProgramAccount 
+} from "solray"
 
 import dotenv from "dotenv"
 
@@ -297,5 +300,62 @@ cli
       programId: aggregatorProgram.publicKey,
     })
   })
+
+cli
+  .command("testToken")
+  .description("create test token")
+  .option("--amount <number>", "amount of the test token")
+  .action(async (opts) => {
+    const { admin, aggregatorProgram, deployer } = await AdminContext.load()
+
+    const { amount } = opts
+
+    if (!amount || amount < 0) {
+      error("invalid amount")
+    }
+
+    const spltoken = new SPLToken(admin)
+    
+    log(`create test token...`)
+    // 1. create token
+    const token = await spltoken.initializeMint({
+      mintAuthority: admin.account.publicKey,
+      decimals: 8,
+    })
+
+    // 2. create tokenOwner (program account)
+    const tokenOwner = await ProgramAccount.forSeed(
+      Buffer.from(token.publicKey.toBuffer()).slice(0, 30), 
+      aggregatorProgram.publicKey
+    )
+
+    log(`create token acount...`)
+    // 3. create token account
+    const tokenAccount = await spltoken.initializeAccount({
+      token: token.publicKey,
+      owner: tokenOwner.pubkey
+    })
+
+    log(`mint ${amount} token to token account...`)
+    // 4. and then, mint tokens to that account
+    await spltoken.mintTo({
+      token: token.publicKey,
+      to: tokenAccount.publicKey,
+      amount: BigInt(amount),
+      authority: admin.account,
+    })
+
+    log({
+      token: token.publicKey.toBase58(),
+      tokenAccount: tokenAccount.publicKey.toBase58(),
+      tokenOwner: {
+        address: tokenOwner.address,
+        seed: tokenOwner.noncedSeed.toString("hex"),
+        nonce: tokenOwner.nonce,
+      }
+    })
+
+  })
+
 
 cli.parse(process.argv)

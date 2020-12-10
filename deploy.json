@@ -6,5 +6,13 @@
   "btc:usd": {
     "pubkey": "2jReuMRoYi3pKTF8YLnZEvT2bXcw56SdBxvssrVzu41v",
     "secret": "9feec34f2157b6deefc08c2132b321fb379b65fe6901d07e9a4df69fe8bad75a19b9f4ea63a705fc4b822d70015680c6f1cb0d4df30548a673604680760a9d11"
+  },
+  "tokenOwner": {
+    "pubkey": "4MPE1P9k6vCcPwfSmMPx4258PhW8maN8afUc82c2LTvG",
+    "secret": "d06e46b91e189e2ee24f11668acd635df02a64019996f1b7e005a5fec906fe"
+  },
+  "tokenAccount": {
+    "pubkey": "A4xJLiJrtVigYjJ2NRUrcFza7eB7Y8XeGZh5KmkoxDs1",
+    "secret": "19c19ac59d379f3d669b6b5957bbf99060b2b15dd4d266b3f76e164f665c512986bc739598f0e5f0252b3e2fbd0c54a9a08b295a4c5c2901b91c6e3d1e8ace5c"
   }
 }

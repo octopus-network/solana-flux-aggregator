@@ -46,7 +46,6 @@ impl Processor {
                 description,
             } => {
                 info!("Instruction: AddOracle");
-                info!(format!("index: {:?}", index));
                 Self::process_add_oracle(
                     accounts, index, description,
                 )

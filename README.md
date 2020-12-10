@@ -96,6 +96,12 @@ yarn solink feed \
   --oracleAddress 4vH5L2jSNXGfcCx42N4sqPiMzEbp1PaQjQ6XngDBu8zR
 ```
 
+## Test Token
+
+```
+yarn solink testToken --amount 10000000000
+```
+
 ## Program Integration
 
 Please refer to the integration-example
