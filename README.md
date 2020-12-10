@@ -42,7 +42,7 @@ yarn build:program
 ```
 yarn solink deploy-program
 
-deployed aggregator program. program id: 9KXbVqUrMgtti7Jx4rrV1NqXjQNxWaKgtYCEwJ8AESS5
+deployed aggregator program. program id: HFHbe2uckzz9Xh633mbJPYcukzpyJRVcwL87fUrVddiq
 ```
 
 Create the `btc:usd` feed (that accepts max and min u64 as valid submission values):
@@ -54,7 +54,7 @@ yarn solink add-aggregator \
   --minSubmissionValue 0 \
   --maxSubmissionValue 18446744073709551615
 
-feed initialized, pubkey: AUK9X6QLgauAUvEA3Ajc91fZytb9ccA7qVR72ErDFNg2
+feed initialized, pubkey: 2jReuMRoYi3pKTF8YLnZEvT2bXcw56SdBxvssrVzu41v
 ```
 
 ## Adding an oracle
@@ -83,17 +83,36 @@ Next we create a new oracle to the feed we've created previously, and set its ow
 ```
 yarn solink add-oracle \
   --index 0 \
-  --feedAddress AUK9X6QLgauAUvEA3Ajc91fZytb9ccA7qVR72ErDFNg2 \
+  --feedAddress 2jReuMRoYi3pKTF8YLnZEvT2bXcw56SdBxvssrVzu41v \
   --oracleName solink-test \
   --oracleOwner FosLwbttPgkEDv36VJLU3wwXcBSSoUGkh7dyZPsXNtT4
 
-added oracle. pubkey: 4vH5L2jSNXGfcCx42N4sqPiMzEbp1PaQjQ6XngDBu8zR
+added oracle. pubkey: 4jWLbd2Vm98RrqunVvaSXZuP1AFbgQSM2hAHMvZSdNCu
 ```
+
+Start submitting data from a price feed (e.g. coinbase BTC-USDT):
 
 ```
 yarn solink feed \
-  --feedAddress AUK9X6QLgauAUvEA3Ajc91fZytb9ccA7qVR72ErDFNg2 \
-  --oracleAddress 4vH5L2jSNXGfcCx42N4sqPiMzEbp1PaQjQ6XngDBu8zR
+  --feedAddress 2jReuMRoYi3pKTF8YLnZEvT2bXcw56SdBxvssrVzu41v \
+  --oracleAddress 4jWLbd2Vm98RrqunVvaSXZuP1AFbgQSM2hAHMvZSdNCu
+```
+
+## Read price
+
+Poll the latest aggregated (median) value from a feed:
+
+```
+yarn solink feed-poll \
+  --feedAddress 2jReuMRoYi3pKTF8YLnZEvT2bXcw56SdBxvssrVzu41v
+```
+
+## Remove oracle
+
+```
+yarn solink remove-oracle \
+  --index 0 \
+  --feedAddress 2jReuMRoYi3pKTF8YLnZEvT2bXcw56SdBxvssrVzu41v
 ```
 
 ## Test Token

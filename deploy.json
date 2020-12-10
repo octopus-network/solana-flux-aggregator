@@ -14,5 +14,9 @@
   "tokenAccount": {
     "pubkey": "A4xJLiJrtVigYjJ2NRUrcFza7eB7Y8XeGZh5KmkoxDs1",
     "secret": "19c19ac59d379f3d669b6b5957bbf99060b2b15dd4d266b3f76e164f665c512986bc739598f0e5f0252b3e2fbd0c54a9a08b295a4c5c2901b91c6e3d1e8ace5c"
+  },
+  "oracle[0]": {
+    "pubkey": "4jWLbd2Vm98RrqunVvaSXZuP1AFbgQSM2hAHMvZSdNCu",
+    "secret": "83369edeffc2f5b870da6595cd7a916723566a1307e722f29e7db6bc8fd01b643776a09078c98230dd23a3aeab3e870e7fb6651ddae3cbf772afa4eba4735e16"
   }
 }

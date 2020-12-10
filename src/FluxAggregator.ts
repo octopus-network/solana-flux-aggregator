@@ -73,10 +73,8 @@ interface RemoveOracleParams {
   // oracle index
   index: number;
   aggregator: PublicKey;
-  // The oracle key
-  oracle: PublicKey;
   // To prove you are the aggregator owner
-  authority: Account;
+  authority?: Account;
 }
 
 interface RemoveOracleInstructionParams extends RemoveOracleParams {
@@ -172,7 +170,7 @@ export default class FluxAggregator extends BaseProgram {
     ]);
   }
 
-  public async addOracle(params: AddOracleParams): Promise<PublicKey> {
+  public async addOracle(params: AddOracleParams): Promise<Account> {
     const account = new Account();
 
     await this.sendTx([
@@ -187,7 +185,7 @@ export default class FluxAggregator extends BaseProgram {
       })
     ], [this.account, account, params.aggregatorOwner]);
 
-    return account.publicKey;
+    return account;
   }
 
   public async oracleInfo(pubkey: PublicKey) {
@@ -227,14 +225,14 @@ export default class FluxAggregator extends BaseProgram {
   public async removeOracle(params: RemoveOracleParams): Promise<void> {
     await this.sendTx([
       this.removeOracleInstruction(params)
-    ], [this.account, params.authority]);
-
+    ], [this.account, params.authority || this.wallet.account]);
   }
 
   private removeOracleInstruction(params: RemoveOracleInstructionParams): TransactionInstruction {
     const {
       index,
       authority,
+      aggregator,
     } = params;
 
     const layout = BufferLayout.struct([
@@ -246,7 +244,9 @@ export default class FluxAggregator extends BaseProgram {
       instruction: 2, // remove oracle instruction
       index,
     }, [
-      { write: authority },
+      //
+      { write: aggregator },
+      authority || this.wallet.account,
     ]);
   }
 

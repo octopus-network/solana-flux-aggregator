@@ -4,7 +4,7 @@ import { AggregatorLayout, SubmissionLayout, OracleLayout } from "./FluxAggregat
 
 import { solana, Wallet, NetworkName, Deployer } from "solray"
 
-export function getSubmissionValue(submissions: []): number {
+export function getMedian(submissions: number[]): number {
   const values = submissions
     .filter((s: any) => s.value != 0)
     .map((s: any) => s.value)
@@ -31,47 +31,45 @@ export function sleep(ms: number): Promise<void> {
 }
 
 export function decodeAggregatorInfo(accountInfo) {
-
   const data = Buffer.from(accountInfo.data)
   const aggregator = AggregatorLayout.decode(data)
 
-  const minSubmissionValue = aggregator.minSubmissionValue.readBigUInt64LE().toString()
-  const maxSubmissionValue = aggregator.maxSubmissionValue.readBigUInt64LE().toString()
+  const minSubmissionValue = aggregator.minSubmissionValue.readBigUInt64LE()
+  const maxSubmissionValue = aggregator.maxSubmissionValue.readBigUInt64LE()
   const submitInterval = aggregator.submitInterval.readInt32LE()
-  const description = aggregator.description.toString()
+  const description = (aggregator.description.toString() as String).trim()
 
   // decode oracles
-  let submissions: [] = []
-  let oracles: [] = []
+  let submissions: any[] = []
   let submissionSpace = SubmissionLayout.span
-  let updateTime = '0'
+  let latestUpdateTime = BigInt(0)
 
   for (let i = 0; i < aggregator.submissions.length / submissionSpace; i++) {
     let submission = SubmissionLayout.decode(
       aggregator.submissions.slice(i*submissionSpace, (i+1)*submissionSpace)
     )
+
     submission.oracle = new PublicKey(submission.oracle)
+    submission.time = submission.time.readBigInt64LE()
+    submission.value = submission.value.readBigInt64LE()
 
-    submission.time = submission.time.readBigInt64LE().toString()
-    submission.value = submission.value.readBigInt64LE().toString()*1
     if (!submission.oracle.equals(new PublicKey(0))) {
-      submissions.push(submission as never)
-      oracles.push(submission.oracle.toBase58() as never)
-
+      submissions.push(submission)
     }
-    if (submission.time > updateTime) {
-      updateTime = submission.time
+
+    if (submission.time > latestUpdateTime) {
+      latestUpdateTime = submission.time
     }
   }
 
   return {
     minSubmissionValue: minSubmissionValue,
     maxSubmissionValue: maxSubmissionValue,
-    submissionValue: getSubmissionValue(submissions),
+    submissionValue: getMedian(submissions),
     submitInterval,
     description,
-    oracles,
-    updateTime,
+    oracles: submissions.map(s => s.oracle.toString()),
+    latestUpdateTime: new Date(Number(latestUpdateTime)*1000),
   }
 }
 
@@ -102,7 +100,7 @@ export async function walletFromEnv(key: string, conn: Connection): Promise<Wall
 
 export async function openDeployer(): Promise<Deployer> {
   const deployFile = process.env.DEPLOY_FILE
-  
+
   if (!deployFile) {
     throw new Error(`Set DEPLOY_FILE in .env`)
   }

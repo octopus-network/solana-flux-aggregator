@@ -3,9 +3,9 @@ import { Command, option } from "commander"
 import fs from "fs"
 import path from "path"
 
-import { 
-  BPFLoader, PublicKey, Wallet, NetworkName, 
-  solana, Deployer, SPLToken, ProgramAccount 
+import {
+  BPFLoader, PublicKey, Wallet, NetworkName,
+  solana, Deployer, SPLToken, ProgramAccount
 } from "solray"
 
 import dotenv from "dotenv"
@@ -16,6 +16,7 @@ import {
   decodeAggregatorInfo,
   walletFromEnv,
   openDeployer,
+  sleep,
 } from "./utils"
 
 import * as feed from "./feed"
@@ -48,7 +49,15 @@ class AppContext {
 
   constructor(public deployer: Deployer, public wallet: Wallet) { }
 
-  get aggregatorProgram() {
+  get aggregatorProgramID() {
+    return this.aggregatorProgramAccount.publicKey
+  }
+
+  get aggregator() {
+    return new FluxAggregator(this.wallet, this.aggregatorProgramID)
+  }
+
+  get aggregatorProgramAccount() {
     const program = this.deployer.account(AppContext.AGGREGATOR_PROGRAM)
 
     if (program == null) {
@@ -129,7 +138,7 @@ cli
   .option("--minSubmissionValue <number>", "minSubmissionValue", "0")
   .option("--maxSubmissionValue <number>", "maxSubmissionValue", "18446744073709551615")
   .action(async (opts) => {
-    const { deployer, wallet, aggregatorProgram } = await AppContext.forAdmin()
+    const { deployer, wallet, aggregatorProgramAccount: aggregatorProgram } = await AppContext.forAdmin()
 
     const { feedName, submitInterval, minSubmissionValue, maxSubmissionValue } = opts
 
@@ -180,25 +189,41 @@ cli
   .option("--oracleName <string>", "oracle name")
   .option("--oracleOwner <string>", "oracle owner address")
   .action(async (opts) => {
-    const { wallet, aggregatorProgram } = await AppContext.forAdmin()
+    const { wallet, aggregator, deployer } = await AppContext.forAdmin()
 
     const { index, oracleName, oracleOwner, feedAddress } = opts
 
     if (!index || index < 0 || index > 21) {
-      error("invalid index (0-20)")
+      error("invalid index. requires (0-20)")
     }
-    const program = new FluxAggregator(wallet, aggregatorProgram.publicKey)
 
     log("add oracle...")
-    const oracle = await program.addOracle({
-      index,
-      owner: new PublicKey(oracleOwner),
-      description: oracleName.substr(0, 32).padEnd(32),
-      aggregator: new PublicKey(feedAddress),
-      aggregatorOwner: wallet.account,
+    const oracle = await deployer.ensure(`oracle[${index}]`, async () => {
+      return aggregator.addOracle({
+        index,
+        owner: new PublicKey(oracleOwner),
+        description: oracleName.substr(0, 32).padEnd(32),
+        aggregator: new PublicKey(feedAddress),
+        aggregatorOwner: wallet.account,
+      })
     })
 
-    log(`added oracle. pubkey: ${color(oracle.toBase58(), "blue")}`)
+    log(`added oracle. pubkey: ${color(oracle.publicKey.toBase58(), "blue")}`)
+  })
+
+cli
+  .command("remove-oracle")
+  .option("--index <number>", "remove oracle from index (0-20)")
+  .option("--feedAddress <string>", "feed to remove oracle from")
+  .action(async (opts) => {
+    const { index, feedAddress } = opts
+
+    const { aggregator } = await AppContext.forAdmin()
+
+    await aggregator.removeOracle({
+      aggregator: new PublicKey(feedAddress),
+      index,
+    })
   })
 
 // cli
@@ -225,43 +250,20 @@ cli
 //     log(deployed.oracles)
 //   })
 
-// cli
-//   .command("aggregatorInfo")
-//   .description("show aggregatorInfo")
-//   .action(async () => {
-//     // show current network
-//     showNetwork()
+cli
+  .command("feed-poll")
+  .description("poll current feed value")
+  .option("--feedAddress <string>", "feed address to submit values to")
+  .action(async (opts) => {
+    const { feedAddress } = opts
 
-//     if (!fs.existsSync(deployedPath)) {
-//       error("program haven't deployed yet")
-//     }
+    while (true) {
+      const feedInfo = await conn.getAccountInfo(new PublicKey(feedAddress))
+      log(decodeAggregatorInfo(feedInfo))
 
-//     const deployed = JSON.parse(fs.readFileSync(deployedPath).toString())
-
-//     if (deployed.network != network) {
-//       error("deployed network not match, please try `npm run clean:deployed`, and deploy again")
-//     }
-
-//     if (!deployed.programId) {
-//       error("program haven't deployed yet")
-//     }
-
-//     const inputs = await inquirer
-//       .prompt([
-//         {
-//           message: "Choose an aggregator", type: "list", name: "aggregator", choices: () => {
-//             return deployed.pairs.map(p => ({ name: p.pairName.trim() + ` [${p.aggregator}]`, value: p.aggregator }))
-//           }
-//         },
-//       ])
-
-//     const { aggregator } = inputs
-//     const conn = await connectTo(network)
-
-//     const accountInfo = await conn.getAccountInfo(new PublicKey(aggregator))
-
-//     log(decodeAggregatorInfo(accountInfo))
-//   })
+      await sleep(1000)
+    }
+  })
 
 cli
   .command("feed")
@@ -270,7 +272,7 @@ cli
   .option("--oracleAddress <string>", "feed address to submit values to")
   .action(async (opts) => {
 
-    const { wallet, aggregatorProgram } = await AppContext.forOracle()
+    const { wallet, aggregatorProgramAccount: aggregatorProgram } = await AppContext.forOracle()
 
     const { feedAddress, oracleAddress } = opts
 
@@ -289,7 +291,7 @@ cli
   .description("create test token")
   .option("--amount <number>", "amount of the test token")
   .action(async (opts) => {
-    const { admin, aggregatorProgram, deployer } = await AdminContext.load()
+    const { wallet, aggregatorProgramAccount: aggregatorProgram, deployer } = await AppContext.forAdmin()
 
     const { amount } = opts
 
@@ -297,18 +299,18 @@ cli
       error("invalid amount")
     }
 
-    const spltoken = new SPLToken(admin)
-    
+    const spltoken = new SPLToken(wallet)
+
     log(`create test token...`)
     // 1. create token
     const token = await spltoken.initializeMint({
-      mintAuthority: admin.account.publicKey,
+      mintAuthority: wallet.account.publicKey,
       decimals: 8,
     })
 
     // 2. create tokenOwner (program account)
     const tokenOwner = await ProgramAccount.forSeed(
-      Buffer.from(token.publicKey.toBuffer()).slice(0, 30), 
+      Buffer.from(token.publicKey.toBuffer()).slice(0, 30),
       aggregatorProgram.publicKey
     )
 
@@ -325,7 +327,7 @@ cli
       token: token.publicKey,
       to: tokenAccount.publicKey,
       amount: BigInt(amount),
-      authority: admin.account,
+      authority: wallet.account,
     })
 
     log({

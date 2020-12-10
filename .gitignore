@@ -1,4 +1,7 @@
-/node_modules
-/program/target
-/integration-example/target
+node_modules
+target
+target
 yarn.lock
+build
+.yarn
+dist
