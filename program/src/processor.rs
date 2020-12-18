@@ -2,7 +2,7 @@
 
 use crate::{
     error::Error,
-    instruction::{Instruction, PAYMENT_AMOUNT},
+    instruction::{Instruction, PAYMENT_AMOUNT, MAX_ORACLES},
     state::{Aggregator, Oracle, Submission},
 };
 
@@ -12,7 +12,7 @@ use solana_program::{
     clock::{Clock},
     decode_error::DecodeError,
     entrypoint::ProgramResult,
-    info, 
+    msg, 
     program_pack::{Pack},
     program::{invoke_signed},
     program_error::{PrintProgramError, ProgramError},
@@ -24,9 +24,10 @@ use solana_program::{
 pub struct Processor {}
 
 impl Processor {
+    
     /// Processes an [Instruction](enum.Instruction.html).
     pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> ProgramResult {
-        let instruction = Instruction::unpack(input)?;
+        let instruction = Instruction::unpack_from_slice(input)?;
 
         match instruction {
             Instruction::Initialize {
@@ -35,7 +36,7 @@ impl Processor {
                 max_submission_value,
                 description,
             } => {
-                info!("Instruction: Initialize");
+                msg!("Instruction: Initialize");
                 Self::process_initialize(
                     program_id, accounts, submit_interval, min_submission_value, 
                     max_submission_value, description, 
@@ -45,7 +46,7 @@ impl Processor {
                 index,
                 description,
             } => {
-                info!("Instruction: AddOracle");
+                msg!("Instruction: AddOracle");
                 Self::process_add_oracle(
                     accounts, index, description,
                 )
@@ -53,7 +54,7 @@ impl Processor {
             Instruction::RemoveOracle {
                 index,
             } => {
-                info!("Instruction: RemoveOracle");
+                msg!("Instruction: RemoveOracle");
                 Self::process_remove_oracle(
                     accounts, index,
                 )
@@ -61,7 +62,7 @@ impl Processor {
             Instruction::Submit {
                 submission,
             } => {
-                info!("Instruction: Submit");
+                msg!("Instruction: Submit");
                 Self::process_submit(
                     accounts, submission,
                 )
@@ -70,21 +71,15 @@ impl Processor {
                 amount,
                 seed,
             } => {
-                info!("Instruction: Withdraw");
+                msg!("Instruction: Withdraw");
                 Self::process_withdraw(
-                    accounts, amount, seed.as_slice(),
+                    accounts, amount, seed,
                 )
             },
         }
     }
 
     /// Processes an [Initialize](enum.Instruction.html) instruction.
-    /// 
-    /// Accounts expected by this instruction:
-    /// 
-    /// 1. `[]` Sysvar rent
-    /// 2. `[writable]` The aggregator
-    /// 3. `[signer]` The aggregator owner
     pub fn process_initialize(
         _program_id: &Pubkey,
         accounts: &[AccountInfo],
@@ -121,7 +116,7 @@ impl Processor {
         aggregator.max_submission_value = max_submission_value;
         aggregator.description = description;
         aggregator.is_initialized = true;
-        aggregator.owner = *owner_info.key;
+        aggregator.owner = owner_info.key.to_bytes();
 
         Aggregator::pack(aggregator, &mut aggregator_info.data.borrow_mut())?;
         
@@ -129,16 +124,6 @@ impl Processor {
     }
 
     /// Processes an [AddOracle](enum.Instruction.html) instruction.
-    /// 
-    /// @description: the oracle name
-    /// 
-    /// Accounts expected by this instruction:
-    /// 
-    /// 0. `[writable]` The oracle
-    /// 1. `[]` The oracle owner
-    /// 2. `[]` Clock sysvar
-    /// 3. `[writable]` The aggregator
-    /// 4. `[signer]` The aggregator owner
     pub fn process_add_oracle(
         accounts: &[AccountInfo],
         index: u8,
@@ -158,12 +143,12 @@ impl Processor {
        
         let mut aggregator = Aggregator::unpack_unchecked(&aggregator_info.data.borrow())?;
 
-        if &aggregator.owner != aggregator_owner_info.key {
-            return Err(Error::OwnerMismatch.into());
-        }
-
         if !aggregator.is_initialized {
             return Err(Error::NotFoundAggregator.into());
+        }
+
+        if &Pubkey::new_from_array(aggregator.owner) != aggregator_owner_info.key {
+            return Err(Error::OwnerMismatch.into());
         }
 
         let mut oracle = Oracle::unpack_unchecked(&oracle_info.data.borrow())?;
@@ -176,24 +161,14 @@ impl Processor {
 
         let mut submissions = aggregator.submissions;
 
-        let submission = &mut submissions[index as usize];
-        if submission.oracle == Pubkey::default() {
-            submission.oracle = *oracle_info.key;
+        let index = MAX_ORACLES.min(0.max(index as usize));
+
+        let submission = &mut submissions[index];
+        if Pubkey::new_from_array(submission.oracle) == Pubkey::default() {
+            submission.oracle = oracle_info.key.to_bytes();
         } else {
             return Err(Error::IndexHaveBeenUsed.into());
         }
-
-        // // default submission
-        // for s in submissions.iter_mut() {
-        //     if s.oracle == Pubkey::default() {
-        //         *s = Submission {
-        //             time: clock.unix_timestamp,
-        //             value: 0,
-        //             oracle: *oracle_info.key,
-        //         };
-        //         break;
-        //     }
-        // }
 
         aggregator.submissions = submissions;
         Aggregator::pack(aggregator, &mut aggregator_info.data.borrow_mut())?;
@@ -203,8 +178,8 @@ impl Processor {
         oracle.description = description;
         oracle.is_initialized = true;
         oracle.withdrawable = 0;
-        oracle.aggregator = *aggregator_info.key;
-        oracle.owner = *oracle_owner_info.key;
+        oracle.aggregator = aggregator_info.key.to_bytes();
+        oracle.owner = oracle_owner_info.key.to_bytes();
 
         Oracle::pack(oracle, &mut oracle_info.data.borrow_mut())?;
 
@@ -212,13 +187,6 @@ impl Processor {
     }
 
     /// Processes an [RemoveOracle](enum.Instruction.html) instruction.
-    /// 
-    /// @seat:  the oracle's index of the aggregator
-    /// 
-    /// Accounts expected by this instruction:
-    /// 
-    /// 0. `[writable]` The aggregator.
-    /// 1. `[signer]` The aggregator onwer.
     pub fn process_remove_oracle(
         accounts: &[AccountInfo],
         index: u8,
@@ -237,32 +205,20 @@ impl Processor {
             return Err(Error::NotFoundAggregator.into());
         }
 
-        if &aggregator.owner != owner_info.key {
+        if &Pubkey::new_from_array(aggregator.owner) != owner_info.key {
             return Err(Error::OwnerMismatch.into());
         }
 
         // remove submission
         let mut submissions = aggregator.submissions;
+        let index = MAX_ORACLES.min(0.max(index as usize));
 
-        let submission = &mut submissions[index as usize];
-        if submission.oracle != Pubkey::default() {
+        let submission = &mut submissions[index];
+        if Pubkey::new_from_array(submission.oracle) != Pubkey::default() {
             *submission = Submission::default();
         } else {
             return Err(Error::NotFoundOracle.into());
         }
-
-        // let mut found = false;
-        // for s in submissions.iter_mut() {
-        //     if s.oracle == oracle {
-        //         *s = Submission::default();
-        //         found = true;
-        //         break;
-        //     }
-        // }
-
-        // if !found {
-        //     return Err(Error::NotFoundOracle.into());
-        // }
 
         aggregator.submissions = submissions;
         Aggregator::pack(aggregator, &mut aggregator_info.data.borrow_mut())?;
@@ -271,14 +227,6 @@ impl Processor {
     }
 
     /// Processes an [Submit](enum.Instruction.html) instruction.
-    /// @submission:  the updated data that the oracle is submitting
-    /// 
-    /// Accounts expected by this instruction:
-    /// 
-    /// 0. `[writable]` The aggregator(key).
-    /// 1. `[]` Clock sysvar
-    /// 2. `[writable]` The oracle key.
-    /// 3. `[signer]` The oracle owner.
     pub fn process_submit(
         accounts: &[AccountInfo],
         submission: u64,
@@ -307,11 +255,11 @@ impl Processor {
             return Err(Error::NotFoundOracle.into());
         }
 
-        if &oracle.owner != oracle_owner_info.key {
+        if &Pubkey::new_from_array(oracle.owner) != oracle_owner_info.key {
             return Err(Error::OwnerMismatch.into());
         }
 
-        if &oracle.aggregator != aggregator_info.key {
+        if &Pubkey::new_from_array(oracle.aggregator) != aggregator_info.key {
             return Err(Error::AggregatorKeyNotMatch.into());
         }
 
@@ -321,7 +269,7 @@ impl Processor {
         let mut found = false;
         let mut submissions = aggregator.submissions;
         for s in submissions.iter_mut() {
-            if &s.oracle == oracle_info.key {
+            if &Pubkey::new_from_array(s.oracle) == oracle_info.key {
                 s.value = submission;
                 s.time = clock.unix_timestamp;
                 found = true;
@@ -334,7 +282,6 @@ impl Processor {
         }
 
         aggregator.submissions = submissions;
-        Aggregator::pack(aggregator, &mut aggregator_info.data.borrow_mut())?;
 
         if oracle.next_submit_time > clock.unix_timestamp {
             return Err(Error::SubmissonCooling.into());
@@ -344,29 +291,20 @@ impl Processor {
         oracle.withdrawable += PAYMENT_AMOUNT;
         oracle.next_submit_time = clock.unix_timestamp + aggregator.submit_interval as i64;
 
+        // update aggregator
+        Aggregator::pack(aggregator, &mut aggregator_info.data.borrow_mut())?;
+
+        // update oracle
         Oracle::pack(oracle, &mut oracle_info.data.borrow_mut())?;
 
         Ok(())
     }
 
     /// Processes an [Withdraw](enum.Instruction.html) instruction
-    /// Can only be called by the oracle admin
-    /// 
-    /// @to: the address to send the token to
-    /// @amount: the amount of token to send
-    /// 
-    /// Accounts expected by this instruction:
-    /// 
-    /// 0. `[writable]` The aggregator (key).
-    /// 1. `[writable]` The faucet (which token transfer from)
-    /// 2. `[writable]` The recevier (which token withdraw to)
-    /// 3. `[]` SPL Token program id
-    /// 4. `[]` The faucet owner
-    /// 5. `[signer, writable]` The oracle's authority.
     pub fn process_withdraw(
         accounts: &[AccountInfo],
         amount: u64,
-        seed: &[u8],
+        seed: [u8; 32],
     ) -> ProgramResult {
         let account_info_iter = &mut accounts.iter();
         let aggregator_info = next_account_info(account_info_iter)?;
@@ -396,7 +334,7 @@ impl Processor {
             return Err(Error::InsufficientWithdrawable.into());
         }
        
-        info!("Create transfer instruction...");
+        msg!("Create transfer instruction...");
         let instruction = spl_token::instruction::transfer(
             token_program_info.key,
             faucet_info.key,
@@ -406,7 +344,7 @@ impl Processor {
             amount,
         )?;
 
-        info!("Invoke signed...");
+        msg!("Invoke signed...");
         invoke_signed(
             &instruction, 
             &[
@@ -415,7 +353,7 @@ impl Processor {
                 receiver_info.clone(),
                 faucet_owner_info.clone(),
             ],
-            &[&[seed]]
+            &[&[seed.as_ref()]]
         )?;
 
         // update oracle
@@ -433,18 +371,476 @@ impl PrintProgramError for Error {
         E: 'static + std::error::Error + DecodeError<E> + PrintProgramError + FromPrimitive,
     {
         match self {
-            Error::InvalidInstruction => info!("Error: Invalid instruction"),
-            Error::AlreadyInUse => info!("Error: Already in use"),
-            Error::NotRentExempt => info!("Error: No rent exempt"),
-            Error::NotFoundAggregator => info!("Error: no found aggregator"),
-            Error::OracleAdded => info!("Error: Oracle added"),
-            Error::OwnerMismatch => info!("Error: Owner mismatch"),
-            Error::NotFoundOracle => info!("Error: Not found oracle"),
-            Error::SubmissonValueOutOfRange => info!("Error: Submisson value out of range"),
-            Error::SubmissonCooling => info!("Submission cooling"),
-            Error::InsufficientWithdrawable => info!("Insufficient withdrawable"),
-            Error::AggregatorKeyNotMatch => info!("Aggregator key not match"),
-            Error::IndexHaveBeenUsed => info!("Index have been used"),
+            Error::InvalidInstruction => msg!("Error: Invalid instruction"),
+            Error::AlreadyInUse => msg!("Error: Already in use"),
+            Error::NotRentExempt => msg!("Error: No rent exempt"),
+            Error::NotFoundAggregator => msg!("Error: no found aggregator"),
+            Error::OracleAdded => msg!("Error: Oracle added"),
+            Error::OwnerMismatch => msg!("Error: Owner mismatch"),
+            Error::NotFoundOracle => msg!("Error: Not found oracle"),
+            Error::SubmissonValueOutOfRange => msg!("Error: Submisson value out of range"),
+            Error::SubmissonCooling => msg!("Submission cooling"),
+            Error::InsufficientWithdrawable => msg!("Insufficient withdrawable"),
+            Error::AggregatorKeyNotMatch => msg!("Aggregator key not match"),
+            Error::IndexHaveBeenUsed => msg!("Index have been used"),
         }
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::instruction::*;
+    use solana_program::{instruction::Instruction};
+    use solana_sdk::account::{
+        create_account, create_is_signer_account_infos, Account as SolanaAccount,
+    };
+
+    fn do_process_instruction(
+        instruction: Instruction,
+        accounts: Vec<&mut SolanaAccount>,
+    ) -> ProgramResult {
+        let mut meta = instruction
+            .accounts
+            .iter()
+            .zip(accounts)
+            .map(|(account_meta, account)| (&account_meta.pubkey, account_meta.is_signer, account))
+            .collect::<Vec<_>>();
+
+        let account_infos = create_is_signer_account_infos(&mut meta);
+        Processor::process(&instruction.program_id, &account_infos, &instruction.data)
+    }
+
+    fn return_error_as_program_error() -> ProgramError {
+        Error::NotFoundAggregator.into()
+    }
+
+    fn rent_sysvar() -> SolanaAccount {
+        create_account(&Rent::default(), 42)
+    }
+
+    fn clock_sysvar() -> SolanaAccount {
+        create_account(&Clock::default(), 42)
+    }
+
+    fn aggregator_minimum_balance() -> u64 {
+        Rent::default().minimum_balance(Aggregator::get_packed_len())
+    }
+
+    fn oracle_minimum_balance() -> u64 {
+        Rent::default().minimum_balance(Oracle::get_packed_len())
+    }
+
+    #[test]
+    fn test_print_error() {
+        let error = return_error_as_program_error();
+        error.print::<Error>();
+    }
+
+    #[test]
+    #[should_panic(expected = "Custom(3)")]
+    fn test_error_unwrap() {
+        Err::<(), ProgramError>(return_error_as_program_error()).unwrap();
+    }
+
+    #[test]
+    fn test_pack_unpack() {
+        let check = Submission {
+            time: 1,
+            value: 1,
+            oracle: [1; 32],
+        };
+
+        let mut packed = vec![0; Submission::get_packed_len() + 1];
+        
+        assert_eq!(
+            Err(ProgramError::InvalidAccountData),
+            Submission::pack(check, &mut packed)
+        );
+    }
+
+    #[test]
+    fn test_intialize() {
+        let program_id = Pubkey::new_unique();
+
+        let aggregator_key = Pubkey::new_unique();
+        let owner_key = Pubkey::new_unique();
+
+        let mut rent_sysvar = rent_sysvar();
+        let mut aggregator_account = SolanaAccount::new(42, Aggregator::get_packed_len(), &program_id);
+        let mut owner_account = SolanaAccount::default();
+
+        // aggregator is not rent exempt
+        assert_eq!(
+            Err(Error::NotRentExempt.into()),
+            do_process_instruction(
+                initialize(
+                    &program_id, 
+                    &aggregator_key, 
+                    &owner_key, 
+                    6,
+                    1,
+                    9999, 
+                    [1; 32]
+                ).unwrap(),
+                vec![
+                    &mut rent_sysvar, 
+                    &mut aggregator_account, 
+                    &mut owner_account,
+                ]
+            )
+        );
+        
+        aggregator_account.lamports = aggregator_minimum_balance();
+
+        // initialize will be successful
+        do_process_instruction(
+            initialize(
+                &program_id, 
+                &aggregator_key, 
+                &owner_key, 
+                6,
+                1,
+                9999, 
+                [1; 32]
+            ).unwrap(),
+            vec![
+                &mut rent_sysvar, 
+                &mut aggregator_account, 
+                &mut owner_account,
+            ]
+        ).unwrap();
+        
+        // duplicate initialize will get failed
+        assert_eq!(
+            Err(Error::AlreadyInUse.into()),
+            do_process_instruction(
+                initialize(
+                    &program_id, 
+                    &aggregator_key, 
+                    &owner_key, 
+                    6,
+                    1,
+                    9999, 
+                    [1; 32]
+                ).unwrap(),
+                vec![
+                    &mut rent_sysvar, 
+                    &mut aggregator_account, 
+                    &mut owner_account,
+                ]
+            )
+        );
+    }
+
+    #[test]
+    fn test_add_oracle() {
+        let program_id = Pubkey::new_unique();
+
+        let oracle_key = Pubkey::new_unique();
+        let oracle_owner_key = Pubkey::new_unique();
+        let aggregator_key = Pubkey::new_unique();
+        let aggregator_owner_key = Pubkey::new_unique();
+
+        let mut rent_sysvar = rent_sysvar();
+        let mut clock_sysvar = clock_sysvar();
+
+        let mut oracle_account = SolanaAccount::new(
+            oracle_minimum_balance(),
+            Oracle::get_packed_len(),
+            &program_id
+        );
+        let mut aggregator_account = SolanaAccount::new(
+            aggregator_minimum_balance(), 
+            Aggregator::get_packed_len(), 
+            &program_id
+        );
+
+        let mut oracle_owner_account = SolanaAccount::default();
+        let mut aggregator_owner_account = SolanaAccount::default();
+
+        // add oracle to unexist aggregator
+        assert_eq!(
+            Err(Error::NotFoundAggregator.into()),
+            do_process_instruction(
+                add_oracle(
+                    &program_id, 
+                    &oracle_key,
+                    &oracle_owner_key,
+                    &aggregator_key, 
+                    &aggregator_owner_key, 
+                    0,
+                    [1; 32]
+                ).unwrap(),
+                vec![
+                    &mut oracle_account,
+                    &mut oracle_owner_account,
+                    &mut clock_sysvar, 
+                    &mut aggregator_account, 
+                    &mut aggregator_owner_account,
+                ]
+            )
+        );
+
+        // initialize aggregator
+        do_process_instruction(
+            initialize(
+                &program_id, 
+                &aggregator_key, 
+                &aggregator_owner_key, 
+                6,
+                1,
+                9999, 
+                [1; 32]
+            ).unwrap(),
+            vec![
+                &mut rent_sysvar, 
+                &mut aggregator_account, 
+                &mut aggregator_owner_account,
+            ]
+        ).unwrap();
+        
+        // will be successful
+        do_process_instruction(
+            add_oracle(
+                &program_id, 
+                &oracle_key,
+                &oracle_owner_key,
+                &aggregator_key, 
+                &aggregator_owner_key, 
+                0,
+                [1; 32]
+            ).unwrap(),
+            vec![
+                &mut oracle_account,
+                &mut oracle_owner_account,
+                &mut clock_sysvar, 
+                &mut aggregator_account, 
+                &mut aggregator_owner_account,
+            ]
+        ).unwrap();
+
+        // duplicate oracle
+        assert_eq!(
+            Err(Error::AlreadyInUse.into()),
+            do_process_instruction(
+                add_oracle(
+                    &program_id, 
+                    &oracle_key,
+                    &oracle_owner_key,
+                    &aggregator_key, 
+                    &aggregator_owner_key, 
+                    0,
+                    [1; 32]
+                ).unwrap(),
+                vec![
+                    &mut oracle_account,
+                    &mut oracle_owner_account,
+                    &mut clock_sysvar, 
+                    &mut aggregator_account, 
+                    &mut aggregator_owner_account,
+                ]
+            )
+        );
+        
+    }
+
+    #[test]
+    fn test_remove_oracle() {
+        let program_id = Pubkey::new_unique();
+
+        let oracle_key = Pubkey::new_unique();
+        let oracle_owner_key = Pubkey::new_unique();
+        let aggregator_key = Pubkey::new_unique();
+        let aggregator_owner_key = Pubkey::new_unique();
+
+        let mut rent_sysvar = rent_sysvar();
+        let mut clock_sysvar = clock_sysvar();
+
+        let mut oracle_account = SolanaAccount::new(
+            oracle_minimum_balance(),
+            Oracle::get_packed_len(),
+            &program_id
+        );
+        let mut aggregator_account = SolanaAccount::new(
+            aggregator_minimum_balance(), 
+            Aggregator::get_packed_len(), 
+            &program_id
+        );
+
+        let mut oracle_owner_account = SolanaAccount::default();
+        let mut aggregator_owner_account = SolanaAccount::default();
+
+        // initialize aggregator
+        do_process_instruction(
+            initialize(
+                &program_id, 
+                &aggregator_key, 
+                &aggregator_owner_key, 
+                6,
+                1,
+                9999, 
+                [1; 32]
+            ).unwrap(),
+            vec![
+                &mut rent_sysvar, 
+                &mut aggregator_account, 
+                &mut aggregator_owner_account,
+            ]
+        ).unwrap();
+        
+        // add oracle (index 0)
+        do_process_instruction(
+            add_oracle(
+                &program_id, 
+                &oracle_key,
+                &oracle_owner_key,
+                &aggregator_key, 
+                &aggregator_owner_key, 
+                0,
+                [1; 32]
+            ).unwrap(),
+            vec![
+                &mut oracle_account,
+                &mut oracle_owner_account,
+                &mut clock_sysvar, 
+                &mut aggregator_account, 
+                &mut aggregator_owner_account,
+            ]
+        ).unwrap();
+
+        // remove an unexist oracle (index 1)
+        assert_eq!(
+            Err(Error::NotFoundOracle.into()),
+            do_process_instruction(
+                remove_oracle(
+                    &program_id, 
+                    &aggregator_key, 
+                    &aggregator_owner_key, 
+                    1
+                ).unwrap(),
+                vec![
+                    &mut aggregator_account, 
+                    &mut aggregator_owner_account,
+                ]
+            )
+        );
+
+        // will be successful
+        do_process_instruction(
+            remove_oracle(
+                &program_id, 
+                &aggregator_key, 
+                &aggregator_owner_key, 
+                0
+            ).unwrap(),
+            vec![
+                &mut aggregator_account, 
+                &mut aggregator_owner_account,
+            ]
+        ).unwrap();
+    }
+
+    #[test]
+    fn test_submit() {
+        let program_id = Pubkey::new_unique();
+
+        let oracle_key = Pubkey::new_unique();
+        let oracle_owner_key = Pubkey::new_unique();
+        let aggregator_key = Pubkey::new_unique();
+        let aggregator_owner_key = Pubkey::new_unique();
+
+        let mut rent_sysvar = rent_sysvar();
+        let mut clock_sysvar = clock_sysvar();
+
+        let mut oracle_account = SolanaAccount::new(
+            oracle_minimum_balance(),
+            Oracle::get_packed_len(),
+            &program_id
+        );
+        let mut aggregator_account = SolanaAccount::new(
+            aggregator_minimum_balance(), 
+            Aggregator::get_packed_len(), 
+            &program_id
+        );
+
+        let mut oracle_owner_account = SolanaAccount::default();
+        let mut aggregator_owner_account = SolanaAccount::default();
+
+        // initialize aggregator
+        do_process_instruction(
+            initialize(
+                &program_id, 
+                &aggregator_key, 
+                &aggregator_owner_key, 
+                6,
+                1,
+                9999, 
+                [1; 32]
+            ).unwrap(),
+            vec![
+                &mut rent_sysvar, 
+                &mut aggregator_account, 
+                &mut aggregator_owner_account,
+            ]
+        ).unwrap();
+        
+        // add oracle (index 0)
+        do_process_instruction(
+            add_oracle(
+                &program_id, 
+                &oracle_key,
+                &oracle_owner_key,
+                &aggregator_key, 
+                &aggregator_owner_key, 
+                0,
+                [1; 32]
+            ).unwrap(),
+            vec![
+                &mut oracle_account,
+                &mut oracle_owner_account,
+                &mut clock_sysvar, 
+                &mut aggregator_account, 
+                &mut aggregator_owner_account,
+            ]
+        ).unwrap();
+
+        // oracle submit
+        do_process_instruction(
+            submit(
+                &program_id, 
+                &aggregator_key, 
+                &oracle_key, 
+                &oracle_owner_key, 
+                1
+            ).unwrap(),
+            vec![
+                &mut aggregator_account, 
+                &mut clock_sysvar, 
+                &mut oracle_account,
+                &mut oracle_owner_account,
+            ]
+        ).unwrap();
+
+        // submission cooling
+        assert_eq!(
+            Err(Error::SubmissonCooling.into()),
+            do_process_instruction(
+                submit(
+                    &program_id, 
+                    &aggregator_key, 
+                    &oracle_key, 
+                    &oracle_owner_key, 
+                    1
+                ).unwrap(),
+                vec![
+                    &mut aggregator_account, 
+                    &mut clock_sysvar, 
+                    &mut oracle_account,
+                    &mut oracle_owner_account,
+                ]
+            )
+        );
     }
 }

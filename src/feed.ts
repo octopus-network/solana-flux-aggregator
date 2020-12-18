@@ -78,8 +78,10 @@ export async function start(params: StartParams) {
         submission: BigInt(curPriceCent),
         owner: oracleOwner,
       })
-    } catch(err) {}
-    
+    } catch(err) {
+      console.log(err)
+    }
+
     console.log("submit success!")
 
     payerWallet.conn.getAccountInfo(oracle).then((accountInfo) => {

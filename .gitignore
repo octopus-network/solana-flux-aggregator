@@ -5,3 +5,7 @@ yarn.lock
 build
 .yarn
 dist
+.yarnrc.yml
+.pnp.js
+.env
+deploy.json
