@@ -270,17 +270,18 @@ cli
   .description("oracle feeds to aggregator")
   .option("--feedAddress <string>", "feed address to submit values to")
   .option("--oracleAddress <string>", "feed address to submit values to")
+    .option("--pairSymbol <string>", "market pair to feed")
   .action(async (opts) => {
 
     const { wallet, aggregatorProgramAccount: aggregatorProgram } = await AppContext.forOracle()
 
-    const { feedAddress, oracleAddress } = opts
+    const { feedAddress, oracleAddress, pairSymbol } = opts
 
     feed.start({
       oracle: new PublicKey(oracleAddress),
       oracleOwner: wallet.account,
       feed: new PublicKey(feedAddress),
-      pairSymbol: "BTC-USD",
+      pairSymbol: pairSymbol,
       payerWallet: wallet,
       programId: aggregatorProgram.publicKey,
     })

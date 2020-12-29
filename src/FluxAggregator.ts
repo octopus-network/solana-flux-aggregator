@@ -24,7 +24,7 @@ export const AggregatorLayout = BufferLayout.struct([
   BufferLayout.blob(32, "description"),
   BufferLayout.u8("isInitialized"),
   publicKey('owner'),
-  BufferLayout.blob(1008, "submissions"),
+  BufferLayout.blob(576, "submissions"),
 ]);
 
 export const OracleLayout = BufferLayout.struct([
