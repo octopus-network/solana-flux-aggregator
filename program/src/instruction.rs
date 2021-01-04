@@ -50,6 +50,8 @@ pub enum Instruction {
     /// 3. `[writable]` The aggregator
     /// 4. `[signer]` The aggregator owner
     AddOracle {
+        // Why add an oracle at a specifc index, could instead add at the next empty submission slot.
+        // Can folks add the same oracle at different indexes, if not the should check to make sure unique
         /// the oracle's index of the aggregator
         index: u8,
         /// Is usually  the oracle name
@@ -62,6 +64,7 @@ pub enum Instruction {
     /// 0. `[writable]` The aggregator.
     /// 1. `[signer]` The aggregator onwer.
     RemoveOracle {
+        // Might not need this index, just search for oracle pubkey (include that as one of the accounts expected by this instruction)
         /// the oracle's index of the aggregator
         index: u8,
     },
@@ -91,6 +94,7 @@ pub enum Instruction {
         /// withdraw amount
         amount: u64,
         /// program account nonced seed
+        // review: This could go away once `try_find_program_address` is available to programs.
         seed: [u8; 32],
     },
 }
@@ -150,7 +154,7 @@ pub fn initialize(
     })
 }
 
-/// Creates a `add_oralce` instruction
+/// Creates a `add_oracle` instruction
 pub fn add_oracle(
     program_id: &Pubkey,
     oracle_pubkey: &Pubkey,
@@ -159,15 +163,16 @@ pub fn add_oracle(
     aggregator_owner_pubkey: &Pubkey,
     index: u8,
     description: [u8; 32]
-) -> Result<SolInstruction, ProgramError> {
+) -> Result<SolInstruction, ProgramError> { // Why return a result if the function only ever returns `Ok`?
     let data = Instruction::AddOracle {
         index,
         description,
     }
-    .try_to_vec().unwrap();
+    .try_to_vec().unwrap(); // Maybe return an error here instead of pannicking?
 
     let accounts = vec![
         AccountMeta::new(*oracle_pubkey, false),
+        // Does this need to be a writable account?
         AccountMeta::new(*oracle_owner_pubkey, false),
         AccountMeta::new_readonly(sysvar::clock::id(), false),
         AccountMeta::new(*aggregator_pubkey, false),
@@ -181,7 +186,7 @@ pub fn add_oracle(
     })
 }
 
-/// Creates a `remove_oralce` instruction
+/// Creates a `remove_oracle` instruction
 pub fn remove_oracle(
     program_id: &Pubkey,
     aggregator_pubkey: &Pubkey,

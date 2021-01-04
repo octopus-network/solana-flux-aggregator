@@ -1,9 +1,11 @@
 //! Program state processor
 
+// Have you tried `cargo fmt`?
+
 use crate::{
     error::Error,
     instruction::{Instruction, PAYMENT_AMOUNT, MAX_ORACLES},
-    state::{Aggregator, Oracle, Submission},
+    state::{Aggregator, Oracle},
 };
 
 use num_traits::FromPrimitive;
@@ -95,6 +97,7 @@ impl Processor {
         let aggregator_info = next_account_info(account_info_iter)?;
         let owner_info = next_account_info(account_info_iter)?;
   
+        // Why does the owner have to sign the initialize instruction?
         // check signer
         if !owner_info.is_signer {
             return Err(ProgramError::MissingRequiredSignature);
@@ -147,6 +150,7 @@ impl Processor {
             return Err(Error::NotFoundAggregator.into());
         }
 
+        // Also check that the aggregator owner is indeed a signer?
         if &Pubkey::new_from_array(aggregator.owner) != aggregator_owner_info.key {
             return Err(Error::OwnerMismatch.into());
         }
@@ -159,18 +163,19 @@ impl Processor {
         // sys clock
         let clock = &Clock::from_account_info(clock_sysvar_info)?;
 
-        let mut submissions = aggregator.submissions;
-
+        // What is the .max doing?
+        // Looks like this tries to clamp index  to `MAX_ORACLES`, why not just reject any out of bounds indexes?
+        // Can the same oracle be added multiple times, if not should prob search submissions to ensure eniqueness
         let index = MAX_ORACLES.min(0.max(index as usize));
 
-        let submission = &mut submissions[index];
+        // MAX_ORACLES as an index in `submissions` will panic
+        let submission = &mut aggregator.submissions[index];
         if Pubkey::new_from_array(submission.oracle) == Pubkey::default() {
             submission.oracle = oracle_info.key.to_bytes();
         } else {
             return Err(Error::IndexHaveBeenUsed.into());
         }
 
-        aggregator.submissions = submissions;
         Aggregator::pack(aggregator, &mut aggregator_info.data.borrow_mut())?;
 
         oracle.submission = 0;
@@ -210,17 +215,22 @@ impl Processor {
         }
 
         // remove submission
-        let mut submissions = aggregator.submissions;
+
+        // What is the .max doing?
+        // Looks like this tries to clamp index  to `MAX_ORACLES`, why not just reject any out of bounds indexes?
         let index = MAX_ORACLES.min(0.max(index as usize));
 
-        let submission = &mut submissions[index];
+        // MAX_ORACLES as an index in `submissions` will panic
+        let submission = &mut aggregator.submissions[index];
+
+        // Having the caller pass an index could lead to a mismatch between the oracle the caller thinks they are removing and the one they actually remove if the oracles have the same owner.
         if Pubkey::new_from_array(submission.oracle) != Pubkey::default() {
-            *submission = Submission::default();
+            // Could save a little work here by just clearing the oracle field
+            submission.oracle = Pubkey::default().to_bytes();
         } else {
             return Err(Error::NotFoundOracle.into());
         }
 
-        aggregator.submissions = submissions;
         Aggregator::pack(aggregator, &mut aggregator_info.data.borrow_mut())?;
 
         Ok(())
@@ -267,8 +277,7 @@ impl Processor {
 
         // check whether the aggregator owned this oracle
         let mut found = false;
-        let mut submissions = aggregator.submissions;
-        for s in submissions.iter_mut() {
+        for s in aggregator.submissions.iter_mut() {
             if &Pubkey::new_from_array(s.oracle) == oracle_info.key {
                 s.value = submission;
                 s.time = clock.unix_timestamp;
@@ -276,12 +285,9 @@ impl Processor {
                 break;
             }
         }
-
         if !found {
             return Err(Error::NotFoundOracle.into());
         }
-
-        aggregator.submissions = submissions;
 
         if oracle.next_submit_time > clock.unix_timestamp {
             return Err(Error::SubmissonCooling.into());
@@ -353,7 +359,7 @@ impl Processor {
                 receiver_info.clone(),
                 faucet_owner_info.clone(),
             ],
-            &[&[seed.as_ref()]]
+            &[&[seed.as_ref()]]  // What is this seed for?
         )?;
 
         // update oracle
@@ -365,6 +371,7 @@ impl Processor {
 
 }
 
+// This could go into `error.rs`
 impl PrintProgramError for Error {
     fn print<E>(&self)
     where
@@ -391,7 +398,7 @@ impl PrintProgramError for Error {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instruction::*;
+    use crate::{instruction::*, state::Submission};
     use solana_program::{instruction::Instruction};
     use solana_sdk::account::{
         create_account, create_is_signer_account_infos, Account as SolanaAccount,

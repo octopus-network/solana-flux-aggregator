@@ -25,7 +25,12 @@ pub struct Aggregator {
     /// authority
     pub owner: [u8; 32],
     /// submissions
-    pub submissions: [Submission; MAX_ORACLES],
+    // This could be a list of oracle addresses and the other submission data
+    // could be stored in the oracle state, the would remove the need to
+    // repacking the aggregator when submitting.  If the reason is a central
+    // place to look up submission data then could remove the duplicated
+    // `submission` data in the oracle state
+    pub submissions: [Submission; MAX_ORACLES], 
 }
 
 impl IsInitialized for Aggregator {
