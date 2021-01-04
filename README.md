@@ -1,6 +1,8 @@
 # solana-flux-aggregator
 
-Solnana Flux Aggregator
+Solnana Flux Aggregator 
+
+Price Feeds: [https://sol.link](https://sol.link)
 
 ## Install
 
