@@ -1,18 +1,18 @@
 //! State transition types
 use borsh::{BorshDeserialize, BorshSchema, BorshSerialize};
 
-use crate::instruction::{MAX_ORACLES};
+use crate::instruction::MAX_ORACLES;
 
 use solana_program::{
+    clock::UnixTimestamp,
     program_error::ProgramError,
     program_pack::{IsInitialized, Pack, Sealed},
-    clock::{UnixTimestamp},
 };
 
 /// Aggregator data.
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, Default, PartialEq)]
 pub struct Aggregator {
-   /// The interval(seconds) of an oracle's each submission
+    /// The interval(seconds) of an oracle's each submission
     pub submit_interval: u32,
     /// min submission value
     pub min_submission_value: u64,
@@ -53,8 +53,6 @@ impl Pack for Aggregator {
 /// Oracle data.
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, Default, PartialEq)]
 pub struct Oracle {
-    /// submission
-    pub submission: u64,
     /// submit time
     pub next_submit_time: UnixTimestamp,
     /// is usually the oracle name
@@ -77,8 +75,8 @@ impl IsInitialized for Oracle {
 
 impl Sealed for Oracle {}
 impl Pack for Oracle {
-    const LEN: usize = 121;
-    
+    const LEN: usize = 113;
+
     fn pack_into_slice(&self, dst: &mut [u8]) {
         let data = self.try_to_vec().unwrap();
         dst[..data.len()].copy_from_slice(&data);
@@ -104,7 +102,7 @@ pub struct Submission {
 impl Sealed for Submission {}
 impl Pack for Submission {
     const LEN: usize = 48;
-    
+
     fn pack_into_slice(&self, dst: &mut [u8]) {
         let data = self.try_to_vec().unwrap();
         dst[..data.len()].copy_from_slice(&data);
@@ -115,7 +113,6 @@ impl Pack for Submission {
         Self::deserialize(&mut mut_src).map_err(|_| ProgramError::InvalidAccountData)
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -144,16 +141,16 @@ mod tests {
     fn test_serialize_bytes() {
         assert_eq!(
             Submission {
-               time: 0,
-               value: 1,
-               oracle: [1; 32]
-            }.try_to_vec().unwrap(),
+                time: 0,
+                value: 1,
+                oracle: [1; 32]
+            }
+            .try_to_vec()
+            .unwrap(),
             vec![
-                0, 0, 0, 0, 0, 0, 0, 0,
-                1, 0, 0, 0, 0, 0, 0, 0,
-                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+                0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
             ]
         );
     }
-
 }

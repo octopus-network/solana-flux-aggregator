@@ -127,30 +127,28 @@ pub fn initialize(
     min_submission_value: u64,
     max_submission_value: u64,
     description: [u8; 32],
-) -> Result<SolInstruction, ProgramError> {
-   
-    let data = Instruction::Initialize {
-        submit_interval,
-        min_submission_value,
-        max_submission_value,
-        description,
-    }
-    .try_to_vec().unwrap();
-
+) -> SolInstruction {
+    
     let accounts = vec![
         AccountMeta::new_readonly(sysvar::rent::id(), false),
         AccountMeta::new(*aggregator_pubkey, false),
         AccountMeta::new_readonly(*aggregator_owner_pubkey, true),
     ];
 
-    Ok(SolInstruction {
+    SolInstruction {
         program_id: *program_id,
         accounts,
-        data,
-    })
+        data: Instruction::Initialize {
+            submit_interval,
+            min_submission_value,
+            max_submission_value,
+            description,
+        }
+        .pack_into_vec(),
+    }
 }
 
-/// Creates a `add_oralce` instruction
+/// Creates a `add_oracle` instruction
 pub fn add_oracle(
     program_id: &Pubkey,
     oracle_pubkey: &Pubkey,
@@ -159,12 +157,7 @@ pub fn add_oracle(
     aggregator_owner_pubkey: &Pubkey,
     index: u8,
     description: [u8; 32]
-) -> Result<SolInstruction, ProgramError> {
-    let data = Instruction::AddOracle {
-        index,
-        description,
-    }
-    .try_to_vec().unwrap();
+) -> SolInstruction {
 
     let accounts = vec![
         AccountMeta::new(*oracle_pubkey, false),
@@ -174,35 +167,38 @@ pub fn add_oracle(
         AccountMeta::new_readonly(*aggregator_owner_pubkey, true),
     ];
 
-    Ok(SolInstruction {
+    SolInstruction {
         program_id: *program_id,
         accounts,
-        data,
-    })
+        data: Instruction::AddOracle {
+            index,
+            description,
+        }
+        .pack_into_vec(),
+    }
 }
 
-/// Creates a `remove_oralce` instruction
+/// Creates a `remove_oracle` instruction
 pub fn remove_oracle(
     program_id: &Pubkey,
     aggregator_pubkey: &Pubkey,
     aggregator_owner_pubkey: &Pubkey,
     index: u8,
-) -> Result<SolInstruction, ProgramError> {
-    let data = Instruction::RemoveOracle {
-        index,
-    }
-    .try_to_vec().unwrap();
+) -> SolInstruction {
 
     let accounts = vec![
         AccountMeta::new(*aggregator_pubkey, false),
         AccountMeta::new_readonly(*aggregator_owner_pubkey, true),
     ];
 
-    Ok(SolInstruction {
+    SolInstruction {
         program_id: *program_id,
         accounts,
-        data,
-    })
+        data: Instruction::RemoveOracle {
+            index,
+        }
+        .pack_into_vec(),
+    }
 }
 
 /// Creates a `submit` instruction
@@ -212,12 +208,8 @@ pub fn submit(
     oracle_pubkey: &Pubkey,
     oracle_owner_pubkey: &Pubkey,
     submission: u64,
-) -> Result<SolInstruction, ProgramError> {
-    let data = Instruction::Submit {
-        submission,
-    }
-    .try_to_vec().unwrap();
-
+) -> SolInstruction {
+   
     let accounts = vec![
         AccountMeta::new(*aggregator_pubkey, false),
         AccountMeta::new_readonly(sysvar::clock::id(), false),
@@ -225,11 +217,14 @@ pub fn submit(
         AccountMeta::new_readonly(*oracle_owner_pubkey, true),
     ];
 
-    Ok(SolInstruction {
+    SolInstruction {
         program_id: *program_id,
         accounts,
-        data,
-    })
+        data: Instruction::Submit {
+            submission,
+        }
+        .pack_into_vec(),
+    }
 }
 
 
