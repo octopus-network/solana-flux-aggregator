@@ -50,8 +50,6 @@ pub enum Instruction {
     /// 3. `[writable]` The aggregator
     /// 4. `[signer]` The aggregator owner
     AddOracle {
-        /// the oracle's index of the aggregator
-        index: u8,
         /// Is usually  the oracle name
         description: [u8; 32],
     },
@@ -62,8 +60,8 @@ pub enum Instruction {
     /// 0. `[writable]` The aggregator.
     /// 1. `[signer]` The aggregator onwer.
     RemoveOracle {
-        /// the oracle's index of the aggregator
-        index: u8,
+        /// the oracle pubkey
+        pubkey: [u8; 32],
     },
 
     /// Called by oracles when they have witnessed a need to update
@@ -155,7 +153,6 @@ pub fn add_oracle(
     oracle_owner_pubkey: &Pubkey,
     aggregator_pubkey: &Pubkey,
     aggregator_owner_pubkey: &Pubkey,
-    index: u8,
     description: [u8; 32]
 ) -> SolInstruction {
 
@@ -171,7 +168,6 @@ pub fn add_oracle(
         program_id: *program_id,
         accounts,
         data: Instruction::AddOracle {
-            index,
             description,
         }
         .pack_into_vec(),
@@ -183,7 +179,7 @@ pub fn remove_oracle(
     program_id: &Pubkey,
     aggregator_pubkey: &Pubkey,
     aggregator_owner_pubkey: &Pubkey,
-    index: u8,
+    pubkey: &Pubkey,
 ) -> SolInstruction {
 
     let accounts = vec![
@@ -195,7 +191,7 @@ pub fn remove_oracle(
         program_id: *program_id,
         accounts,
         data: Instruction::RemoveOracle {
-            index,
+            pubkey: pubkey.to_bytes(),
         }
         .pack_into_vec(),
     }

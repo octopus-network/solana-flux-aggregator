@@ -25,10 +25,10 @@ pub enum Error {
     /// Not found aggregator
     #[error("Not found aggregator")]
     NotFoundAggregator,
-    /// Oracle added
-    #[error("Oracle added")]
-    OracleAdded,
-    /// Oracle added
+    /// Oracle exist
+    #[error("Oracle exist")]
+    OracleExist,
+    /// Owner mismatch
     #[error("Owner mismatch")]
     OwnerMismatch,
     /// Not found oracle
@@ -46,12 +46,9 @@ pub enum Error {
     /// Aggregator key not match
     #[error("Aggregator key not match")]
     AggregatorKeyNotMatch,
-    /// Index have been used
-    #[error("Index have been used")]
-    IndexHaveBeenUsed,
-    /// Index out of range
-    #[error("Index out of range")]
-    IndexOutOfRange,
+    /// Max oralces reached
+    #[error("Max oracles reached")]
+    MaxOralcesReached,
 }
 
 impl PrintProgramError for Error {
@@ -64,15 +61,14 @@ impl PrintProgramError for Error {
             Error::AlreadyInUse => msg!("Error: Already in use"),
             Error::NotRentExempt => msg!("Error: No rent exempt"),
             Error::NotFoundAggregator => msg!("Error: no found aggregator"),
-            Error::OracleAdded => msg!("Error: Oracle added"),
+            Error::OracleExist => msg!("Error: Oracle exist"),
             Error::OwnerMismatch => msg!("Error: Owner mismatch"),
             Error::NotFoundOracle => msg!("Error: Not found oracle"),
             Error::SubmissonValueOutOfRange => msg!("Error: Submisson value out of range"),
             Error::SubmissonCooling => msg!("Submission cooling"),
             Error::InsufficientWithdrawable => msg!("Insufficient withdrawable"),
             Error::AggregatorKeyNotMatch => msg!("Aggregator key not match"),
-            Error::IndexHaveBeenUsed => msg!("Index have been used"),
-            Error::IndexOutOfRange => msg!("Index out of range"),
+            Error::MaxOralcesReached => msg!("Max oracles reached"),
         }
     }
 }

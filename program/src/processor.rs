@@ -2,8 +2,8 @@
 
 use crate::{
     error::Error,
-    instruction::{Instruction, MAX_ORACLES, PAYMENT_AMOUNT},
-    state::{Aggregator, Oracle, Submission},
+    instruction::{Instruction, PAYMENT_AMOUNT},
+    state::{Aggregator, Oracle},
 };
 
 use solana_program::{
@@ -43,13 +43,13 @@ impl Processor {
                     description,
                 )
             }
-            Instruction::AddOracle { index, description } => {
+            Instruction::AddOracle { description } => {
                 msg!("Instruction: AddOracle");
-                Self::process_add_oracle(accounts, index, description)
+                Self::process_add_oracle(accounts, description)
             }
-            Instruction::RemoveOracle { index } => {
+            Instruction::RemoveOracle { pubkey } => {
                 msg!("Instruction: RemoveOracle");
-                Self::process_remove_oracle(accounts, index)
+                Self::process_remove_oracle(accounts, pubkey)
             }
             Instruction::Submit { submission } => {
                 msg!("Instruction: Submit");
@@ -108,7 +108,6 @@ impl Processor {
     /// Processes an [AddOracle](enum.Instruction.html) instruction.
     pub fn process_add_oracle(
         accounts: &[AccountInfo],
-        index: u8,
         description: [u8; 32],
     ) -> ProgramResult {
         let account_info_iter = &mut accounts.iter();
@@ -140,20 +139,20 @@ impl Processor {
         // sys clock
         let clock = &Clock::from_account_info(clock_sysvar_info)?;
 
-        let mut submissions = aggregator.submissions;
-
-        if index >= MAX_ORACLES as u8 {
-            return Err(Error::IndexOutOfRange.into());
+        let mut inserted = false;
+        for s in aggregator.submissions.iter_mut() {
+            if Pubkey::new_from_array(s.oracle) == Pubkey::default() {
+                inserted = true;
+                s.oracle = oracle_info.key.to_bytes();
+            } else if &Pubkey::new_from_array(s.oracle) == oracle_info.key {
+                return Err(Error::OracleExist.into());
+            }
         }
 
-        let submission = &mut submissions[index as usize];
-        if Pubkey::new_from_array(submission.oracle) == Pubkey::default() {
-            submission.oracle = oracle_info.key.to_bytes();
-        } else {
-            return Err(Error::IndexHaveBeenUsed.into());
+        if !inserted {
+            return Err(Error::MaxOralcesReached.into());
         }
 
-        aggregator.submissions = submissions;
         Aggregator::pack(aggregator, &mut aggregator_info.data.borrow_mut())?;
 
         oracle.next_submit_time = clock.unix_timestamp;
@@ -169,7 +168,10 @@ impl Processor {
     }
 
     /// Processes an [RemoveOracle](enum.Instruction.html) instruction.
-    pub fn process_remove_oracle(accounts: &[AccountInfo], index: u8) -> ProgramResult {
+    pub fn process_remove_oracle(
+        accounts: &[AccountInfo], 
+        pubkey: [u8; 32],
+    ) -> ProgramResult {
         let account_info_iter = &mut accounts.iter();
         let aggregator_info = next_account_info(account_info_iter)?;
         let owner_info = next_account_info(account_info_iter)?;
@@ -188,18 +190,18 @@ impl Processor {
             return Err(Error::OwnerMismatch.into());
         }
 
-        // remove submission
-        let mut submissions = aggregator.submissions;
-        let index = MAX_ORACLES.min(0.max(index as usize));
+        let mut found = false;
+        for s in aggregator.submissions.iter_mut() {
+            if s.oracle == pubkey {
+                found = true;
+                s.oracle = Pubkey::default().to_bytes();
+            }
+        }
 
-        let submission = &mut submissions[index];
-        if Pubkey::new_from_array(submission.oracle) != Pubkey::default() {
-            *submission = Submission::default();
-        } else {
+        if !found {
             return Err(Error::NotFoundOracle.into());
         }
 
-        aggregator.submissions = submissions;
         Aggregator::pack(aggregator, &mut aggregator_info.data.borrow_mut())?;
 
         Ok(())
@@ -341,7 +343,7 @@ impl Processor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instruction::*;
+    use crate::{instruction::*, state::Submission};
     use solana_program::instruction::Instruction;
     use solana_sdk::account::{
         create_account, create_is_signer_account_infos, Account as SolanaAccount,
@@ -362,10 +364,6 @@ mod tests {
         Processor::process(&instruction.program_id, &account_infos, &instruction.data)
     }
 
-    fn return_error_as_program_error() -> ProgramError {
-        Error::NotFoundAggregator.into()
-    }
-
     fn rent_sysvar() -> SolanaAccount {
         create_account(&Rent::default(), 42)
     }
@@ -380,18 +378,6 @@ mod tests {
 
     fn oracle_minimum_balance() -> u64 {
         Rent::default().minimum_balance(Oracle::get_packed_len())
-    }
-
-    #[test]
-    fn test_print_error() {
-        let error = return_error_as_program_error();
-        error.print::<Error>();
-    }
-
-    #[test]
-    #[should_panic(expected = "Custom(3)")]
-    fn test_error_unwrap() {
-        Err::<(), ProgramError>(return_error_as_program_error()).unwrap();
     }
 
     #[test]
@@ -434,8 +420,7 @@ mod tests {
                     1,
                     9999,
                     [1; 32]
-                )
-                .unwrap(),
+                ),
                 vec![
                     &mut rent_sysvar,
                     &mut aggregator_account,
@@ -456,8 +441,7 @@ mod tests {
                 1,
                 9999,
                 [1; 32],
-            )
-            .unwrap(),
+            ),
             vec![
                 &mut rent_sysvar,
                 &mut aggregator_account,
@@ -478,8 +462,7 @@ mod tests {
                     1,
                     9999,
                     [1; 32]
-                )
-                .unwrap(),
+                ),
                 vec![
                     &mut rent_sysvar,
                     &mut aggregator_account,
@@ -525,10 +508,8 @@ mod tests {
                     &oracle_owner_key,
                     &aggregator_key,
                     &aggregator_owner_key,
-                    0,
                     [1; 32]
-                )
-                .unwrap(),
+                ),
                 vec![
                     &mut oracle_account,
                     &mut oracle_owner_account,
@@ -549,8 +530,7 @@ mod tests {
                 1,
                 9999,
                 [1; 32],
-            )
-            .unwrap(),
+            ),
             vec![
                 &mut rent_sysvar,
                 &mut aggregator_account,
@@ -567,10 +547,8 @@ mod tests {
                 &oracle_owner_key,
                 &aggregator_key,
                 &aggregator_owner_key,
-                0,
                 [1; 32],
-            )
-            .unwrap(),
+            ),
             vec![
                 &mut oracle_account,
                 &mut oracle_owner_account,
@@ -591,10 +569,8 @@ mod tests {
                     &oracle_owner_key,
                     &aggregator_key,
                     &aggregator_owner_key,
-                    0,
                     [1; 32]
-                )
-                .unwrap(),
+                ),
                 vec![
                     &mut oracle_account,
                     &mut oracle_owner_account,
@@ -642,8 +618,7 @@ mod tests {
                 1,
                 9999,
                 [1; 32],
-            )
-            .unwrap(),
+            ),
             vec![
                 &mut rent_sysvar,
                 &mut aggregator_account,
@@ -652,7 +627,7 @@ mod tests {
         )
         .unwrap();
 
-        // add oracle (index 0)
+        // add oracle
         do_process_instruction(
             add_oracle(
                 &program_id,
@@ -660,10 +635,8 @@ mod tests {
                 &oracle_owner_key,
                 &aggregator_key,
                 &aggregator_owner_key,
-                0,
                 [1; 32],
-            )
-            .unwrap(),
+            ),
             vec![
                 &mut oracle_account,
                 &mut oracle_owner_account,
@@ -674,18 +647,28 @@ mod tests {
         )
         .unwrap();
 
-        // remove an unexist oracle (index 1)
+        // remove an unexist oracle
         assert_eq!(
             Err(Error::NotFoundOracle.into()),
             do_process_instruction(
-                remove_oracle(&program_id, &aggregator_key, &aggregator_owner_key, 1).unwrap(),
+                remove_oracle(
+                    &program_id, 
+                    &aggregator_key, 
+                    &aggregator_owner_key, 
+                    &Pubkey::default()
+                ),
                 vec![&mut aggregator_account, &mut aggregator_owner_account,]
             )
         );
 
         // will be successful
         do_process_instruction(
-            remove_oracle(&program_id, &aggregator_key, &aggregator_owner_key, 0).unwrap(),
+            remove_oracle(
+                &program_id, 
+                &aggregator_key, 
+                &aggregator_owner_key, 
+                &oracle_key
+            ),
             vec![&mut aggregator_account, &mut aggregator_owner_account],
         )
         .unwrap();
@@ -727,8 +710,7 @@ mod tests {
                 1,
                 9999,
                 [1; 32],
-            )
-            .unwrap(),
+            ),
             vec![
                 &mut rent_sysvar,
                 &mut aggregator_account,
@@ -745,10 +727,8 @@ mod tests {
                 &oracle_owner_key,
                 &aggregator_key,
                 &aggregator_owner_key,
-                0,
                 [1; 32],
-            )
-            .unwrap(),
+            ),
             vec![
                 &mut oracle_account,
                 &mut oracle_owner_account,
@@ -767,8 +747,7 @@ mod tests {
                 &oracle_key,
                 &oracle_owner_key,
                 1,
-            )
-            .unwrap(),
+            ),
             vec![
                 &mut aggregator_account,
                 &mut clock_sysvar,
@@ -788,8 +767,7 @@ mod tests {
                     &oracle_key,
                     &oracle_owner_key,
                     1
-                )
-                .unwrap(),
+                ),
                 vec![
                     &mut aggregator_account,
                     &mut clock_sysvar,
