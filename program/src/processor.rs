@@ -31,6 +31,7 @@ impl Processor {
                 submit_interval,
                 min_submission_value,
                 max_submission_value,
+                submission_decimals,
                 description,
             } => {
                 msg!("Instruction: Initialize");
@@ -40,6 +41,7 @@ impl Processor {
                     submit_interval,
                     min_submission_value,
                     max_submission_value,
+                    submission_decimals,
                     description,
                 )
             }
@@ -69,6 +71,7 @@ impl Processor {
         submit_interval: u32,
         min_submission_value: u64,
         max_submission_value: u64,
+        submission_decimals: u32,
         description: [u8; 32],
     ) -> ProgramResult {
         let account_info_iter = &mut accounts.iter();
@@ -96,6 +99,7 @@ impl Processor {
         aggregator.submit_interval = submit_interval;
         aggregator.min_submission_value = min_submission_value;
         aggregator.max_submission_value = max_submission_value;
+        aggregator.submission_decimals = submission_decimals;
         aggregator.description = description;
         aggregator.is_initialized = true;
         aggregator.owner = owner_info.key.to_bytes();

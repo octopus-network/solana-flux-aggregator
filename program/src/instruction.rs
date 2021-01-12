@@ -37,6 +37,8 @@ pub enum Instruction {
         min_submission_value: u64,
         /// max submission value
         max_submission_value: u64,
+        /// submission decimals
+        submission_decimals: u32,
         /// A short description of what is being reported
         description: [u8; 32],
     },
@@ -124,6 +126,7 @@ pub fn initialize(
     submit_interval: u32,
     min_submission_value: u64,
     max_submission_value: u64,
+    submission_decimals: u32,
     description: [u8; 32],
 ) -> SolInstruction {
     
@@ -140,6 +143,7 @@ pub fn initialize(
             submit_interval,
             min_submission_value,
             max_submission_value,
+            submission_decimals,
             description,
         }
         .pack_into_vec(),

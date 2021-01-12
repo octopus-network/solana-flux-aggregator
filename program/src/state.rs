@@ -18,8 +18,12 @@ pub struct Aggregator {
     pub min_submission_value: u64,
     /// max submission value
     pub max_submission_value: u64,
+    /// submission decimals
+    pub submission_decimals: u32,
     /// description
     pub description: [u8; 32],
+    /// decimals
+    pub decimals: u32,
     /// is initialized
     pub is_initialized: bool,
     /// authority
