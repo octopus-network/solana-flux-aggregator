@@ -135,12 +135,13 @@ cli
   .description("create an aggregator")
   .option("--feedName <string>", "feed pair name")
   .option("--submitInterval <number>", "min wait time between submissions", "6")
+  .option("--submissionDecimals <number>", "submission decimals", "12")
   .option("--minSubmissionValue <number>", "minSubmissionValue", "0")
   .option("--maxSubmissionValue <number>", "maxSubmissionValue", "18446744073709551615")
   .action(async (opts) => {
     const { deployer, wallet, aggregatorProgramAccount: aggregatorProgram } = await AppContext.forAdmin()
 
-    const { feedName, submitInterval, minSubmissionValue, maxSubmissionValue } = opts
+    const { feedName, submitInterval, minSubmissionValue, maxSubmissionValue, submissionDecimals } = opts
 
     const aggregator = new FluxAggregator(wallet, aggregatorProgram.publicKey)
 
@@ -150,6 +151,7 @@ cli
         minSubmissionValue: BigInt(minSubmissionValue),
         maxSubmissionValue: BigInt(maxSubmissionValue),
         description: feedName.substr(0, 32).padEnd(32),
+        submissionDecimals,
         owner: wallet.account
       })
     })

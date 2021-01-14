@@ -54,7 +54,8 @@ yarn solink add-aggregator \
   --feedName btc:usd \
   --submitInterval 6 \
   --minSubmissionValue 0 \
-  --maxSubmissionValue 18446744073709551615
+  --maxSubmissionValue 18446744073709551615 \
+  --submissionDecimals 2
 
 feed initialized, pubkey: 2jReuMRoYi3pKTF8YLnZEvT2bXcw56SdBxvssrVzu41v
 ```
@@ -97,7 +98,8 @@ Start submitting data from a price feed (e.g. coinbase BTC-USDT):
 ```
 yarn solink feed \
   --feedAddress 2jReuMRoYi3pKTF8YLnZEvT2bXcw56SdBxvssrVzu41v \
-  --oracleAddress 4jWLbd2Vm98RrqunVvaSXZuP1AFbgQSM2hAHMvZSdNCu
+  --oracleAddress 4jWLbd2Vm98RrqunVvaSXZuP1AFbgQSM2hAHMvZSdNCu \
+  --pairSymbol BTC/USD
 ```
 
 ## Read price

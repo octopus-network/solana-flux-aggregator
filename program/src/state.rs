@@ -19,11 +19,9 @@ pub struct Aggregator {
     /// max submission value
     pub max_submission_value: u64,
     /// submission decimals
-    pub submission_decimals: u32,
+    pub submission_decimals: u8,
     /// description
     pub description: [u8; 32],
-    /// decimals
-    pub decimals: u32,
     /// is initialized
     pub is_initialized: bool,
     /// authority
@@ -41,7 +39,7 @@ impl IsInitialized for Aggregator {
 impl Sealed for Aggregator {}
 impl Pack for Aggregator {
     // 48 is submission packed length
-    const LEN: usize = 85 + MAX_ORACLES * 48;
+    const LEN: usize = 86 + MAX_ORACLES * 48;
 
     fn pack_into_slice(&self, dst: &mut [u8]) {
         let data = self.try_to_vec().unwrap();

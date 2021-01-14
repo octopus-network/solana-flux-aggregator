@@ -71,7 +71,7 @@ impl Processor {
         submit_interval: u32,
         min_submission_value: u64,
         max_submission_value: u64,
-        submission_decimals: u32,
+        submission_decimals: u8,
         description: [u8; 32],
     ) -> ProgramResult {
         let account_info_iter = &mut accounts.iter();
@@ -86,7 +86,7 @@ impl Processor {
         }
 
         let rent = &Rent::from_account_info(rent_info)?;
-
+      
         let mut aggregator = Aggregator::unpack_unchecked(&aggregator_info.data.borrow())?;
         if aggregator.is_initialized {
             return Err(Error::AlreadyInUse.into());

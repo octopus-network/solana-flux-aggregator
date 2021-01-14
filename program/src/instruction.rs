@@ -38,7 +38,7 @@ pub enum Instruction {
         /// max submission value
         max_submission_value: u64,
         /// submission decimals
-        submission_decimals: u32,
+        submission_decimals: u8,
         /// A short description of what is being reported
         description: [u8; 32],
     },
@@ -126,7 +126,7 @@ pub fn initialize(
     submit_interval: u32,
     min_submission_value: u64,
     max_submission_value: u64,
-    submission_decimals: u32,
+    submission_decimals: u8,
     description: [u8; 32],
 ) -> SolInstruction {
     

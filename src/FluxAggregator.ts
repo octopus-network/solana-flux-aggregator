@@ -21,6 +21,7 @@ export const AggregatorLayout = BufferLayout.struct([
   BufferLayout.blob(4, "submitInterval"),
   uint64("minSubmissionValue"),
   uint64("maxSubmissionValue"),
+  BufferLayout.u8("submissionDecimals"),
   BufferLayout.blob(32, "description"),
   BufferLayout.u8("isInitialized"),
   publicKey('owner'),
@@ -47,6 +48,7 @@ interface InitializeParams {
   submitInterval: number;
   minSubmissionValue: bigint;
   maxSubmissionValue: bigint;
+  submissionDecimals: number;
   description: string;
   owner: Account;
 }
@@ -140,6 +142,7 @@ export default class FluxAggregator extends BaseProgram {
       submitInterval,
       minSubmissionValue,
       maxSubmissionValue,
+      submissionDecimals,
       owner,
     } = params;
 
@@ -151,6 +154,7 @@ export default class FluxAggregator extends BaseProgram {
       BufferLayout.blob(4, "submitInterval"),
       uint64("minSubmissionValue"),
       uint64("maxSubmissionValue"),
+      BufferLayout.u8("submissionDecimals"),
       BufferLayout.blob(32, "description"),
     ]);
 
@@ -162,6 +166,7 @@ export default class FluxAggregator extends BaseProgram {
       submitInterval: buf,
       minSubmissionValue: u64LEBuffer(minSubmissionValue),
       maxSubmissionValue: u64LEBuffer(maxSubmissionValue),
+      submissionDecimals,
       description: Buffer.from(description),
     }, [
       SYSVAR_RENT_PUBKEY,
