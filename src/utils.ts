@@ -78,7 +78,6 @@ export function decodeOracleInfo(accountInfo) {
 
   const oracle = OracleLayout.decode(data)
 
-  oracle.submission = oracle.submission.readBigUInt64LE().toString()
   oracle.nextSubmitTime = oracle.nextSubmitTime.readBigUInt64LE().toString()
   oracle.description = oracle.description.toString()
   oracle.isInitialized = oracle.isInitialized != 0

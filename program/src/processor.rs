@@ -148,6 +148,7 @@ impl Processor {
             if Pubkey::new_from_array(s.oracle) == Pubkey::default() {
                 inserted = true;
                 s.oracle = oracle_info.key.to_bytes();
+                break;
             } else if &Pubkey::new_from_array(s.oracle) == oracle_info.key {
                 return Err(Error::OracleExist.into());
             }
@@ -199,6 +200,7 @@ impl Processor {
             if s.oracle == pubkey {
                 found = true;
                 s.oracle = Pubkey::default().to_bytes();
+                break;
             }
         }
 

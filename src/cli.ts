@@ -186,45 +186,37 @@ cli
 cli
   .command("add-oracle")
   .description("add an oracle to aggregator")
-  .option("--index <number>", "add to index (0-20)")
   .option("--feedAddress <string>", "feed address")
   .option("--oracleName <string>", "oracle name")
   .option("--oracleOwner <string>", "oracle owner address")
   .action(async (opts) => {
     const { wallet, aggregator, deployer } = await AppContext.forAdmin()
 
-    const { index, oracleName, oracleOwner, feedAddress } = opts
-
-    if (!index || index < 0 || index > 21) {
-      error("invalid index. requires (0-20)")
-    }
+    const { oracleName, oracleOwner, feedAddress } = opts
 
     log("add oracle...")
-    const oracle = await deployer.ensure(`oracle[${index}]`, async () => {
-      return aggregator.addOracle({
-        index,
-        owner: new PublicKey(oracleOwner),
-        description: oracleName.substr(0, 32).padEnd(32),
-        aggregator: new PublicKey(feedAddress),
-        aggregatorOwner: wallet.account,
-      })
-    })
+    const oracle = await aggregator.addOracle({
+      owner: new PublicKey(oracleOwner),
+      description: oracleName.substr(0, 32).padEnd(32),
+      aggregator: new PublicKey(feedAddress),
+      aggregatorOwner: wallet.account,
+    });
 
     log(`added oracle. pubkey: ${color(oracle.publicKey.toBase58(), "blue")}`)
   })
 
 cli
   .command("remove-oracle")
-  .option("--index <number>", "remove oracle from index (0-20)")
   .option("--feedAddress <string>", "feed to remove oracle from")
+  .option("--oracleAddress <string>", "oracle address")
   .action(async (opts) => {
-    const { index, feedAddress } = opts
+    const { feedAddress, oracleAddress } = opts
 
     const { aggregator } = await AppContext.forAdmin()
-
+ 
     await aggregator.removeOracle({
       aggregator: new PublicKey(feedAddress),
-      index,
+      oracle: new PublicKey(oracleAddress),
     })
   })
 

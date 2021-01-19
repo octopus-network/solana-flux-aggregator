@@ -85,7 +85,6 @@ Next we create a new oracle to the feed we've created previously, and set its ow
 
 ```
 yarn solink add-oracle \
-  --index 0 \
   --feedAddress 2jReuMRoYi3pKTF8YLnZEvT2bXcw56SdBxvssrVzu41v \
   --oracleName solink-test \
   --oracleOwner FosLwbttPgkEDv36VJLU3wwXcBSSoUGkh7dyZPsXNtT4
@@ -115,8 +114,8 @@ yarn solink feed-poll \
 
 ```
 yarn solink remove-oracle \
-  --index 0 \
-  --feedAddress 2jReuMRoYi3pKTF8YLnZEvT2bXcw56SdBxvssrVzu41v
+  --feedAddress 2jReuMRoYi3pKTF8YLnZEvT2bXcw56SdBxvssrVzu41v \
+  --oracleAddress 4jWLbd2Vm98RrqunVvaSXZuP1AFbgQSM2hAHMvZSdNCu
 ```
 
 ## Test Token

@@ -29,7 +29,6 @@ export const AggregatorLayout = BufferLayout.struct([
 ]);
 
 export const OracleLayout = BufferLayout.struct([
-  uint64("submission"),
   uint64("nextSubmitTime"),
   BufferLayout.blob(32, "description"),
   BufferLayout.u8("isInitialized"),
@@ -58,8 +57,6 @@ interface InitializeInstructionParams extends InitializeParams {
 }
 
 interface AddOracleParams {
-  // oracle index
-  index: number;
   owner: PublicKey;
   description: string;
   aggregator: PublicKey;
@@ -72,9 +69,8 @@ interface AddOracleInstructionParams extends AddOracleParams {
 }
 
 interface RemoveOracleParams {
-  // oracle index
-  index: number;
   aggregator: PublicKey;
+  oracle: PublicKey;
   // To prove you are the aggregator owner
   authority?: Account;
 }
@@ -200,7 +196,6 @@ export default class FluxAggregator extends BaseProgram {
 
   private addOracleInstruction(params: AddOracleInstructionParams): TransactionInstruction {
     const {
-      index,
       oracle,
       owner,
       description,
@@ -210,13 +205,11 @@ export default class FluxAggregator extends BaseProgram {
 
     const layout = BufferLayout.struct([
       BufferLayout.u8("instruction"),
-      BufferLayout.u8("index"),
       BufferLayout.blob(32, "description"),
     ]);
 
     return this.instructionEncode(layout, {
       instruction: 1, // add oracle instruction
-      index,
       description: Buffer.from(description),
     }, [
       { write: oracle },
@@ -235,19 +228,19 @@ export default class FluxAggregator extends BaseProgram {
 
   private removeOracleInstruction(params: RemoveOracleInstructionParams): TransactionInstruction {
     const {
-      index,
       authority,
       aggregator,
+      oracle,
     } = params;
 
     const layout = BufferLayout.struct([
       BufferLayout.u8("instruction"),
-      BufferLayout.u8("index"),
+      BufferLayout.blob(32, "oracle"),
     ]);
 
     return this.instructionEncode(layout, {
       instruction: 2, // remove oracle instruction
-      index,
+      oracle: oracle.toBuffer()
     }, [
       //
       { write: aggregator },
