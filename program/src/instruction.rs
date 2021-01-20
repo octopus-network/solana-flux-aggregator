@@ -24,9 +24,9 @@ pub const PAYMENT_AMOUNT: u64 = 10;
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, PartialEq)]
 pub enum Instruction {
     /// Initializes a new Aggregator
-    /// 
+    ///
     /// Accounts expected by this instruction:
-    /// 
+    ///
     /// 0. `[]` Rent sysvar
     /// 1. `[writable]` The aggregator.
     /// 2. `[signer]` The aggregator's authority.
@@ -44,7 +44,7 @@ pub enum Instruction {
     },
 
     /// Add an oracle
-    /// 
+    ///
     /// Accounts expected by this instruction:
     /// 0. `[writable]` The oracle
     /// 1. `[]` The oracle owner
@@ -57,7 +57,7 @@ pub enum Instruction {
     },
 
     /// Remove an oracle
-    /// 
+    ///
     /// Accounts expected by this instruction:
     /// 0. `[writable]` The aggregator.
     /// 1. `[signer]` The aggregator onwer.
@@ -67,7 +67,7 @@ pub enum Instruction {
     },
 
     /// Called by oracles when they have witnessed a need to update
-    /// 
+    ///
     /// Accounts expected by this instruction:
     /// 0. `[writable]` The aggregator(key).
     /// 1. `[]` Clock sysvar
@@ -79,7 +79,7 @@ pub enum Instruction {
     },
 
     /// Oracle withdraw token
-    /// 
+    ///
     /// Accounts expected by this instruction:
     /// 0. `[writable]` The aggregator (key).
     /// 1. `[writable]` The faucet (which token transfer from)
@@ -129,7 +129,7 @@ pub fn initialize(
     submission_decimals: u8,
     description: [u8; 32],
 ) -> SolInstruction {
-    
+
     let accounts = vec![
         AccountMeta::new_readonly(sysvar::rent::id(), false),
         AccountMeta::new(*aggregator_pubkey, false),
@@ -209,7 +209,7 @@ pub fn submit(
     oracle_owner_pubkey: &Pubkey,
     submission: u64,
 ) -> SolInstruction {
-   
+
     let accounts = vec![
         AccountMeta::new(*aggregator_pubkey, false),
         AccountMeta::new_readonly(sysvar::clock::id(), false),
@@ -247,16 +247,17 @@ mod tests {
             submit_interval: 6u32,
             min_submission_value: 0u64,
             max_submission_value: 9999u64,
+            submission_decimals: 6,
             description: [1u8; 32],
         };
 
         assert_eq!(
             test_instruction.try_to_vec().unwrap(),
             vec![
-                0, 
-                6, 0, 0, 0, 
-                0, 0, 0, 0, 0, 0, 0, 0, 
-                15, 39, 0, 0, 0, 0, 0, 0, 
+                0,
+                6, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0,
+                15, 39, 0, 0, 0, 0, 0, 0,
                 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
             ],
         );
@@ -266,24 +267,25 @@ mod tests {
     fn state_deserialize_invalid() {
         assert_eq!(
             Instruction::unpack_from_slice(&[
-                0, 
-                6, 0, 0, 0, 
-                0, 0, 0, 0, 0, 0, 0, 0, 
-                15, 39, 0, 0, 0, 0, 0, 0, 
+                0,
+                6, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0,
+                15, 39, 0, 0, 0, 0, 0, 0,
                 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
             ]),
             Ok(Instruction::Initialize {
                 submit_interval: 6u32,
                 min_submission_value: 0u64,
                 max_submission_value: 9999u64,
+                submission_decimals: 6,
                 description: [1u8; 32],
             }),
         );
 
         assert_eq!(
             Instruction::unpack_from_slice(&[
-                4, 
-                15, 39, 0, 0, 0, 0, 0, 0, 
+                4,
+                15, 39, 0, 0, 0, 0, 0, 0,
                 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
             ]),
             Ok(Instruction::Withdraw {

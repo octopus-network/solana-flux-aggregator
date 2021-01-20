@@ -86,7 +86,7 @@ impl Processor {
         }
 
         let rent = &Rent::from_account_info(rent_info)?;
-      
+
         let mut aggregator = Aggregator::unpack_unchecked(&aggregator_info.data.borrow())?;
         if aggregator.is_initialized {
             return Err(Error::AlreadyInUse.into());
@@ -173,7 +173,7 @@ impl Processor {
 
     /// Processes an [RemoveOracle](enum.Instruction.html) instruction.
     pub fn process_remove_oracle(
-        accounts: &[AccountInfo], 
+        accounts: &[AccountInfo],
         pubkey: [u8; 32],
     ) -> ProgramResult {
         let account_info_iter = &mut accounts.iter();
@@ -423,6 +423,7 @@ mod tests {
                     6,
                     1,
                     9999,
+                    6,
                     [1; 32]
                 ),
                 vec![
@@ -444,6 +445,7 @@ mod tests {
                 6,
                 1,
                 9999,
+                6,
                 [1; 32],
             ),
             vec![
@@ -465,6 +467,7 @@ mod tests {
                     6,
                     1,
                     9999,
+                    6,
                     [1; 32]
                 ),
                 vec![
@@ -533,6 +536,7 @@ mod tests {
                 6,
                 1,
                 9999,
+                6,
                 [1; 32],
             ),
             vec![
@@ -621,6 +625,7 @@ mod tests {
                 6,
                 1,
                 9999,
+                6,
                 [1; 32],
             ),
             vec![
@@ -656,9 +661,9 @@ mod tests {
             Err(Error::NotFoundOracle.into()),
             do_process_instruction(
                 remove_oracle(
-                    &program_id, 
-                    &aggregator_key, 
-                    &aggregator_owner_key, 
+                    &program_id,
+                    &aggregator_key,
+                    &aggregator_owner_key,
                     &Pubkey::default()
                 ),
                 vec![&mut aggregator_account, &mut aggregator_owner_account,]
@@ -668,9 +673,9 @@ mod tests {
         // will be successful
         do_process_instruction(
             remove_oracle(
-                &program_id, 
-                &aggregator_key, 
-                &aggregator_owner_key, 
+                &program_id,
+                &aggregator_key,
+                &aggregator_owner_key,
                 &oracle_key
             ),
             vec![&mut aggregator_account, &mut aggregator_owner_account],
@@ -713,6 +718,7 @@ mod tests {
                 6,
                 1,
                 9999,
+                6,
                 [1; 32],
             ),
             vec![
