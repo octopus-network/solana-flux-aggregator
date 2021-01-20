@@ -1,22 +1,10 @@
 {
   "aggregatorProgram": {
-    "pubkey": "HFHbe2uckzz9Xh633mbJPYcukzpyJRVcwL87fUrVddiq",
-    "secret": "46046129c833cdf42b541357fc7c0667a369ca8ab7aed7f4ce653c710d3650b2f163e380895f9fa347f75834f3be6196919bacc3c769338b7f15d6a4ee1e814a"
+    "pubkey": "DErMSHHbyVisohfM6miHaxstZEAxD5GBq2RrkdcXEasy",
+    "secret": "7c6b942c8925723a53c2290a754b90ed173b49a0f2a4dbf1c6e593621dde535bb5d898b49db565cfb30d57e6b69af285ea49d33b2c30c50ca540f60384a57778"
   },
   "btc:usd": {
-    "pubkey": "2jReuMRoYi3pKTF8YLnZEvT2bXcw56SdBxvssrVzu41v",
-    "secret": "9feec34f2157b6deefc08c2132b321fb379b65fe6901d07e9a4df69fe8bad75a19b9f4ea63a705fc4b822d70015680c6f1cb0d4df30548a673604680760a9d11"
-  },
-  "tokenOwner": {
-    "pubkey": "4MPE1P9k6vCcPwfSmMPx4258PhW8maN8afUc82c2LTvG",
-    "secret": "d06e46b91e189e2ee24f11668acd635df02a64019996f1b7e005a5fec906fe"
-  },
-  "tokenAccount": {
-    "pubkey": "A4xJLiJrtVigYjJ2NRUrcFza7eB7Y8XeGZh5KmkoxDs1",
-    "secret": "19c19ac59d379f3d669b6b5957bbf99060b2b15dd4d266b3f76e164f665c512986bc739598f0e5f0252b3e2fbd0c54a9a08b295a4c5c2901b91c6e3d1e8ace5c"
-  },
-  "oracle[0]": {
-    "pubkey": "4jWLbd2Vm98RrqunVvaSXZuP1AFbgQSM2hAHMvZSdNCu",
-    "secret": "83369edeffc2f5b870da6595cd7a916723566a1307e722f29e7db6bc8fd01b643776a09078c98230dd23a3aeab3e870e7fb6651ddae3cbf772afa4eba4735e16"
+    "pubkey": "6MiGDVX51qwq2qoyvWCTQHEeCUvKqgheSjRwJicxYjRr",
+    "secret": "015554435c6abd136dfca88d45563cc0845fe638c52571089e0826c29a84ebc34f98b4cef8149643ffdb8e106fd2273800d301987d1011a736686a16fa06b471"
   }
 }
