@@ -6,6 +6,7 @@ use crate::{
     state::{Aggregator, Oracle},
 };
 
+use borsh::BorshDeserialize;
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
     clock::Clock,
@@ -24,7 +25,7 @@ pub struct Processor {}
 impl Processor {
     /// Processes an [Instruction](enum.Instruction.html).
     pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> ProgramResult {
-        let instruction = Instruction::unpack_from_slice(input)?;
+        let instruction = Instruction::try_from_slice(input).map_err(|_err| ProgramError::InvalidInstructionData )?;
 
         match instruction {
             Instruction::Initialize {
