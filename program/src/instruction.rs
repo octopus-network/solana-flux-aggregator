@@ -6,8 +6,6 @@
 use solana_program::{
     sysvar,
     pubkey::Pubkey,
-    program_error::ProgramError,
-    program_pack::{Pack, Sealed},
     instruction::{AccountMeta, Instruction as SolInstruction},
 };
 
@@ -95,27 +93,6 @@ pub enum Instruction {
     },
 }
 
-impl Sealed for Instruction {}
-impl Pack for Instruction {
-    const LEN: usize = 54;
-
-    fn pack_into_slice(&self, dst: &mut [u8]) {
-        let data = self.pack_into_vec();
-        dst[..data.len()].copy_from_slice(&data);
-    }
-
-    fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
-        let mut mut_src: &[u8] = src;
-        Self::deserialize(&mut mut_src).map_err(|_| ProgramError::InvalidInstructionData)
-    }
-}
-
-impl Instruction {
-    fn pack_into_vec(&self) -> Vec<u8> {
-        self.try_to_vec().expect("try_to_vec")
-    }
-}
-
 /// Below is for test
 
 /// Creates a `intialize` instruction.
@@ -145,8 +122,7 @@ pub fn initialize(
             max_submission_value,
             submission_decimals,
             description,
-        }
-        .pack_into_vec(),
+        }.try_to_vec().expect("try_to_vec")
     }
 }
 
@@ -173,8 +149,7 @@ pub fn add_oracle(
         accounts,
         data: Instruction::AddOracle {
             description,
-        }
-        .pack_into_vec(),
+        }.try_to_vec().expect("try_to_vec"),
     }
 }
 
@@ -196,8 +171,7 @@ pub fn remove_oracle(
         accounts,
         data: Instruction::RemoveOracle {
             pubkey: pubkey.to_bytes(),
-        }
-        .pack_into_vec(),
+        }.try_to_vec().expect("try_to_vec"),
     }
 }
 
@@ -222,8 +196,7 @@ pub fn submit(
         accounts,
         data: Instruction::Submit {
             submission,
-        }
-        .pack_into_vec(),
+        }.try_to_vec().expect("try_to_vec"),
     }
 }
 
@@ -234,14 +207,6 @@ mod tests {
     use super::*;
     use crate::borsh_utils;
     use anyhow::Result;
-
-    #[test]
-    fn test_get_packed_len() {
-        assert_eq!(
-            Instruction::get_packed_len(),
-            borsh_utils::get_packed_len::<Instruction>()
-        )
-    }
 
     #[test]
     fn test_serialize_bytes() -> Result<()> {
@@ -265,15 +230,17 @@ mod tests {
 
     #[test]
     fn state_deserialize_invalid() -> Result<()> {
+        let instruction = Instruction::try_from_slice(&hex::decode("0022112211bbaabbaabbaabbaaddccddccddccddcc06ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")?)?;
+
         assert_eq!(
-            Instruction::unpack_from_slice(&hex::decode("0022112211bbaabbaabbaabbaaddccddccddccddcc06ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")?),
-            Ok(Instruction::Initialize {
+            instruction,
+            Instruction::Initialize {
                 submit_interval: 0x11221122,
                 min_submission_value: 0xaabbaabbaabbaabb,
                 max_submission_value: 0xccddccddccddccdd,
                 submission_decimals: 6,
                 description: [0xff; 32],
-            }),
+            },
         );
 
         // assert_eq!(
