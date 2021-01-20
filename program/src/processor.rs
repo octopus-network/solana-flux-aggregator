@@ -200,7 +200,7 @@ impl Processor {
         for s in aggregator.submissions.iter_mut() {
             if s.oracle == pubkey {
                 found = true;
-                s.oracle = Pubkey::default().to_bytes();
+                *s = Submission::default();
                 break;
             }
         }
