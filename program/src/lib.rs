@@ -10,12 +10,13 @@ pub mod error;
 pub mod instruction;
 pub mod processor;
 pub mod state;
+pub mod avg;
 
 #[cfg(not(feature = "no-entrypoint"))]
 pub mod entrypoint;
 
 use error::Error;
-use state::Aggregator;
+use state::{Aggregator, Submission};
 
 /// Get median value from the aggregator account
 pub fn get_median(aggregator_info: &AccountInfo) -> Result<u64, ProgramError> {
@@ -24,15 +25,23 @@ pub fn get_median(aggregator_info: &AccountInfo) -> Result<u64, ProgramError> {
         return Err(Error::NotFoundAggregator.into());
     }
 
-    let submissions = aggregator.submissions;
+    submissions_median(&aggregator.submissions)
+}
 
+/// return the median of oracle submissions
+pub fn submissions_median(submissions: &[Submission]) -> Result<u64, ProgramError> {
     let mut values = vec![];
 
-    // if the submission value is 0, maybe the oracle is not initialized
-    for s in &submissions {
-        if s.value != 0 {
+    // filter out uninitialized submissions
+    for s in submissions {
+        if s.time > 0 {
             values.push(s.value);
         }
+    }
+
+    // error if no valid values
+    if values.is_empty() {
+        return Err(Error::NoValidValue.into());
     }
 
     // get median value

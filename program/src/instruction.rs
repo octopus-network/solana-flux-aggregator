@@ -204,9 +204,9 @@ pub fn submit(
 #[cfg(test)]
 mod tests {
     use hex;
-    use super::*;
-    use crate::borsh_utils;
     use anyhow::Result;
+    use borsh::{BorshSerialize, BorshDeserialize};
+    use super::Instruction;
 
     #[test]
     fn test_serialize_bytes() -> Result<()> {

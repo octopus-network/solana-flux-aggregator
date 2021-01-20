@@ -49,6 +49,9 @@ pub enum Error {
     /// Max oralces reached
     #[error("Max oracles reached")]
     MaxOralcesReached,
+    /// No valid value submitted
+    #[error("No valid value submitted")]
+    NoValidValue,
 }
 
 impl PrintProgramError for Error {
@@ -69,6 +72,7 @@ impl PrintProgramError for Error {
             Error::InsufficientWithdrawable => msg!("Insufficient withdrawable"),
             Error::AggregatorKeyNotMatch => msg!("Aggregator key not match"),
             Error::MaxOralcesReached => msg!("Max oracles reached"),
+            Error::NoValidValue => msg!("No valid value submitted"),
         }
     }
 }

@@ -1,10 +1,6 @@
 //! Program state processor
 
-use crate::{
-    error::Error,
-    instruction::{Instruction, PAYMENT_AMOUNT},
-    state::{Aggregator, Oracle},
-};
+use crate::{error::Error, instruction::{Instruction, PAYMENT_AMOUNT}, state::{Aggregator, Oracle, Submission}};
 
 use borsh::BorshDeserialize;
 use solana_program::{
@@ -271,8 +267,16 @@ impl Processor {
             return Err(Error::SubmissonCooling.into());
         }
 
+        let now = clock.unix_timestamp;
         oracle.withdrawable += PAYMENT_AMOUNT;
-        oracle.next_submit_time = clock.unix_timestamp + aggregator.submit_interval as i64;
+        oracle.next_submit_time = now + aggregator.submit_interval as i64;
+
+        let cumulative = &mut aggregator.cumulative;
+        if (now as u64) - cumulative.updated_at  >= 1 {
+            if let Ok(median) = super::submissions_median(&aggregator.submissions) {
+                cumulative.update(median, now as u64);
+            }
+        }
 
         // update aggregator
         Aggregator::pack(aggregator, &mut aggregator_info.data.borrow_mut())?;
@@ -350,7 +354,8 @@ impl Processor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{instruction::*, state::Submission};
+    use crate::{avg::TimeCumulative, instruction::*, state::Submission};
+    use hex::encode;
     use solana_program::instruction::Instruction;
     use solana_sdk::account::{
         create_account, create_is_signer_account_infos, Account as SolanaAccount,
@@ -376,7 +381,9 @@ mod tests {
     }
 
     fn clock_sysvar() -> SolanaAccount {
-        create_account(&Clock::default(), 42)
+        let mut clock = Clock::default();
+        clock.unix_timestamp = 6666;
+        create_account(&clock, 42)
     }
 
     fn aggregator_minimum_balance() -> u64 {
@@ -659,7 +666,7 @@ mod tests {
         )
         .unwrap();
 
-        // remove an unexist oracle
+        // remove an oracle that doesn't exist
         assert_eq!(
             Err(Error::NotFoundOracle.into()),
             do_process_instruction(
@@ -667,7 +674,7 @@ mod tests {
                     &program_id,
                     &aggregator_key,
                     &aggregator_owner_key,
-                    &Pubkey::default()
+                    &Pubkey::new(&vec![1u8;32])
                 ),
                 vec![&mut aggregator_account, &mut aggregator_owner_account,]
             )
@@ -759,7 +766,7 @@ mod tests {
                 &aggregator_key,
                 &oracle_key,
                 &oracle_owner_key,
-                1,
+                100,
             ),
             vec![
                 &mut aggregator_account,
@@ -769,6 +776,20 @@ mod tests {
             ],
         )
         .unwrap();
+
+        let aggregator = Aggregator::try_from_slice(&aggregator_account.data).unwrap();
+        assert_eq!(aggregator.cumulative.clone(), TimeCumulative {
+            cumulative: 666600,
+            updated_at: 6666
+        });
+
+        assert_eq!(aggregator.submissions[0].time, 6666);
+        assert_eq!(aggregator.submissions[0].value, 100);
+
+
+        // println!("aggregator: {:#?}", &aggregator.cumulative);
+        // println!("aggregator: {:#?}", aggregator.submissions[0]);
+        // println!("aggregator data: {}", hex::encode(&aggregator_account.data));
 
         // submission cooling
         assert_eq!(

@@ -1,7 +1,7 @@
 //! State transition types
 use borsh::{BorshDeserialize, BorshSchema, BorshSerialize};
 
-use crate::instruction::MAX_ORACLES;
+use crate::{avg::TimeCumulative, instruction::MAX_ORACLES};
 
 use solana_program::{
     clock::UnixTimestamp,
@@ -26,6 +26,10 @@ pub struct Aggregator {
     pub is_initialized: bool,
     /// authority
     pub owner: [u8; 32],
+
+    /// cumulative
+    pub cumulative: TimeCumulative,
+
     /// submissions
     pub submissions: [Submission; MAX_ORACLES],
 }
@@ -39,7 +43,7 @@ impl IsInitialized for Aggregator {
 impl Sealed for Aggregator {}
 impl Pack for Aggregator {
     // 48 is submission packed length
-    const LEN: usize = 86 + MAX_ORACLES * 48;
+    const LEN: usize = 110 + MAX_ORACLES * 48;
 
     fn pack_into_slice(&self, dst: &mut [u8]) {
         let data = self.try_to_vec().unwrap();
@@ -124,11 +128,6 @@ mod tests {
     #[test]
     fn test_get_packed_len() {
         assert_eq!(
-            Aggregator::get_packed_len(),
-            borsh_utils::get_packed_len::<Aggregator>()
-        );
-
-        assert_eq!(
             Oracle::get_packed_len(),
             borsh_utils::get_packed_len::<Oracle>()
         );
@@ -136,6 +135,11 @@ mod tests {
         assert_eq!(
             Submission::get_packed_len(),
             borsh_utils::get_packed_len::<Submission>()
+        );
+
+        assert_eq!(
+            Aggregator::get_packed_len(),
+            borsh_utils::get_packed_len::<Aggregator>()
         );
     }
 
