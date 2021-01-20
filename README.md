@@ -44,7 +44,7 @@ yarn build:program
 ```
 yarn solink deploy-program
 
-deployed aggregator program. program id: HFHbe2uckzz9Xh633mbJPYcukzpyJRVcwL87fUrVddiq
+deployed aggregator program. program id: DErMSHHbyVisohfM6miHaxstZEAxD5GBq2RrkdcXEasy
 ```
 
 Create the `btc:usd` feed (that accepts max and min u64 as valid submission values):
@@ -57,7 +57,7 @@ yarn solink add-aggregator \
   --maxSubmissionValue 18446744073709551615 \
   --submissionDecimals 2
 
-feed initialized, pubkey: 2jReuMRoYi3pKTF8YLnZEvT2bXcw56SdBxvssrVzu41v
+feed initialized, pubkey: 3aTBom2uodyWkuVPiUkwCZ2HiFywdUx9tp7su7U2H4Nx
 ```
 
 ## Adding an oracle
@@ -85,19 +85,19 @@ Next we create a new oracle to the feed we've created previously, and set its ow
 
 ```
 yarn solink add-oracle \
-  --feedAddress 2jReuMRoYi3pKTF8YLnZEvT2bXcw56SdBxvssrVzu41v \
+  --feedAddress 3aTBom2uodyWkuVPiUkwCZ2HiFywdUx9tp7su7U2H4Nx \
   --oracleName solink-test \
   --oracleOwner FosLwbttPgkEDv36VJLU3wwXcBSSoUGkh7dyZPsXNtT4
 
-added oracle. pubkey: 4jWLbd2Vm98RrqunVvaSXZuP1AFbgQSM2hAHMvZSdNCu
+added oracle. pubkey: 7bsB4v6nvHuVC5cWwRheg8opJgmvKVP27pjxiGgoXLoq
 ```
 
 Start submitting data from a price feed (e.g. coinbase BTC-USDT):
 
 ```
 yarn solink feed \
-  --feedAddress 2jReuMRoYi3pKTF8YLnZEvT2bXcw56SdBxvssrVzu41v \
-  --oracleAddress 4jWLbd2Vm98RrqunVvaSXZuP1AFbgQSM2hAHMvZSdNCu \
+  --feedAddress 3aTBom2uodyWkuVPiUkwCZ2HiFywdUx9tp7su7U2H4Nx \
+  --oracleAddress 7bsB4v6nvHuVC5cWwRheg8opJgmvKVP27pjxiGgoXLoq \
   --pairSymbol BTC/USD
 ```
 
@@ -107,15 +107,15 @@ Poll the latest aggregated (median) value from a feed:
 
 ```
 yarn solink feed-poll \
-  --feedAddress 2jReuMRoYi3pKTF8YLnZEvT2bXcw56SdBxvssrVzu41v
+  --feedAddress 3aTBom2uodyWkuVPiUkwCZ2HiFywdUx9tp7su7U2H4Nx
 ```
 
 ## Remove oracle
 
 ```
 yarn solink remove-oracle \
-  --feedAddress 2jReuMRoYi3pKTF8YLnZEvT2bXcw56SdBxvssrVzu41v \
-  --oracleAddress 4jWLbd2Vm98RrqunVvaSXZuP1AFbgQSM2hAHMvZSdNCu
+  --feedAddress 3aTBom2uodyWkuVPiUkwCZ2HiFywdUx9tp7su7U2H4Nx \
+  --oracleAddress 7bsB4v6nvHuVC5cWwRheg8opJgmvKVP27pjxiGgoXLoq
 ```
 
 ## Test Token
