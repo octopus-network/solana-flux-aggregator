@@ -110,10 +110,7 @@ impl Processor {
     }
 
     /// Processes an [AddOracle](enum.Instruction.html) instruction.
-    pub fn process_add_oracle(
-        accounts: &[AccountInfo],
-        description: [u8; 32],
-    ) -> ProgramResult {
+    pub fn process_add_oracle(accounts: &[AccountInfo], description: [u8; 32]) -> ProgramResult {
         let account_info_iter = &mut accounts.iter();
         let oracle_info = next_account_info(account_info_iter)?;
         let oracle_owner_info = next_account_info(account_info_iter)?;
@@ -173,10 +170,7 @@ impl Processor {
     }
 
     /// Processes an [RemoveOracle](enum.Instruction.html) instruction.
-    pub fn process_remove_oracle(
-        accounts: &[AccountInfo],
-        pubkey: [u8; 32],
-    ) -> ProgramResult {
+    pub fn process_remove_oracle(accounts: &[AccountInfo], pubkey: [u8; 32]) -> ProgramResult {
         let account_info_iter = &mut accounts.iter();
         let aggregator_info = next_account_info(account_info_iter)?;
         let owner_info = next_account_info(account_info_iter)?;
@@ -197,7 +191,7 @@ impl Processor {
 
         let mut found = false;
         for s in aggregator.submissions.iter_mut() {
-            if s.oracle == pubkey {
+            if s.oracle != Pubkey::default().to_bytes() && s.oracle == pubkey {
                 found = true;
                 s.oracle = Pubkey::default().to_bytes();
                 break;
@@ -678,7 +672,7 @@ mod tests {
                 &program_id,
                 &aggregator_key,
                 &aggregator_owner_key,
-                &oracle_key
+                &oracle_key,
             ),
             vec![&mut aggregator_account, &mut aggregator_owner_account],
         )

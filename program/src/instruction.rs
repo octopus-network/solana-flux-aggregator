@@ -4,11 +4,11 @@
 #![allow(dead_code)]
 
 use solana_program::{
-    sysvar,
-    pubkey::Pubkey,
+    instruction::{AccountMeta, Instruction as SolInstruction},
     program_error::ProgramError,
     program_pack::{Pack, Sealed},
-    instruction::{AccountMeta, Instruction as SolInstruction},
+    pubkey::Pubkey,
+    sysvar,
 };
 
 // use std::convert::TryInto;
@@ -129,7 +129,6 @@ pub fn initialize(
     submission_decimals: u8,
     description: [u8; 32],
 ) -> SolInstruction {
-
     let accounts = vec![
         AccountMeta::new_readonly(sysvar::rent::id(), false),
         AccountMeta::new(*aggregator_pubkey, false),
@@ -157,9 +156,8 @@ pub fn add_oracle(
     oracle_owner_pubkey: &Pubkey,
     aggregator_pubkey: &Pubkey,
     aggregator_owner_pubkey: &Pubkey,
-    description: [u8; 32]
+    description: [u8; 32],
 ) -> SolInstruction {
-
     let accounts = vec![
         AccountMeta::new(*oracle_pubkey, false),
         AccountMeta::new(*oracle_owner_pubkey, false),
@@ -171,10 +169,7 @@ pub fn add_oracle(
     SolInstruction {
         program_id: *program_id,
         accounts,
-        data: Instruction::AddOracle {
-            description,
-        }
-        .pack_into_vec(),
+        data: Instruction::AddOracle { description }.pack_into_vec(),
     }
 }
 
@@ -185,7 +180,6 @@ pub fn remove_oracle(
     aggregator_owner_pubkey: &Pubkey,
     pubkey: &Pubkey,
 ) -> SolInstruction {
-
     let accounts = vec![
         AccountMeta::new(*aggregator_pubkey, false),
         AccountMeta::new_readonly(*aggregator_owner_pubkey, true),
@@ -209,7 +203,6 @@ pub fn submit(
     oracle_owner_pubkey: &Pubkey,
     submission: u64,
 ) -> SolInstruction {
-
     let accounts = vec![
         AccountMeta::new(*aggregator_pubkey, false),
         AccountMeta::new_readonly(sysvar::clock::id(), false),
@@ -220,20 +213,16 @@ pub fn submit(
     SolInstruction {
         program_id: *program_id,
         accounts,
-        data: Instruction::Submit {
-            submission,
-        }
-        .pack_into_vec(),
+        data: Instruction::Submit { submission }.pack_into_vec(),
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use hex;
     use super::*;
     use crate::borsh_utils;
     use anyhow::Result;
+    use hex;
 
     #[test]
     fn test_get_packed_len() {

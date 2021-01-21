@@ -9,3 +9,5 @@ dist
 .pnp.js
 .env
 deploy.json
+program/Cargo.lock
+integration-example/Cargo.lock
