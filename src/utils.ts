@@ -1,25 +1,22 @@
-import { Connection, PublicKey } from "@solana/web3.js"
+import { Connection, PublicKey } from "@solana/web3.js";
 
-import { AggregatorLayout, SubmissionLayout, OracleLayout } from "./FluxAggregator"
+import {
+  AggregatorLayout,
+  SubmissionLayout,
+  OracleLayout,
+} from "./FluxAggregator";
 
-import { solana, Wallet, NetworkName, Deployer } from "solray"
+import { Wallet, Deployer } from "solray";
 
-export function getMedian(submissions: number[]): number {
-  const values = submissions
-    .filter((s: any) => s.value != 0)
-    .map((s: any) => s.value)
-    .sort((a, b) => a - b)
+export function getMedian(submissions: bigint[]): bigint {
+  const values = submissions.sort((a, b) => (a - b > 0n ? 1 : -1));
 
-  let len = values.length
+  const len = values.length;
   if (len == 0) {
-    return 0
-  } else if (len == 1) {
-    return values[0]
-  } else {
-    let i = len / 2
-    return len % 2 == 0 ? (values[i] + values[i-1])/2 : values[i]
+    return BigInt(0);
   }
-
+  const i = Math.floor(len / 2);
+  return len % 2 == 0 ? (values[i] + values[i - 1]) / 2n : values[i];
 }
 
 export function sleep(ms: number): Promise<void> {

@@ -1,11 +1,15 @@
-import { PublicKey, Account, Wallet } from "solray"
-import WebSocket from "ws"
+import { PublicKey, Account, Wallet } from "solray";
 
-import { decodeOracleInfo, sleep } from "./utils"
+import { decodeOracleInfo, getMedian, sleep } from "./utils";
 
-import FluxAggregator from "./FluxAggregator"
+import FluxAggregator from "./FluxAggregator";
+import { OKEXPriceFeed } from "./priceFeeds/OKEXPriceFeed";
+import { CoinbasePriceFeed } from "./priceFeeds/CoinbasePriceFeed";
+import { BinancePriceFeed } from "./priceFeeds/BinancePriceFeed";
+import { BitstampPriceFeed } from "./priceFeeds/BitstampPriceFeed";
+import { FTXPriceFeed } from "./priceFeeds/FTXPriceFeed";
 
-const submitInterval = 10 * 1000
+const submitInterval = 10 * 1000;
 
 interface StartParams {
   oracle: PublicKey;
@@ -16,7 +20,7 @@ interface StartParams {
   programId: PublicKey;
 }
 
-export async function start(params: StartParams) {
+export async function start(params: StartParams): Promise<void> {
   const {
     oracle,
     oracleOwner,
@@ -24,71 +28,74 @@ export async function start(params: StartParams) {
     pairSymbol,
     payerWallet,
     programId,
-  } = params
+  } = params;
 
-  console.log("connecting to wss://ws-feed.pro.coinbase.com ()")
-  const ws = new WebSocket("wss://ws-feed.pro.coinbase.com")
-
-  ws.on("open", () => {
-    console.log(`${pairSymbol} price feed connected`)
-    ws.send(JSON.stringify({
-      "type": "subscribe",
-      "product_ids": [
-        pairSymbol.replace("/", "-").toUpperCase(),
-      ],
-      "channels": [
-        "ticker"
-      ]
-    }))
-  })
+  const priceFeeds = [
+    new CoinbasePriceFeed(),
+    new BinancePriceFeed(),
+    new BitstampPriceFeed(),
+    new OKEXPriceFeed(),
+    new FTXPriceFeed(),
+  ];
 
   // in penny
-  let curPriceCent = 0
+  let curMedianPriceInCent = BigInt(0);
+  const pricesInCent: [number, number, number, number, number] = [
+    0,
+    0,
+    0,
+    0,
+    0,
+  ];
 
-  ws.on("message", async (data) => {
-    const json = JSON.parse(data)
-    if (!json || !json.price) {
-      return console.log(data)
-    }
+  for (const [index, priceFeed] of priceFeeds.entries()) {
+    priceFeed.start(pairSymbol);
 
-    curPriceCent = Math.floor(json.price * 100)
+    priceFeed.onNewPrice((price) => {
+      pricesInCent[index] = price;
+    });
 
-    console.log("current price:", json.price)
-  })
+    priceFeed.onClosed(async () => {
+      await sleep(60);
+      priceFeed.start(pairSymbol);
+    });
+  }
 
-  ws.on("close", (err) => {
-    console.error(`websocket closed: ${err}`)
-    process.exit(1)
-  })
+  const program = new FluxAggregator(payerWallet, programId);
 
-  const program = new FluxAggregator(payerWallet, programId)
-
-  console.log(await program.oracleInfo(oracle))
-  console.log({ owner: oracleOwner.publicKey.toString() })
+  console.log(await program.oracleInfo(oracle));
 
   while (true) {
-    if (curPriceCent == 0) {
-      await sleep(1000)
+    curMedianPriceInCent = getMedian(
+      pricesInCent.map((value) => BigInt(value)),
+    );
+    if (curMedianPriceInCent == BigInt(0)) {
+      await sleep(1000);
+      continue;
     }
+    console.log("current prices", pricesInCent);
+    console.log("current median price", curMedianPriceInCent);
 
     try {
       await program.submit({
         aggregator: feed,
         oracle,
-        submission: BigInt(curPriceCent),
+        submission: curMedianPriceInCent,
         owner: oracleOwner,
-      })
-    } catch(err) {
-      console.log(err)
+      });
+
+      console.log("submit success!");
+
+      void payerWallet.conn.getAccountInfo(oracle).then((accountInfo) => {
+        if (accountInfo != null) {
+          console.log("oracle info:", decodeOracleInfo(accountInfo));
+        }
+      });
+    } catch (err) {
+      console.log(err);
     }
 
-    console.log("submit success!")
-
-    payerWallet.conn.getAccountInfo(oracle).then((accountInfo) => {
-      console.log("oracle info:", decodeOracleInfo(accountInfo))
-    })
-
-    console.log("wait for cooldown success!")
-    await sleep(submitInterval)
+    console.log("wait for cooldown success!");
+    await sleep(submitInterval);
   }
 }
