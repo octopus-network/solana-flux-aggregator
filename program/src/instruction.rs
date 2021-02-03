@@ -95,20 +95,20 @@ pub enum Instruction {
     },
 }
 
-impl Sealed for Instruction {}
-impl Pack for Instruction {
-    const LEN: usize = 54;
+// impl Sealed for Instruction {}
+// impl Pack for Instruction {
+//     const LEN: usize = 54;
 
-    fn pack_into_slice(&self, dst: &mut [u8]) {
-        let data = self.pack_into_vec();
-        dst[..data.len()].copy_from_slice(&data);
-    }
+//     fn pack_into_slice(&self, dst: &mut [u8]) {
+//         let data = self.pack_into_vec();
+//         dst[..data.len()].copy_from_slice(&data);
+//     }
 
-    fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
-        let mut mut_src: &[u8] = src;
-        Self::deserialize(&mut mut_src).map_err(|_| ProgramError::InvalidInstructionData)
-    }
-}
+//     fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
+//         let mut mut_src: &[u8] = src;
+//         Self::deserialize(&mut mut_src).map_err(|_| ProgramError::InvalidInstructionData)
+//     }
+// }
 
 impl Instruction {
     fn pack_into_vec(&self) -> Vec<u8> {
@@ -116,154 +116,123 @@ impl Instruction {
     }
 }
 
-/// Below is for test
+// /// Creates a `add_oracle` instruction
+// pub fn add_oracle(
+//     program_id: &Pubkey,
+//     oracle_pubkey: &Pubkey,
+//     oracle_owner_pubkey: &Pubkey,
+//     aggregator_pubkey: &Pubkey,
+//     aggregator_owner_pubkey: &Pubkey,
+//     description: [u8; 32],
+// ) -> SolInstruction {
+//     let accounts = vec![
+//         AccountMeta::new(*oracle_pubkey, false),
+//         AccountMeta::new(*oracle_owner_pubkey, false),
+//         AccountMeta::new_readonly(sysvar::clock::id(), false),
+//         AccountMeta::new(*aggregator_pubkey, false),
+//         AccountMeta::new_readonly(*aggregator_owner_pubkey, true),
+//     ];
 
-/// Creates a `intialize` instruction.
-pub fn initialize(
-    program_id: &Pubkey,
-    aggregator_pubkey: &Pubkey,
-    aggregator_owner_pubkey: &Pubkey,
-    submit_interval: u32,
-    min_submission_value: u64,
-    max_submission_value: u64,
-    submission_decimals: u8,
-    description: [u8; 32],
-) -> SolInstruction {
-    let accounts = vec![
-        AccountMeta::new_readonly(sysvar::rent::id(), false),
-        AccountMeta::new(*aggregator_pubkey, false),
-        AccountMeta::new_readonly(*aggregator_owner_pubkey, true),
-    ];
+//     SolInstruction {
+//         program_id: *program_id,
+//         accounts,
+//         data: Instruction::AddOracle { description }.pack_into_vec(),
+//     }
+// }
 
-    SolInstruction {
-        program_id: *program_id,
-        accounts,
-        data: Instruction::Initialize {
-            submit_interval,
-            min_submission_value,
-            max_submission_value,
-            submission_decimals,
-            description,
-        }
-        .pack_into_vec(),
-    }
-}
+// /// Creates a `remove_oracle` instruction
+// pub fn remove_oracle(
+//     program_id: &Pubkey,
+//     aggregator_pubkey: &Pubkey,
+//     aggregator_owner_pubkey: &Pubkey,
+//     pubkey: &Pubkey,
+// ) -> SolInstruction {
+//     let accounts = vec![
+//         AccountMeta::new(*aggregator_pubkey, false),
+//         AccountMeta::new_readonly(*aggregator_owner_pubkey, true),
+//     ];
 
-/// Creates a `add_oracle` instruction
-pub fn add_oracle(
-    program_id: &Pubkey,
-    oracle_pubkey: &Pubkey,
-    oracle_owner_pubkey: &Pubkey,
-    aggregator_pubkey: &Pubkey,
-    aggregator_owner_pubkey: &Pubkey,
-    description: [u8; 32],
-) -> SolInstruction {
-    let accounts = vec![
-        AccountMeta::new(*oracle_pubkey, false),
-        AccountMeta::new(*oracle_owner_pubkey, false),
-        AccountMeta::new_readonly(sysvar::clock::id(), false),
-        AccountMeta::new(*aggregator_pubkey, false),
-        AccountMeta::new_readonly(*aggregator_owner_pubkey, true),
-    ];
+//     SolInstruction {
+//         program_id: *program_id,
+//         accounts,
+//         data: Instruction::RemoveOracle {
+//             pubkey: pubkey.to_bytes(),
+//         }
+//         .pack_into_vec(),
+//     }
+// }
 
-    SolInstruction {
-        program_id: *program_id,
-        accounts,
-        data: Instruction::AddOracle { description }.pack_into_vec(),
-    }
-}
+// /// Creates a `submit` instruction
+// pub fn submit(
+//     program_id: &Pubkey,
+//     aggregator_pubkey: &Pubkey,
+//     oracle_pubkey: &Pubkey,
+//     oracle_owner_pubkey: &Pubkey,
+//     submission: u64,
+// ) -> SolInstruction {
+//     let accounts = vec![
+//         AccountMeta::new(*aggregator_pubkey, false),
+//         AccountMeta::new_readonly(sysvar::clock::id(), false),
+//         AccountMeta::new(*oracle_pubkey, false),
+//         AccountMeta::new_readonly(*oracle_owner_pubkey, true),
+//     ];
 
-/// Creates a `remove_oracle` instruction
-pub fn remove_oracle(
-    program_id: &Pubkey,
-    aggregator_pubkey: &Pubkey,
-    aggregator_owner_pubkey: &Pubkey,
-    pubkey: &Pubkey,
-) -> SolInstruction {
-    let accounts = vec![
-        AccountMeta::new(*aggregator_pubkey, false),
-        AccountMeta::new_readonly(*aggregator_owner_pubkey, true),
-    ];
-
-    SolInstruction {
-        program_id: *program_id,
-        accounts,
-        data: Instruction::RemoveOracle {
-            pubkey: pubkey.to_bytes(),
-        }
-        .pack_into_vec(),
-    }
-}
-
-/// Creates a `submit` instruction
-pub fn submit(
-    program_id: &Pubkey,
-    aggregator_pubkey: &Pubkey,
-    oracle_pubkey: &Pubkey,
-    oracle_owner_pubkey: &Pubkey,
-    submission: u64,
-) -> SolInstruction {
-    let accounts = vec![
-        AccountMeta::new(*aggregator_pubkey, false),
-        AccountMeta::new_readonly(sysvar::clock::id(), false),
-        AccountMeta::new(*oracle_pubkey, false),
-        AccountMeta::new_readonly(*oracle_owner_pubkey, true),
-    ];
-
-    SolInstruction {
-        program_id: *program_id,
-        accounts,
-        data: Instruction::Submit { submission }.pack_into_vec(),
-    }
-}
+//     SolInstruction {
+//         program_id: *program_id,
+//         accounts,
+//         data: Instruction::Submit { submission }.pack_into_vec(),
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use solana_program::{
+        entrypoint::ProgramResult,
+    };
     use crate::borsh_utils;
-    use anyhow::Result;
     use hex;
 
-    #[test]
-    fn test_get_packed_len() {
-        assert_eq!(
-            Instruction::get_packed_len(),
-            borsh_utils::get_packed_len::<Instruction>()
-        )
-    }
+    // #[test]
+    // fn test_get_packed_len() {
+    //     assert_eq!(
+    //         Instruction::get_packed_len(),
+    //         borsh_utils::get_packed_len::<Instruction>()
+    //     )
+    // }
 
     #[test]
-    fn test_serialize_bytes() -> Result<()> {
-        let test_instruction = Instruction::Initialize {
-            submit_interval: 0x11221122,
-            min_submission_value: 0xaabbaabbaabbaabb,
-            max_submission_value: 0xccddccddccddccdd,
-            submission_decimals: 6,
-            description: [0xff; 32],
-        };
+    fn test_serialize_bytes() -> ProgramResult {
+        // let test_instruction = Instruction::Initialize {
+        //     submit_interval: 0x11221122,
+        //     min_submission_value: 0xaabbaabbaabbaabb,
+        //     max_submission_value: 0xccddccddccddccdd,
+        //     submission_decimals: 6,
+        //     description: [0xff; 32],
+        // };
 
-        let bytes = test_instruction.try_to_vec()?;
+        // let bytes = test_instruction.try_to_vec()?;
 
-        assert_eq!(
-            "0022112211bbaabbaabbaabbaaddccddccddccddcc06ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-            hex::encode(bytes),
-        );
+        // assert_eq!(
+        //     "0022112211bbaabbaabbaabbaaddccddccddccddcc06ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        //     hex::encode(bytes),
+        // );
 
         Ok(())
     }
 
     #[test]
-    fn state_deserialize_invalid() -> Result<()> {
-        assert_eq!(
-            Instruction::unpack_from_slice(&hex::decode("0022112211bbaabbaabbaabbaaddccddccddccddcc06ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")?),
-            Ok(Instruction::Initialize {
-                submit_interval: 0x11221122,
-                min_submission_value: 0xaabbaabbaabbaabb,
-                max_submission_value: 0xccddccddccddccdd,
-                submission_decimals: 6,
-                description: [0xff; 32],
-            }),
-        );
+    fn state_deserialize_invalid() -> ProgramResult {
+        // assert_eq!(
+        //     Instruction::unpack_from_slice(&hex::decode("0022112211bbaabbaabbaabbaaddccddccddccddcc06ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")?),
+        //     Ok(Instruction::Initialize {
+        //         submit_interval: 0x11221122,
+        //         min_submission_value: 0xaabbaabbaabbaabb,
+        //         max_submission_value: 0xccddccddccddccdd,
+        //         submission_decimals: 6,
+        //         description: [0xff; 32],
+        //     }),
+        // );
 
         // assert_eq!(
         //     Instruction::unpack_from_slice(&[
