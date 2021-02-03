@@ -150,9 +150,9 @@ cli
         submitInterval: parseInt(submitInterval),
         minSubmissionValue: BigInt(minSubmissionValue),
         maxSubmissionValue: BigInt(maxSubmissionValue),
-        description: feedName.substr(0, 32).padEnd(32),
+        description: feedName,
         submissionDecimals,
-        owner: wallet.account
+        owner: wallet.account,
       })
     })
 
@@ -213,7 +213,7 @@ cli
     const { feedAddress, oracleAddress } = opts
 
     const { aggregator } = await AppContext.forAdmin()
- 
+
     await aggregator.removeOracle({
       aggregator: new PublicKey(feedAddress),
       oracle: new PublicKey(oracleAddress),

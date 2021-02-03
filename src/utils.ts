@@ -94,7 +94,9 @@ export async function walletFromEnv(key: string, conn: Connection): Promise<Wall
     throw new Error(`Set ${key} in .env to be a mnemonic`)
   }
 
-  return Wallet.fromMnemonic(mnemonic, conn)
+  const wallet = await Wallet.fromMnemonic(mnemonic, conn)
+  console.log("using wallet:", wallet.address)
+  return wallet
 }
 
 export async function openDeployer(): Promise<Deployer> {

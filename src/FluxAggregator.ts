@@ -17,6 +17,10 @@ import {
 // @ts-ignore
 // import BufferLayout from "buffer-layout";
 
+import { schema } from "./schema"
+import * as encoding from "./schema"
+import { deserialize, serialize } from "borsh"
+
 export const AggregatorLayout = BufferLayout.struct([
   BufferLayout.blob(4, "submitInterval"),
   uint64("minSubmissionValue"),
@@ -132,43 +136,16 @@ export default class FluxAggregator extends BaseProgram {
   }
 
   private initializeInstruction(params: InitializeInstructionParams): TransactionInstruction {
-    let {
-      aggregator,
-      description,
-      submitInterval,
-      minSubmissionValue,
-      maxSubmissionValue,
-      submissionDecimals,
-      owner,
-    } = params;
+    let { aggregator, owner } = params
 
-    // FIXME: hmm... should this throw error or what?
-    description = description.substr(0, 32).toUpperCase().padEnd(32)
+    const input = encoding.Initialize.serialize(params)
+    // console.log(input.toString("hex"))
 
-    const layout = BufferLayout.struct([
-      BufferLayout.u8("instruction"),
-      BufferLayout.blob(4, "submitInterval"),
-      uint64("minSubmissionValue"),
-      uint64("maxSubmissionValue"),
-      BufferLayout.u8("submissionDecimals"),
-      BufferLayout.blob(32, "description"),
-    ]);
-
-    const buf = Buffer.allocUnsafe(4);
-    buf.writeUInt32LE(submitInterval);
-
-    return this.instructionEncode(layout, {
-      instruction: 0, // initialize instruction
-      submitInterval: buf,
-      minSubmissionValue: u64LEBuffer(minSubmissionValue),
-      maxSubmissionValue: u64LEBuffer(maxSubmissionValue),
-      submissionDecimals,
-      description: Buffer.from(description),
-    }, [
+    return this.instruction(input, [
       SYSVAR_RENT_PUBKEY,
       { write: aggregator },
-      owner
-    ]);
+      owner,
+    ])
   }
 
   public async addOracle(params: AddOracleParams): Promise<Account> {
