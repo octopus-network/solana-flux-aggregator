@@ -1,6 +1,8 @@
 //! Program state processor
 
-use crate::{error::Error, instruction::{Instruction, PAYMENT_AMOUNT}, state::{Aggregator, AggregatorConfig, Oracle}};
+use std::default;
+
+use crate::{error::Error, instruction::{Instruction, PAYMENT_AMOUNT}, state::{Aggregator, AggregatorConfig, Oracle, Round}};
 
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
@@ -9,7 +11,7 @@ use solana_program::{
     msg,
     program::invoke_signed,
     program_error::ProgramError,
-    program_pack::Pack,
+    program_pack::{IsInitialized},
     pubkey::Pubkey,
     sysvar::{rent::Rent, Sysvar},
 };
@@ -29,6 +31,10 @@ impl <'a, 'b>Accounts<'a, 'b> {
 
     fn get_rent(&self, i: usize) -> Result<Rent, ProgramError> {
         Rent::from_account_info(self.get(i)?)
+    }
+
+    fn get_clock(&self, i: usize) -> Result<Clock, ProgramError> {
+        Clock::from_account_info(self.get(i)?)
     }
 }
 
@@ -108,12 +114,128 @@ impl <'a>RemoveOracleContext<'a> {
 
         let oracle = Oracle::load_initialized(self.oracle)?;
         if oracle.aggregator != self.aggregator.key.to_bytes() {
-            return Err(Error::OwnerMismatch)?;
+            return Err(Error::AggregatorMismatch)?;
         }
 
         // Zero out the oracle account memory. This allows reuse or reclaim.
         // Note: will wipe out withdrawable balance on this oracle. Too bad.
         Oracle::default().save(self.oracle)?;
+
+        Ok(())
+    }
+}
+
+struct SubmitContext<'a> {
+    clock: Clock,
+    aggregator: &'a AccountInfo<'a>,
+    oracle: &'a AccountInfo<'a>,
+    oracle_owner: &'a AccountInfo<'a>, // signed
+
+    // NOTE: 5.84942*10^11 years even if 1 sec per round. don't bother with handling wrapparound.
+    round_id: u64,
+    value: u64,
+}
+
+impl <'a>SubmitContext<'a> {
+    fn process(&self) -> ProgramResult {
+        let mut aggregator = Aggregator::load_initialized(self.aggregator)?;
+        let mut oracle = Oracle::load_initialized(self.oracle)?;
+
+        if !self.oracle_owner.is_signer {
+            return Err(ProgramError::MissingRequiredSignature);
+        }
+
+        if oracle.aggregator != self.aggregator.key.to_bytes() {
+            return Err(Error::AggregatorMismatch)?;
+        }
+
+        // oracle starts a new round
+        if self.round_id == aggregator.current_round.id + 1 {
+            self.start_new_round(&mut aggregator, &mut oracle)?;
+        }
+
+        // only allowed to submit in the current round (or a new round that just
+        // got started)
+        if self.round_id != aggregator.current_round.id {
+            return Err(Error::InvalidRoundID)?;
+        }
+
+        self.submit(&mut aggregator, &oracle)?;
+
+        // credit oracle for submission
+        oracle.withdrawable = aggregator.config.reward_amount;
+
+        aggregator.save(self.aggregator)?;
+        oracle.save(self.oracle)?;
+
+        Ok(())
+    }
+
+    /// push oracle answer to the current round. update answer if min submissions
+    /// had been satisfied.
+    fn submit(&self, aggregator: &mut Aggregator, oracle: &Oracle) -> ProgramResult {
+        let now = self.clock.unix_timestamp as u64;
+
+        let (i, submission) = aggregator.current_round.submissions.iter_mut().enumerate().find(|(i, s)| {
+            // either finds a new spot to put the submission, or find a spot
+            // that the oracle previously submitted to.
+            return !s.is_initialized() || s.oracle == oracle.owner;
+        }).ok_or(Error::MaxSubmissionsReached)?;
+
+        let count = i + 1;
+
+        if count > aggregator.config.max_submissions as usize {
+            return Err(Error::MaxSubmissionsReached)?;
+        }
+
+        if submission.is_initialized() {
+            return Err(Error::OracleAlreadySubmitted)?;
+        }
+
+        submission.updated_at = now;
+        submission.value = self.value;
+        submission.oracle = self.oracle.key.to_bytes();
+
+        if count < aggregator.config.min_submissions as usize {
+            // not enough submissions to update answer. return now.
+            return Ok(());
+        }
+
+        let new_submission = *submission;
+        // update answer if the new round reached min_submissions
+        let round = &aggregator.current_round;
+        let answer = &mut aggregator.answer;
+
+        if round.id != answer.round_id {
+            // a new round had just been resolved. copy the current round's submissions over
+            answer.round_id = round.id;
+            answer.created_at = now;
+            answer.updated_at = now;
+            answer.submissions = round.submissions;
+        } else {
+            answer.updated_at = now;
+            answer.submissions[i] = new_submission;
+        }
+
+        Ok(())
+    }
+
+    fn start_new_round(&self, aggregator: &mut  Aggregator, oracle: &mut Oracle) -> ProgramResult {
+        let now = self.clock.unix_timestamp as u64;
+
+        if oracle.allow_start_round <= aggregator.current_round.id {
+            return Err(Error::OracleNewRoundCooldown)?;
+        }
+
+        // zero the submissions of the current round
+        aggregator.current_round = Round {
+            id: self.round_id,
+            started_at: now,
+            ..Round::default()
+        };
+
+        // oracle can start new round after `1 + restart_delay` rounds
+        oracle.allow_start_round = self.round_id + aggregator.config.restart_delay + 1;
 
         Ok(())
     }
@@ -156,8 +278,19 @@ impl Processor {
                     oracle: accounts.get(2)?,
                 }.process()
             },
+            Instruction::Submit { round_id, value } => {
+                SubmitContext {
+                    clock: accounts.get_clock(0)?,
+                    aggregator: accounts.get(1)?,
+                    oracle: accounts.get(2)?,
+                    oracle_owner: accounts.get(3)?,
+
+                    round_id,
+                    value
+                }.process()
+            },
             _ => {
-                Ok(())
+                Err(ProgramError::InvalidInstructionData)
             }
             // Instruction::Submit { submission } => {
             //     msg!("Instruction: Submit");
@@ -169,75 +302,6 @@ impl Processor {
             // }
         }
     }
-
-    // /// Processes an [Submit](enum.Instruction.html) instruction.
-    // pub fn process_submit(accounts: &[AccountInfo], submission: u64) -> ProgramResult {
-    //     let account_info_iter = &mut accounts.iter();
-    //     let aggregator_info = next_account_info(account_info_iter)?;
-    //     let clock_sysvar_info = next_account_info(account_info_iter)?;
-    //     let oracle_info = next_account_info(account_info_iter)?;
-    //     let oracle_owner_info = next_account_info(account_info_iter)?;
-
-    //     let mut aggregator = Aggregator::unpack_unchecked(&aggregator_info.data.borrow())?;
-    //     if !aggregator.is_initialized {
-    //         return Err(Error::NotFoundAggregator.into());
-    //     }
-
-    //     if submission < aggregator.min_submission_value
-    //         || submission > aggregator.max_submission_value
-    //     {
-    //         return Err(Error::SubmissonValueOutOfRange.into());
-    //     }
-
-    //     if !oracle_owner_info.is_signer {
-    //         return Err(ProgramError::MissingRequiredSignature);
-    //     }
-
-    //     let mut oracle = Oracle::unpack_unchecked(&oracle_info.data.borrow())?;
-    //     if !oracle.is_initialized {
-    //         return Err(Error::NotFoundOracle.into());
-    //     }
-
-    //     if &Pubkey::new_from_array(oracle.owner) != oracle_owner_info.key {
-    //         return Err(Error::OwnerMismatch.into());
-    //     }
-
-    //     if &Pubkey::new_from_array(oracle.aggregator) != aggregator_info.key {
-    //         return Err(Error::AggregatorKeyNotMatch.into());
-    //     }
-
-    //     let clock = &Clock::from_account_info(clock_sysvar_info)?;
-
-    //     // check whether the aggregator owned this oracle
-    //     let mut found = false;
-    //     for s in aggregator.submissions.iter_mut() {
-    //         if &Pubkey::new_from_array(s.oracle) == oracle_info.key {
-    //             s.value = submission;
-    //             s.time = clock.unix_timestamp;
-    //             found = true;
-    //             break;
-    //         }
-    //     }
-
-    //     if !found {
-    //         return Err(Error::NotFoundOracle.into());
-    //     }
-
-    //     if oracle.next_submit_time > clock.unix_timestamp {
-    //         return Err(Error::SubmissonCooling.into());
-    //     }
-
-    //     oracle.withdrawable += PAYMENT_AMOUNT;
-    //     oracle.next_submit_time = clock.unix_timestamp + aggregator.submit_interval as i64;
-
-    //     // update aggregator
-    //     Aggregator::pack(aggregator, &mut aggregator_info.data.borrow_mut())?;
-
-    //     // update oracle
-    //     Oracle::pack(oracle, &mut oracle_info.data.borrow_mut())?;
-
-    //     Ok(())
-    // }
 
     // /// Processes an [Withdraw](enum.Instruction.html) instruction
     // pub fn process_withdraw(
@@ -407,11 +471,9 @@ mod tests {
             &program_id,
             instruction::Instruction::Initialize {
                 config: AggregatorConfig{
-                    submit_interval: 10,
-                    min_submission_value: 0,
-                    max_submission_value: 100,
-                    submission_decimals: 8,
+                    decimals: 8,
                     description: [0u8; 32],
+                    ..AggregatorConfig::default()
                 }
             },
             vec![

@@ -45,41 +45,51 @@ pub enum Error {
     InsufficientWithdrawable,
     /// Aggregator key not match
     #[error("Aggregator key not match")]
-    AggregatorKeyNotMatch,
-    /// Max oralces reached
-    #[error("Max oracles reached")]
-    MaxOralcesReached,
+    AggregatorMismatch,
+
+    #[error("Invalid round id")]
+    InvalidRoundID,
+
+    #[error("Cannot start new round until cooldown")]
+    OracleNewRoundCooldown,
+
+    #[error("Max number of submissions reached for this round")]
+    MaxSubmissionsReached,
+
+    #[error("Each oracle may only submit once per round")]
+    OracleAlreadySubmitted,
 }
 
-impl PrintProgramError for Error {
-    fn print<E>(&self)
-    where
-        E: 'static + std::error::Error + DecodeError<E> + PrintProgramError + FromPrimitive,
-    {
-        match self {
-            Error::InvalidInstruction => msg!("Error: Invalid instruction"),
-            Error::AlreadyInUse => msg!("Error: Already in use"),
-            Error::NotRentExempt => msg!("Error: No rent exempt"),
-            Error::NotFoundAggregator => msg!("Error: no found aggregator"),
-            Error::OracleExist => msg!("Error: Oracle exist"),
-            Error::OwnerMismatch => msg!("Error: Owner mismatch"),
-            Error::NotFoundOracle => msg!("Error: Not found oracle"),
-            Error::SubmissonValueOutOfRange => msg!("Error: Submisson value out of range"),
-            Error::SubmissonCooling => msg!("Submission cooling"),
-            Error::InsufficientWithdrawable => msg!("Insufficient withdrawable"),
-            Error::AggregatorKeyNotMatch => msg!("Aggregator key not match"),
-            Error::MaxOralcesReached => msg!("Max oracles reached"),
-        }
-    }
-}
+// impl PrintProgramError for Error {
+//     fn print<E>(&self)
+//     where
+//         E: 'static + std::error::Error + DecodeError<E> + PrintProgramError + FromPrimitive,
+//     {
+//         match self {
+//             Error::InvalidInstruction => msg!("Error: Invalid instruction"),
+//             Error::AlreadyInUse => msg!("Error: Already in use"),
+//             Error::NotRentExempt => msg!("Error: No rent exempt"),
+//             Error::NotFoundAggregator => msg!("Error: no found aggregator"),
+//             Error::OracleExist => msg!("Error: Oracle exist"),
+//             Error::OwnerMismatch => msg!("Error: Owner mismatch"),
+//             Error::NotFoundOracle => msg!("Error: Not found oracle"),
+//             Error::SubmissonValueOutOfRange => msg!("Error: Submisson value out of range"),
+//             Error::SubmissonCooling => msg!("Submission cooling"),
+//             Error::InsufficientWithdrawable => msg!("Insufficient withdrawable"),
+//             Error::AggregatorMismatch => msg!("Aggregator key not match"),
+//             Error::MaxOralcesReached => msg!("Max oracles reached"),
+//         }
+//     }
+// }
 
 impl From<Error> for ProgramError {
     fn from(e: Error) -> Self {
         ProgramError::Custom(e as u32)
     }
 }
-impl<T> DecodeError<T> for Error {
-    fn type_of() -> &'static str {
-        "Error"
-    }
-}
+
+// impl<T> DecodeError<T> for Error {
+//     fn type_of() -> &'static str {
+//         "Error"
+//     }
+// }

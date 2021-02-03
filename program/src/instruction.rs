@@ -27,16 +27,9 @@ pub enum Instruction {
     /// Remove an oracle
     RemoveOracle,
 
-    /// Called by oracles when they have witnessed a need to update
-    ///
-    /// Accounts expected by this instruction:
-    /// 0. `[writable]` The aggregator(key).
-    /// 1. `[]` Clock sysvar
-    /// 2. `[writable]` The oracle key.
-    /// 3. `[signer]` The oracle owner.
     Submit {
-        /// the updated data that the oracle is submitting
-        submission: u64,
+        round_id: u64,
+        value: u64,
     },
 
     /// Oracle withdraw token

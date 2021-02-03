@@ -4,23 +4,27 @@ use borsh::{BorshDeserialize, BorshSchema, BorshSerialize};
 use crate::instruction::MAX_ORACLES;
 use crate::borsh_state::{InitBorshState, BorshState};
 
-use solana_program::{
-    clock::UnixTimestamp,
-    program_pack::IsInitialized,
-};
+use solana_program::{program_pack::IsInitialized};
 
   #[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, Default, PartialEq)]
   pub struct AggregatorConfig {
-    /// The interval(seconds) of an oracle's each submission
-    pub submit_interval: u32,
-    /// min submission value
-    pub min_submission_value: u64,
-    /// max submission value
-    pub max_submission_value: u64,
-    /// submission decimals
-    pub submission_decimals: u8,
+    /// decimals for this feed
+    pub decimals: u8,
+
     /// description
     pub description: [u8; 32],
+
+    /// oracle cannot start a new round until after `restart_relay` rounds
+    pub restart_delay: u64,
+
+    /// amount of tokens oracles are reward per submission
+    pub reward_amount: u64,
+
+    /// max number of submissions in a round
+    pub max_submissions: u8,
+
+    /// min number of submissions in a round to resolve an answer
+    pub min_submissions: u8,
   }
 
   #[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, Default, PartialEq)]
@@ -65,13 +69,18 @@ impl InitBorshState for Aggregator {}
 #[derive(Clone, Copy, Debug, BorshSerialize, BorshDeserialize, BorshSchema, Default, PartialEq)]
 pub struct Submission {
     /// submit time
-    pub time: UnixTimestamp,
+    pub updated_at: u64,
     /// value
     pub value: u64,
     /// oracle
     pub oracle: [u8; 32],
 }
 
+impl IsInitialized for Submission {
+  fn is_initialized(&self) -> bool {
+      self.updated_at > 0
+  }
+}
 
 /// Oracle data.
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, Default, PartialEq)]
@@ -82,6 +91,10 @@ pub struct Oracle {
     pub is_initialized: bool,
     /// withdrawable
     pub withdrawable: u64,
+
+    /// oracle cannot start a new round until after `restart_relay` rounds
+    pub allow_start_round: u64,
+
     /// aggregator
     pub aggregator: [u8; 32],
     /// owner
