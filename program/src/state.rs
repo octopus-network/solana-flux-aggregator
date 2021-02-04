@@ -42,6 +42,12 @@ pub struct Answer {
     pub submissions: [Submission; MAX_ORACLES],
 }
 
+impl IsInitialized for Answer {
+  fn is_initialized(&self) -> bool {
+      self.created_at > 0
+  }
+}
+
 /// Aggregator data.
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, Default, PartialEq)]
 pub struct Aggregator {

@@ -216,7 +216,8 @@ impl<'a> SubmitContext<'a> {
         let round = &aggregator.current_round;
         let answer = &mut aggregator.answer;
 
-        if round.id != answer.round_id {
+        let new_answer = !answer.submissions[0].is_initialized();
+        if new_answer {
             // a new round had just been resolved. copy the current round's submissions over
             answer.round_id = round.id;
             answer.created_at = now;
@@ -308,71 +309,6 @@ impl Processor {
                                                             // }
         }
     }
-
-    // /// Processes an [Withdraw](enum.Instruction.html) instruction
-    // pub fn process_withdraw(
-    //     accounts: &[AccountInfo],
-    //     amount: u64,
-    //     seed: [u8; 32],
-    // ) -> ProgramResult {
-    //     let account_info_iter = &mut accounts.iter();
-    //     let aggregator_info = next_account_info(account_info_iter)?;
-    //     let faucet_info = next_account_info(account_info_iter)?;
-    //     let receiver_info = next_account_info(account_info_iter)?;
-
-    //     let token_program_info = next_account_info(account_info_iter)?;
-
-    //     let faucet_owner_info = next_account_info(account_info_iter)?;
-    //     let oracle_info = next_account_info(account_info_iter)?;
-
-    //     if !oracle_info.is_signer {
-    //         return Err(ProgramError::MissingRequiredSignature);
-    //     }
-
-    //     let aggregator = Aggregator::unpack_unchecked(&aggregator_info.data.borrow())?;
-    //     if !aggregator.is_initialized {
-    //         return Err(Error::NotFoundAggregator.into());
-    //     }
-
-    //     let mut oracle = Oracle::unpack_unchecked(&oracle_info.data.borrow())?;
-    //     if !oracle.is_initialized {
-    //         return Err(Error::NotFoundOracle.into());
-    //     }
-
-    //     if oracle.withdrawable < amount {
-    //         return Err(Error::InsufficientWithdrawable.into());
-    //     }
-
-    //     msg!("Create transfer instruction...");
-    //     let instruction = spl_token::instruction::transfer(
-    //         token_program_info.key,
-    //         faucet_info.key,
-    //         receiver_info.key,
-    //         faucet_owner_info.key,
-    //         &[],
-    //         amount,
-    //     )?;
-
-    //     msg!("Invoke signed...");
-    //     invoke_signed(
-    //         &instruction,
-    //         &[
-    //             faucet_info.clone(),
-    //             token_program_info.clone(),
-    //             receiver_info.clone(),
-    //             faucet_owner_info.clone(),
-    //         ],
-    //         &[&[seed.as_ref()]],
-    //     )?;
-
-    //     // update oracle
-    //     oracle.withdrawable -= amount;
-    //     let dst0 = oracle_info.data.borrow_mut();
-    //     let dst = &mut oracle_info.data.borrow_mut();
-    //     Oracle::pack(oracle, &mut oracle_info.data.borrow_mut())?;
-
-    //     Ok(())
-    // }
 }
 
 #[cfg(test)]
@@ -401,8 +337,10 @@ mod tests {
         TSysAccount(sysvar::rent::id(), create_account(&Rent::default(), 42))
     }
 
-    fn clock_sysvar() -> Account {
-        create_account(&Clock::default(), 42)
+    fn sysclock(time: i64) -> TSysAccount {
+        let mut clock = Clock::default();
+        clock.unix_timestamp = time;
+        TSysAccount(sysvar::clock::id(), create_account(&clock, 42))
     }
 
     fn rent_exempt_balance(space: usize) -> u64 {
@@ -468,7 +406,7 @@ mod tests {
         }
     }
 
-    fn setup_aggregator(program_id: &Pubkey) -> Result<(TAccount, TAccount), ProgramError> {
+    fn create_aggregator(program_id: &Pubkey) -> Result<(TAccount, TAccount), ProgramError> {
         let mut rent_sysvar = rent_sysvar();
         let mut aggregator = TAccount::new_rent_exempt(
             &program_id,
@@ -483,6 +421,10 @@ mod tests {
                 config: AggregatorConfig {
                     decimals: 8,
                     description: [0u8; 32],
+                    min_submissions: 2,
+                    max_submissions: 2,
+                    restart_delay: 1,
+
                     ..AggregatorConfig::default()
                 },
             },
@@ -497,47 +439,11 @@ mod tests {
         Ok((aggregator, aggregator_owner))
     }
 
-    // fn create_oracle(
-    //     program_id: &Pubkey,
-    //     aggregator: &mut TAccount,
-    //     aggregator_owner: &mut TAccount,
-    // ) -> Result<(TAccount, TAccount), ProgramError> {
-    //     let mut rent_sysvar = rent_sysvar();
-    //     let mut oracle =
-    //         TAccount::new_rent_exempt(&program_id, borsh_utils::get_packed_len::<Oracle>(), false);
-    //     let mut oracle_owner = TAccount::new(&program_id, true);
-
-    //     process(
-    //         &program_id,
-    //         instruction::Instruction::AddOracle {
-    //             description: [0xab; 32],
-    //         },
-    //         vec![
-    //             (&mut rent_sysvar).into(),
-    //             aggregator.into(),
-    //             aggregator_owner.into(),
-    //             (&mut oracle).into(),
-    //             (&mut oracle_owner).into(),
-    //         ]
-    //         .as_slice(),
-    //     )?;
-
-    //     Ok((oracle, oracle_owner))
-    // }
-
-    #[test]
-    fn test_intialize() -> ProgramResult {
-        let program_id = Pubkey::new_unique();
-        setup_aggregator(&program_id)?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_add_and_remove_oracle() -> ProgramResult {
-        let program_id = Pubkey::new_unique();
-
-        let (mut aggregator, mut aggregator_owner) = setup_aggregator(&program_id)?;
-
+    fn create_oracle(
+        program_id: &Pubkey,
+        aggregator: &mut TAccount,
+        aggregator_owner: &mut TAccount,
+    ) -> Result<(TAccount, TAccount), ProgramError> {
         let mut rent_sysvar = rent_sysvar();
         let mut oracle =
             TAccount::new_rent_exempt(&program_id, borsh_utils::get_packed_len::<Oracle>(), false);
@@ -550,13 +456,30 @@ mod tests {
             },
             vec![
                 (&mut rent_sysvar).into(),
-                (&mut aggregator).into(),
-                (&mut aggregator_owner).into(),
+                aggregator.into(),
+                aggregator_owner.into(),
                 (&mut oracle).into(),
                 (&mut oracle_owner).into(),
             ]
             .as_slice(),
         )?;
+
+        Ok((oracle, oracle_owner))
+    }
+
+    #[test]
+    fn test_intialize() -> ProgramResult {
+        let program_id = Pubkey::new_unique();
+        create_aggregator(&program_id)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_add_and_remove_oracle() -> ProgramResult {
+        let program_id = Pubkey::new_unique();
+
+        let (mut aggregator, mut aggregator_owner) = create_aggregator(&program_id)?;
+        let (mut oracle, mut oracle_owner) = create_oracle(&program_id, &mut aggregator, &mut aggregator_owner)?;
 
         process(
             &program_id,
@@ -570,6 +493,83 @@ mod tests {
         )?;
 
         // println!("{}", hex::encode(oracle.account.data));
+        Ok(())
+    }
+
+    struct SubmitTestFixture {
+        program_id: Pubkey,
+        aggregator: TAccount,
+        aggregator_owner: TAccount,
+    }
+
+    impl SubmitTestFixture {
+        fn submit(&mut self, oracle: &mut TAccount, oracle_owner: &mut TAccount, time: u64, round_id: u64, value: u64) -> Result<Aggregator, ProgramError> {
+            let mut clock = sysclock(time as i64);
+
+            process(
+                &self.program_id,
+                instruction::Instruction::Submit { round_id, value },
+                vec![
+                    (&mut clock).into(),
+                    self.aggregator.info(),
+                    oracle.into(),
+                    oracle_owner.into(),
+                ]
+                .as_slice(),
+            )?;
+
+            Aggregator::load_initialized(&self.aggregator.info())
+        }
+    }
+    #[test]
+    fn test_submit() -> ProgramResult {
+        let program_id = Pubkey::new_unique();
+
+        let (mut aggregator, mut aggregator_owner) = create_aggregator(&program_id)?;
+        let (mut oracle, mut oracle_owner) = create_oracle(&program_id, &mut aggregator, &mut aggregator_owner)?;
+        let (mut oracle2, mut oracle_owner2) = create_oracle(&program_id, &mut aggregator, &mut aggregator_owner)?;
+
+        let mut fixture = SubmitTestFixture {
+            program_id,
+            aggregator,
+            aggregator_owner,
+        };
+
+        let agr = fixture.submit(&mut oracle, &mut oracle_owner, 100, 0, 1)?;
+        let sub = agr.current_round.submissions[0];
+        assert_eq!(sub.oracle, oracle.pubkey.to_bytes());
+        assert_eq!(sub.value, 1);
+        assert_eq!(sub.updated_at, 100);
+        assert_eq!(agr.answer.is_initialized(), false);
+
+        let agr = fixture.submit(&mut oracle2, &mut oracle_owner2, 105, 0, 2)?;
+        let sub = agr.current_round.submissions[1];
+        assert_eq!(sub.oracle, oracle2.pubkey.to_bytes());
+        assert_eq!(sub.value, 2);
+        assert_eq!(sub.updated_at, 105);
+
+        // test: answer resolved when min_submissions is reached
+        let answer = &agr.answer;
+        assert_eq!(answer.is_initialized(), true);
+        assert_eq!(answer.updated_at, 105);
+        assert_eq!(answer.created_at, 105);
+        assert_eq!(answer.submissions, agr.current_round.submissions);
+
+        // test: should fail with repeated submission
+        assert_eq!(
+            fixture.submit(&mut oracle2, &mut oracle_owner2, 110, 0, 2),
+            Err(ProgramError::Custom(13)),
+            "should fail if oracle submits repeatedly in the same round"
+        );
+
+        // test: start new round
+        // test: restart delay
+        // test: max submission
+
+
+        println!("{:?}", agr);
+        // println!("{}", hex::encode(aggregator.account.data));
+
         Ok(())
     }
 
