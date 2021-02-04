@@ -2,7 +2,11 @@
 
 use std::default;
 
-use crate::{error::Error, instruction::{Instruction, PAYMENT_AMOUNT}, state::{Aggregator, AggregatorConfig, Oracle, Round}};
+use crate::{
+    error::Error,
+    instruction::{Instruction, PAYMENT_AMOUNT},
+    state::{Aggregator, AggregatorConfig, Oracle, Round},
+};
 
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
@@ -11,21 +15,21 @@ use solana_program::{
     msg,
     program::invoke_signed,
     program_error::ProgramError,
-    program_pack::{IsInitialized},
+    program_pack::IsInitialized,
     pubkey::Pubkey,
     sysvar::{rent::Rent, Sysvar},
 };
 
-use crate::borsh_state::{InitBorshState, BorshState};
+use crate::borsh_state::{BorshState, InitBorshState};
 
 use borsh::BorshDeserialize;
 
 struct Accounts<'a, 'b>(&'a [AccountInfo<'b>]);
 
-impl <'a, 'b>Accounts<'a, 'b> {
+impl<'a, 'b> Accounts<'a, 'b> {
     fn get(&self, i: usize) -> Result<&'a AccountInfo<'b>, ProgramError> {
-    // fn get(&self, i: usize) -> Result<&AccountInfo, ProgramError> {
-    // &accounts[input.token.account as usize]
+        // fn get(&self, i: usize) -> Result<&AccountInfo, ProgramError> {
+        // &accounts[input.token.account as usize]
         self.0.get(i).ok_or(ProgramError::NotEnoughAccountKeys)
     }
 
@@ -46,7 +50,7 @@ struct InitializeContext<'a> {
     config: AggregatorConfig,
 }
 
-impl <'a>InitializeContext<'a> {
+impl<'a> InitializeContext<'a> {
     fn process(&self) -> ProgramResult {
         if !self.owner.is_signer {
             return Err(ProgramError::MissingRequiredSignature);
@@ -72,7 +76,7 @@ struct AddOracleContext<'a> {
     description: [u8; 32],
 }
 
-impl <'a>AddOracleContext<'a> {
+impl<'a> AddOracleContext<'a> {
     fn process(&self) -> ProgramResult {
         // Note: there can in fact be more oracles than max_submissions
         if !self.aggregator_owner.is_signer {
@@ -101,7 +105,7 @@ struct RemoveOracleContext<'a> {
     oracle: &'a AccountInfo<'a>,
 }
 
-impl <'a>RemoveOracleContext<'a> {
+impl<'a> RemoveOracleContext<'a> {
     fn process(&self) -> ProgramResult {
         if !self.aggregator_owner.is_signer {
             return Err(ProgramError::MissingRequiredSignature);
@@ -136,7 +140,7 @@ struct SubmitContext<'a> {
     value: u64,
 }
 
-impl <'a>SubmitContext<'a> {
+impl<'a> SubmitContext<'a> {
     fn process(&self) -> ProgramResult {
         let mut aggregator = Aggregator::load_initialized(self.aggregator)?;
         let mut oracle = Oracle::load_initialized(self.oracle)?;
@@ -176,11 +180,17 @@ impl <'a>SubmitContext<'a> {
     fn submit(&self, aggregator: &mut Aggregator, oracle: &Oracle) -> ProgramResult {
         let now = self.clock.unix_timestamp as u64;
 
-        let (i, submission) = aggregator.current_round.submissions.iter_mut().enumerate().find(|(i, s)| {
-            // either finds a new spot to put the submission, or find a spot
-            // that the oracle previously submitted to.
-            return !s.is_initialized() || s.oracle == oracle.owner;
-        }).ok_or(Error::MaxSubmissionsReached)?;
+        let (i, submission) = aggregator
+            .current_round
+            .submissions
+            .iter_mut()
+            .enumerate()
+            .find(|(i, s)| {
+                // either finds a new spot to put the submission, or find a spot
+                // that the oracle previously submitted to.
+                return !s.is_initialized() || s.oracle == oracle.owner;
+            })
+            .ok_or(Error::MaxSubmissionsReached)?;
 
         let count = i + 1;
 
@@ -220,7 +230,7 @@ impl <'a>SubmitContext<'a> {
         Ok(())
     }
 
-    fn start_new_round(&self, aggregator: &mut  Aggregator, oracle: &mut Oracle) -> ProgramResult {
+    fn start_new_round(&self, aggregator: &mut Aggregator, oracle: &mut Oracle) -> ProgramResult {
         let now = self.clock.unix_timestamp as u64;
 
         if oracle.allow_start_round <= aggregator.current_round.id {
@@ -245,61 +255,57 @@ impl <'a>SubmitContext<'a> {
 pub struct Processor {}
 
 impl Processor {
-    pub fn process<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>], input: &[u8]) -> ProgramResult {
+    pub fn process<'a>(
+        program_id: &Pubkey,
+        accounts: &'a [AccountInfo<'a>],
+        input: &[u8],
+    ) -> ProgramResult {
         let accounts = Accounts(accounts);
-        let instruction = Instruction::try_from_slice(input).map_err(|_| ProgramError::InvalidInstructionData)?;
+        let instruction =
+            Instruction::try_from_slice(input).map_err(|_| ProgramError::InvalidInstructionData)?;
 
         match instruction {
-            Instruction::Initialize {
+            Instruction::Initialize { config } => InitializeContext {
+                rent: accounts.get_rent(0)?,
+                aggregator: accounts.get(1)?,
+                owner: accounts.get(2)?,
                 config,
-            } => {
-                InitializeContext {
-                    rent: accounts.get_rent(0)?,
-                    aggregator: accounts.get(1)?,
-                    owner: accounts.get(2)?,
-                    config,
-                }.process()
-            },
-            Instruction::AddOracle { description } => {
-                AddOracleContext {
-                    rent: accounts.get_rent(0)?,
-                    aggregator: accounts.get(1)?,
-                    aggregator_owner: accounts.get(2)?,
-                    oracle: accounts.get(3)?,
-                    oracle_owner: accounts.get(4)?,
-
-                    description,
-                }.process()
-            },
-            Instruction::RemoveOracle => {
-                RemoveOracleContext {
-                    aggregator: accounts.get(0)?,
-                    aggregator_owner: accounts.get(1)?,
-                    oracle: accounts.get(2)?,
-                }.process()
-            },
-            Instruction::Submit { round_id, value } => {
-                SubmitContext {
-                    clock: accounts.get_clock(0)?,
-                    aggregator: accounts.get(1)?,
-                    oracle: accounts.get(2)?,
-                    oracle_owner: accounts.get(3)?,
-
-                    round_id,
-                    value
-                }.process()
-            },
-            _ => {
-                Err(ProgramError::InvalidInstructionData)
             }
-            // Instruction::Submit { submission } => {
-            //     msg!("Instruction: Submit");
-            //     Self::process_submit(accounts, submission)
-            // }
-            // Instruction::Withdraw { amount, seed } => {
-            //     msg!("Instruction: Withdraw");
-            //     Self::process_withdraw(accounts, amount, seed)
-            // }
+            .process(),
+            Instruction::AddOracle { description } => AddOracleContext {
+                rent: accounts.get_rent(0)?,
+                aggregator: accounts.get(1)?,
+                aggregator_owner: accounts.get(2)?,
+                oracle: accounts.get(3)?,
+                oracle_owner: accounts.get(4)?,
+
+                description,
+            }
+            .process(),
+            Instruction::RemoveOracle => RemoveOracleContext {
+                aggregator: accounts.get(0)?,
+                aggregator_owner: accounts.get(1)?,
+                oracle: accounts.get(2)?,
+            }
+            .process(),
+            Instruction::Submit { round_id, value } => SubmitContext {
+                clock: accounts.get_clock(0)?,
+                aggregator: accounts.get(1)?,
+                oracle: accounts.get(2)?,
+                oracle_owner: accounts.get(3)?,
+
+                round_id,
+                value,
+            }
+            .process(),
+            _ => Err(ProgramError::InvalidInstructionData), // Instruction::Submit { submission } => {
+                                                            //     msg!("Instruction: Submit");
+                                                            //     Self::process_submit(accounts, submission)
+                                                            // }
+                                                            // Instruction::Withdraw { amount, seed } => {
+                                                            //     msg!("Instruction: Withdraw");
+                                                            //     Self::process_withdraw(accounts, amount, seed)
+                                                            // }
         }
     }
 
@@ -373,21 +379,21 @@ impl Processor {
 mod tests {
     use super::*;
 
-    use borsh::BorshSerialize;
     use crate::borsh_utils;
     use crate::instruction;
-    use solana_program::{sysvar};
+    use borsh::BorshSerialize;
+    use solana_program::sysvar;
 
-    use solana_sdk::account::{
-        create_account, Account,
-    };
+    use solana_sdk::account::{create_account, Account};
 
     fn process<'a>(
         program_id: &Pubkey,
         ix: instruction::Instruction,
         accounts: &'a [AccountInfo<'a>],
     ) -> ProgramResult {
-        let input = ix.try_to_vec().map_err(|_| ProgramError::InvalidAccountData)?;
+        let input = ix
+            .try_to_vec()
+            .map_err(|_| ProgramError::InvalidAccountData)?;
         Processor::process(&program_id, accounts, &input)
     }
 
@@ -414,7 +420,7 @@ mod tests {
             TAccount {
                 is_signer,
                 pubkey: Pubkey::new_unique(),
-                account: Account::new(0, 0, &program_id)
+                account: Account::new(0, 0, &program_id),
             }
         }
 
@@ -422,7 +428,7 @@ mod tests {
             TAccount {
                 is_signer,
                 pubkey: Pubkey::new_unique(),
-                account: Account::new(rent_exempt_balance(space), space, &program_id)
+                account: Account::new(rent_exempt_balance(space), space, &program_id),
             }
         }
 
@@ -446,7 +452,7 @@ mod tests {
         }
     }
 
-    struct TSysAccount (Pubkey, Account);
+    struct TSysAccount(Pubkey, Account);
     impl<'a> Into<AccountInfo<'a>> for &'a mut TSysAccount {
         fn into(self) -> AccountInfo<'a> {
             AccountInfo::new(
@@ -464,27 +470,60 @@ mod tests {
 
     fn setup_aggregator(program_id: &Pubkey) -> Result<(TAccount, TAccount), ProgramError> {
         let mut rent_sysvar = rent_sysvar();
-        let mut aggregator = TAccount::new_rent_exempt(&program_id, borsh_utils::get_packed_len::<Aggregator>(), false);
+        let mut aggregator = TAccount::new_rent_exempt(
+            &program_id,
+            borsh_utils::get_packed_len::<Aggregator>(),
+            false,
+        );
         let mut aggregator_owner = TAccount::new(&program_id, true);
 
         process(
             &program_id,
             instruction::Instruction::Initialize {
-                config: AggregatorConfig{
+                config: AggregatorConfig {
                     decimals: 8,
                     description: [0u8; 32],
                     ..AggregatorConfig::default()
-                }
+                },
             },
             vec![
                 (&mut rent_sysvar).into(),
                 (&mut aggregator).into(),
                 (&mut aggregator_owner).into(),
-            ].as_slice(),
+            ]
+            .as_slice(),
         )?;
 
         Ok((aggregator, aggregator_owner))
     }
+
+    // fn create_oracle(
+    //     program_id: &Pubkey,
+    //     aggregator: &mut TAccount,
+    //     aggregator_owner: &mut TAccount,
+    // ) -> Result<(TAccount, TAccount), ProgramError> {
+    //     let mut rent_sysvar = rent_sysvar();
+    //     let mut oracle =
+    //         TAccount::new_rent_exempt(&program_id, borsh_utils::get_packed_len::<Oracle>(), false);
+    //     let mut oracle_owner = TAccount::new(&program_id, true);
+
+    //     process(
+    //         &program_id,
+    //         instruction::Instruction::AddOracle {
+    //             description: [0xab; 32],
+    //         },
+    //         vec![
+    //             (&mut rent_sysvar).into(),
+    //             aggregator.into(),
+    //             aggregator_owner.into(),
+    //             (&mut oracle).into(),
+    //             (&mut oracle_owner).into(),
+    //         ]
+    //         .as_slice(),
+    //     )?;
+
+    //     Ok((oracle, oracle_owner))
+    // }
 
     #[test]
     fn test_intialize() -> ProgramResult {
@@ -500,7 +539,8 @@ mod tests {
         let (mut aggregator, mut aggregator_owner) = setup_aggregator(&program_id)?;
 
         let mut rent_sysvar = rent_sysvar();
-        let mut oracle = TAccount::new_rent_exempt(&program_id, borsh_utils::get_packed_len::<Oracle>(), false);
+        let mut oracle =
+            TAccount::new_rent_exempt(&program_id, borsh_utils::get_packed_len::<Oracle>(), false);
         let mut oracle_owner = TAccount::new(&program_id, true);
 
         process(
@@ -514,7 +554,8 @@ mod tests {
                 (&mut aggregator_owner).into(),
                 (&mut oracle).into(),
                 (&mut oracle_owner).into(),
-            ].as_slice(),
+            ]
+            .as_slice(),
         )?;
 
         process(
@@ -524,7 +565,8 @@ mod tests {
                 (&mut aggregator).into(),
                 (&mut aggregator_owner).into(),
                 (&mut oracle).into(),
-            ].as_slice(),
+            ]
+            .as_slice(),
         )?;
 
         // println!("{}", hex::encode(oracle.account.data));

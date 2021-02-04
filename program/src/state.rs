@@ -1,13 +1,13 @@
 //! State transition types
 use borsh::{BorshDeserialize, BorshSchema, BorshSerialize};
 
+use crate::borsh_state::{BorshState, InitBorshState};
 use crate::instruction::MAX_ORACLES;
-use crate::borsh_state::{InitBorshState, BorshState};
 
-use solana_program::{program_pack::IsInitialized};
+use solana_program::program_pack::IsInitialized;
 
-  #[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, Default, PartialEq)]
-  pub struct AggregatorConfig {
+#[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, Default, PartialEq)]
+pub struct AggregatorConfig {
     /// decimals for this feed
     pub decimals: u8,
 
@@ -25,22 +25,22 @@ use solana_program::{program_pack::IsInitialized};
 
     /// min number of submissions in a round to resolve an answer
     pub min_submissions: u8,
-  }
+}
 
-  #[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, Default, PartialEq)]
-  pub struct Round {
+#[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, Default, PartialEq)]
+pub struct Round {
     pub id: u64,
     pub started_at: u64,
     pub updated_at: u64,
     pub submissions: [Submission; MAX_ORACLES],
-  }
-  #[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, Default, PartialEq)]
-  pub struct Answer {
+}
+#[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, Default, PartialEq)]
+pub struct Answer {
     pub round_id: u64,
     pub created_at: u64,
     pub updated_at: u64,
     pub submissions: [Submission; MAX_ORACLES],
-  }
+}
 
 /// Aggregator data.
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, Default, PartialEq)]
@@ -57,9 +57,9 @@ pub struct Aggregator {
 }
 
 impl IsInitialized for Aggregator {
-  fn is_initialized(&self) -> bool {
-      self.is_initialized
-  }
+    fn is_initialized(&self) -> bool {
+        self.is_initialized
+    }
 }
 
 impl BorshState for Aggregator {}
@@ -77,9 +77,9 @@ pub struct Submission {
 }
 
 impl IsInitialized for Submission {
-  fn is_initialized(&self) -> bool {
-      self.updated_at > 0
-  }
+    fn is_initialized(&self) -> bool {
+        self.updated_at > 0
+    }
 }
 
 /// Oracle data.
@@ -102,8 +102,8 @@ pub struct Oracle {
 }
 impl BorshState for Oracle {}
 impl IsInitialized for Oracle {
-  fn is_initialized(&self) -> bool {
-      self.is_initialized
-  }
+    fn is_initialized(&self) -> bool {
+        self.is_initialized
+    }
 }
 impl InitBorshState for Oracle {}

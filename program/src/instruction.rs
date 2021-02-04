@@ -1,7 +1,7 @@
 //! Instruction types
 #![allow(dead_code)]
 
-use crate::state::{AggregatorConfig};
+use crate::state::AggregatorConfig;
 
 use borsh::{BorshDeserialize, BorshSchema, BorshSerialize};
 
