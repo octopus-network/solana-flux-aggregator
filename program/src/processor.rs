@@ -224,7 +224,6 @@ impl<'a> SubmitContext<'a> {
         let round = &aggregator.current_round;
         let answer = &mut aggregator.answer;
 
-        // let new_answer = !answer.submissions[0].is_initialized();
         if !answer.is_initialized() || round.id > answer.round_id {
             // a new round had just been resolved. copy the current round's submissions over
             answer.round_id = round.id;
