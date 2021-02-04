@@ -1,10 +1,8 @@
 //! Program state processor
 
-
-
 use crate::{
     error::Error,
-    instruction::{Instruction},
+    instruction::Instruction,
     state::{Aggregator, AggregatorConfig, Oracle, Round},
 };
 
@@ -255,6 +253,18 @@ impl<'a> SubmitContext<'a> {
 
         Ok(())
     }
+}
+
+// Withdraw token from reward faucet to receiver account, deducting oracle's withdrawable credit.
+struct WithdrawContext<'a> {
+    token: &'a AccountInfo<'a>,
+    faucet: &'a AccountInfo<'a>,
+    faucet_owner: &'a AccountInfo<'a>, // program signed
+
+    oracle: &'a AccountInfo<'a>,
+    oracle_owner: &'a AccountInfo<'a>, // signed
+
+    receiver: &'a AccountInfo<'a>,
 }
 
 /// Program state handler.
