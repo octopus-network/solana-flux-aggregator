@@ -14,17 +14,14 @@ pub const PAYMENT_AMOUNT: u64 = 10;
 /// Instructions supported by the program
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, PartialEq)]
 pub enum Instruction {
-    /// Initializes a new Aggregator
     Initialize {
         config: AggregatorConfig,
     },
 
-    /// Add an oracle
     AddOracle {
         description: [u8; 32],
     },
 
-    /// Remove an oracle
     RemoveOracle,
 
     Submit {
@@ -32,19 +29,8 @@ pub enum Instruction {
         value: u64,
     },
 
-    /// Oracle withdraw token
-    ///
-    /// Accounts expected by this instruction:
-    /// 0. `[writable]` The aggregator (key).
-    /// 1. `[writable]` The faucet (which token transfer from)
-    /// 2. `[writable]` The recevier (which token withdraw to)
-    /// 3. `[]` SPL Token program id
-    /// 4. `[]` The faucet owner
-    /// 5. `[signer, writable]` The oracle's authority.
     Withdraw {
-        /// withdraw amount
-        amount: u64,
-        /// program account nonced seed
-        seed: [u8; 32],
+        // FIXME: why 32 bytes seed? could be a vec?
+        faucet_owner_seed: [u8; 32],
     },
 }

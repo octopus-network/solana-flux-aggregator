@@ -3,7 +3,7 @@
 use crate::{
     error::Error,
     instruction::Instruction,
-    state::{Aggregator, AggregatorConfig, Oracle, Round},
+    state::{Aggregator, AggregatorConfig, Authority, Oracle, Round},
 };
 
 use solana_program::{
@@ -77,14 +77,8 @@ struct AddOracleContext<'a> {
 impl<'a> AddOracleContext<'a> {
     fn process(&self) -> ProgramResult {
         // Note: there can in fact be more oracles than max_submissions
-        if !self.aggregator_owner.is_signer {
-            return Err(ProgramError::MissingRequiredSignature);
-        }
-
         let aggregator = Aggregator::load_initialized(self.aggregator)?;
-        if aggregator.owner != self.aggregator_owner.key.to_bytes() {
-            return Err(Error::OwnerMismatch)?;
-        }
+        aggregator.authorize(self.aggregator_owner)?;
 
         let mut oracle = Oracle::init_uninitialized(self.oracle)?;
         oracle.is_initialized = true;
@@ -105,14 +99,8 @@ struct RemoveOracleContext<'a> {
 
 impl<'a> RemoveOracleContext<'a> {
     fn process(&self) -> ProgramResult {
-        if !self.aggregator_owner.is_signer {
-            return Err(ProgramError::MissingRequiredSignature);
-        }
-
         let aggregator = Aggregator::load_initialized(self.aggregator)?;
-        if aggregator.owner != self.aggregator_owner.key.to_bytes() {
-            return Err(Error::OwnerMismatch)?;
-        }
+        aggregator.authorize(self.aggregator_owner)?;
 
         let oracle = Oracle::load_initialized(self.oracle)?;
         if oracle.aggregator != self.aggregator.key.to_bytes() {
@@ -142,10 +130,7 @@ impl<'a> SubmitContext<'a> {
     fn process(&self) -> ProgramResult {
         let mut aggregator = Aggregator::load_initialized(self.aggregator)?;
         let mut oracle = Oracle::load_initialized(self.oracle)?;
-
-        if !self.oracle_owner.is_signer {
-            return Err(ProgramError::MissingRequiredSignature);
-        }
+        oracle.authorize(self.oracle_owner)?;
 
         if oracle.aggregator != self.aggregator.key.to_bytes() {
             return Err(Error::AggregatorMismatch)?;
@@ -256,15 +241,53 @@ impl<'a> SubmitContext<'a> {
 }
 
 // Withdraw token from reward faucet to receiver account, deducting oracle's withdrawable credit.
-struct WithdrawContext<'a> {
-    token: &'a AccountInfo<'a>,
+struct WithdrawContext<'a, 'b> {
+    token_program: &'a AccountInfo<'a>,
     faucet: &'a AccountInfo<'a>,
     faucet_owner: &'a AccountInfo<'a>, // program signed
-
     oracle: &'a AccountInfo<'a>,
     oracle_owner: &'a AccountInfo<'a>, // signed
-
     receiver: &'a AccountInfo<'a>,
+
+    faucet_owner_seed: &'b [u8],
+}
+
+impl<'a, 'b> WithdrawContext<'a, 'b> {
+    fn process(&self) -> ProgramResult {
+        let mut oracle = Oracle::load_initialized(self.oracle)?;
+        oracle.authorize(&self.oracle_owner)?;
+
+        if oracle.withdrawable == 0 {
+            return Err(Error::InsufficientWithdrawable)?;
+        }
+
+        let amount = oracle.withdrawable;
+
+        oracle.withdrawable = 0;
+        oracle.save(self.oracle)?;
+
+        let inx = spl_token::instruction::transfer(
+            self.token_program.key,
+            self.faucet.key,
+            self.receiver.key,
+            self.faucet_owner.key,
+            &[],
+            amount,
+        )?;
+
+        invoke_signed(
+            &inx,
+            &[
+                self.token_program.clone(),
+                self.faucet.clone(),
+                self.faucet_owner.clone(),
+                self.receiver.clone(),
+            ],
+            &[&[self.faucet_owner_seed]],
+        )?;
+
+        Ok(())
+    }
 }
 
 /// Program state handler.
@@ -314,11 +337,18 @@ impl Processor {
                 value,
             }
             .process(),
-            _ => Err(ProgramError::InvalidInstructionData),
-            // Instruction::Withdraw { amount, seed } => {
-            //     msg!("Instruction: Withdraw");
-            //     Self::process_withdraw(accounts, amount, seed)
-            // }
+            // _ => Err(ProgramError::InvalidInstructionData),
+            Instruction::Withdraw { faucet_owner_seed } => WithdrawContext {
+                token_program: accounts.get(0)?,
+                faucet: accounts.get(1)?,
+                faucet_owner: accounts.get(2)?,
+                oracle: accounts.get(3)?,
+                oracle_owner: accounts.get(4)?,
+                receiver: accounts.get(5)?,
+
+                faucet_owner_seed: &faucet_owner_seed[..],
+            }
+            .process(),
         }
     }
 }

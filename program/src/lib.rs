@@ -2,8 +2,6 @@
 
 //! An Flux Aggregator program for the Solana blockchain
 
-
-
 pub mod borsh_state;
 pub mod borsh_utils;
 pub mod error;
@@ -13,9 +11,6 @@ pub mod state;
 
 #[cfg(not(feature = "no-entrypoint"))]
 pub mod entrypoint;
-
-
-
 
 /// Get median value from the aggregator account
 // pub fn get_median(aggregator_info: &AccountInfo) -> Result<u64, ProgramError> {

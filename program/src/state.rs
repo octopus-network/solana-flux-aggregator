@@ -1,10 +1,35 @@
 //! State transition types
 use borsh::{BorshDeserialize, BorshSchema, BorshSerialize};
 
-use crate::borsh_state::{BorshState, InitBorshState};
 use crate::instruction::MAX_ORACLES;
+use crate::{
+    borsh_state::{BorshState, InitBorshState},
+    error::Error,
+};
 
-use solana_program::program_pack::IsInitialized;
+use solana_program::{
+    account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
+    program_pack::IsInitialized,
+};
+
+#[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, Default, PartialEq)]
+pub struct Pubkey([u8; 32]);
+
+pub trait Authority {
+    fn authority(&self) -> Pubkey;
+
+    fn authorize(&self, account: &AccountInfo) -> ProgramResult {
+        if !account.is_signer {
+            return Err(ProgramError::MissingRequiredSignature);
+        }
+
+        if self.authority().0 != account.key.to_bytes() {
+            return Err(Error::OwnerMismatch)?;
+        }
+
+        Ok(())
+    }
+}
 
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, Default, PartialEq)]
 pub struct AggregatorConfig {
@@ -62,12 +87,16 @@ pub struct Aggregator {
     pub answer: Answer,
 }
 
+impl Authority for Aggregator {
+    fn authority(&self) -> Pubkey {
+        Pubkey(self.owner)
+    }
+}
 impl IsInitialized for Aggregator {
     fn is_initialized(&self) -> bool {
         self.is_initialized
     }
 }
-
 impl BorshState for Aggregator {}
 impl InitBorshState for Aggregator {}
 
@@ -105,6 +134,11 @@ pub struct Oracle {
     pub aggregator: [u8; 32],
     /// owner
     pub owner: [u8; 32],
+}
+impl Authority for Oracle {
+    fn authority(&self) -> Pubkey {
+        Pubkey(self.owner)
+    }
 }
 impl BorshState for Oracle {}
 impl IsInitialized for Oracle {
