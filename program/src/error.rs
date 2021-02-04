@@ -34,6 +34,9 @@ pub enum Error {
     #[error("Rewards overflow")]
     RewardsOverflow,
 
+    #[error("No resolve answer")]
+    NoResolvedAnswer,
+
     #[error("Unknown error")]
     UnknownError,
 }

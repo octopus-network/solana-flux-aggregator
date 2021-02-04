@@ -9,38 +9,56 @@ pub mod instruction;
 pub mod processor;
 pub mod state;
 
+use crate::error::Error;
+use borsh_state::InitBorshState;
+use solana_program::{
+    account_info::AccountInfo, program_error::ProgramError, program_pack::IsInitialized,
+};
+use state::Aggregator;
+
 #[cfg(not(feature = "no-entrypoint"))]
 pub mod entrypoint;
 
-/// Get median value from the aggregator account
-// pub fn get_median(aggregator_info: &AccountInfo) -> Result<u64, ProgramError> {
-//     let aggregator = Aggregator::unpack_unchecked(&aggregator_info.data.borrow())?;
-//     if !aggregator.is_initialized {
-//         return Err(Error::NotFoundAggregator.into());
-//     }
+pub struct ResolvedMedian {
+    pub value: u64,
+    pub updated_at: u64,
+    pub created_at: u64,
+}
 
-//     let submissions = aggregator.submissions;
+/// Read resolved median value from the aggregator
+pub fn read_median(aggregator_info: &AccountInfo) -> Result<ResolvedMedian, ProgramError> {
+    let aggregator = Aggregator::load_initialized(&aggregator_info)?;
 
-//     let mut values = vec![];
+    if !aggregator.answer.is_initialized() {
+        return Err(Error::NoResolvedAnswer)?;
+    }
 
-//     // if the submission value is 0, maybe the oracle is not initialized
-//     for s in &submissions {
-//         if s.value != 0 {
-//             values.push(s.value);
-//         }
-//     }
+    let mut values: Vec<_> = aggregator
+        .answer
+        .submissions
+        .iter()
+        .filter(|s| s.is_initialized())
+        .map(|s| s.value)
+        .collect();
 
-//     // get median value
-//     values.sort();
+    // get median value
+    values.sort();
 
-//     let l = values.len();
-//     let i = l / 2;
-//     if l % 2 == 0 {
-//         return Ok((values[i] + values[i - 1]) / 2);
-//     } else {
-//         return Ok(values[i]);
-//     }
-// }
+    let median: u64;
+    let l = values.len();
+    let i = l / 2;
+    if l % 2 == 0 {
+        median = (values[i] + values[i - 1]) / 2;
+    } else {
+        median = values[i];
+    }
+
+    Ok(ResolvedMedian {
+        value: median,
+        updated_at: aggregator.answer.updated_at,
+        created_at: aggregator.answer.created_at,
+    })
+}
 
 // Export current sdk types for downstream users building with a different
 pub use solana_program;
