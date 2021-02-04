@@ -239,7 +239,7 @@ impl<'a> SubmitContext<'a> {
     fn start_new_round(&self, aggregator: &mut Aggregator, oracle: &mut Oracle) -> ProgramResult {
         let now = self.clock.unix_timestamp as u64;
 
-        if aggregator.current_round.id < oracle.allow_start_round  {
+        if aggregator.current_round.id < oracle.allow_start_round {
             return Err(Error::OracleNewRoundCooldown)?;
         }
 
@@ -305,10 +305,10 @@ impl Processor {
             }
             .process(),
             _ => Err(ProgramError::InvalidInstructionData),
-                                                            // Instruction::Withdraw { amount, seed } => {
-                                                            //     msg!("Instruction: Withdraw");
-                                                            //     Self::process_withdraw(accounts, amount, seed)
-                                                            // }
+            // Instruction::Withdraw { amount, seed } => {
+            //     msg!("Instruction: Withdraw");
+            //     Self::process_withdraw(accounts, amount, seed)
+            // }
         }
     }
 }
@@ -481,7 +481,8 @@ mod tests {
         let program_id = Pubkey::new_unique();
 
         let (mut aggregator, mut aggregator_owner) = create_aggregator(&program_id)?;
-        let (mut oracle, mut oracle_owner) = create_oracle(&program_id, &mut aggregator, &mut aggregator_owner)?;
+        let (mut oracle, mut oracle_owner) =
+            create_oracle(&program_id, &mut aggregator, &mut aggregator_owner)?;
 
         process(
             &program_id,
@@ -505,7 +506,14 @@ mod tests {
     }
 
     impl SubmitTestFixture {
-        fn submit(&mut self, oracle: &mut TAccount, oracle_owner: &mut TAccount, time: u64, round_id: u64, value: u64) -> Result<Aggregator, ProgramError> {
+        fn submit(
+            &mut self,
+            oracle: &mut TAccount,
+            oracle_owner: &mut TAccount,
+            time: u64,
+            round_id: u64,
+            value: u64,
+        ) -> Result<Aggregator, ProgramError> {
             let mut clock = sysclock(time as i64);
 
             process(
@@ -528,9 +536,12 @@ mod tests {
         let program_id = Pubkey::new_unique();
 
         let (mut aggregator, mut aggregator_owner) = create_aggregator(&program_id)?;
-        let (mut oracle, mut oracle_owner) = create_oracle(&program_id, &mut aggregator, &mut aggregator_owner)?;
-        let (mut oracle2, mut oracle_owner2) = create_oracle(&program_id, &mut aggregator, &mut aggregator_owner)?;
-        let (mut oracle3, mut oracle_owner3) = create_oracle(&program_id, &mut aggregator, &mut aggregator_owner)?;
+        let (mut oracle, mut oracle_owner) =
+            create_oracle(&program_id, &mut aggregator, &mut aggregator_owner)?;
+        let (mut oracle2, mut oracle_owner2) =
+            create_oracle(&program_id, &mut aggregator, &mut aggregator_owner)?;
+        let (mut oracle3, mut oracle_owner3) =
+            create_oracle(&program_id, &mut aggregator, &mut aggregator_owner)?;
 
         let mut fixture = SubmitTestFixture {
             program_id,
@@ -551,7 +562,9 @@ mod tests {
 
         // test: should fail with repeated submission
         assert_eq!(
-            fixture.submit(&mut oracle, &mut oracle_owner, time+10, 0, 2).map_err(Error::from),
+            fixture
+                .submit(&mut oracle, &mut oracle_owner, time + 10, 0, 2)
+                .map_err(Error::from),
             Err(Error::OracleAlreadySubmitted),
             "should fail if oracle submits repeatedly in the same round"
         );
@@ -576,7 +589,9 @@ mod tests {
 
         // test: max submission reached
         assert_eq!(
-            fixture.submit(&mut oracle3, &mut oracle_owner3, time+10, 0, 2).map_err(Error::from),
+            fixture
+                .submit(&mut oracle3, &mut oracle_owner3, time + 10, 0, 2)
+                .map_err(Error::from),
             Err(Error::MaxSubmissionsReached),
         );
 
@@ -592,7 +607,11 @@ mod tests {
         assert_eq!(sub.oracle, oracle.pubkey.to_bytes());
         assert_eq!(sub.value, 10);
         assert_eq!(sub.updated_at, time);
-        assert_eq!(round.submissions[1].is_initialized(), false, "other submissions should've been zero after starting a new round");
+        assert_eq!(
+            round.submissions[1].is_initialized(),
+            false,
+            "other submissions should've been zero after starting a new round"
+        );
 
         // the last round answer should be reserved
         let answer = &agr.answer;
@@ -603,7 +622,9 @@ mod tests {
 
         // test: oracle cannot immediately start a new round
         assert_eq!(
-            fixture.submit(&mut oracle, &mut oracle_owner, time+10, 2, 2).map_err(Error::from),
+            fixture
+                .submit(&mut oracle, &mut oracle_owner, time + 10, 2, 2)
+                .map_err(Error::from),
             Err(Error::OracleNewRoundCooldown),
         );
 
@@ -640,13 +661,17 @@ mod tests {
 
         // InvalidRoundID
         assert_eq!(
-            fixture.submit(&mut oracle, &mut oracle_owner, time+10, 10, 1000).map_err(Error::from),
+            fixture
+                .submit(&mut oracle, &mut oracle_owner, time + 10, 10, 1000)
+                .map_err(Error::from),
             Err(Error::InvalidRoundID),
             "should only be able to start a round with current_round.id + 1"
         );
 
         assert_eq!(
-            fixture.submit(&mut oracle3, &mut oracle_owner3, time+10, 3, 1000).map_err(Error::from),
+            fixture
+                .submit(&mut oracle3, &mut oracle_owner3, time + 10, 3, 1000)
+                .map_err(Error::from),
             Err(Error::InvalidRoundID),
             "should not be able to submit answer to previous rounds"
         );

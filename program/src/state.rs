@@ -43,9 +43,9 @@ pub struct Answer {
 }
 
 impl IsInitialized for Answer {
-  fn is_initialized(&self) -> bool {
-      self.created_at > 0
-  }
+    fn is_initialized(&self) -> bool {
+        self.created_at > 0
+    }
 }
 
 /// Aggregator data.

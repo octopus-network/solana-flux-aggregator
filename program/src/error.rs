@@ -1,7 +1,12 @@
 //! Error types
 
 use num_derive::FromPrimitive;
-use solana_program::{decode_error::DecodeError, entrypoint::ProgramResult, msg, program_error::{PrintProgramError, ProgramError}};
+use solana_program::{
+    decode_error::DecodeError,
+    entrypoint::ProgramResult,
+    msg,
+    program_error::{PrintProgramError, ProgramError},
+};
 
 use num_traits::FromPrimitive;
 use thiserror::Error;
@@ -90,12 +95,8 @@ impl From<Error> for ProgramError {
 impl From<ProgramError> for Error {
     fn from(err: ProgramError) -> Self {
         match err {
-            ProgramError::Custom(code) => {
-                Error::from_u32(code).unwrap_or(Error::UnknownError)
-            },
-            _ => {
-                Error::UnknownError
-            }
+            ProgramError::Custom(code) => Error::from_u32(code).unwrap_or(Error::UnknownError),
+            _ => Error::UnknownError,
         }
     }
 }
