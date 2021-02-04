@@ -1,10 +1,10 @@
 //! Program state processor
 
-use std::default;
+
 
 use crate::{
     error::Error,
-    instruction::{Instruction, PAYMENT_AMOUNT},
+    instruction::{Instruction},
     state::{Aggregator, AggregatorConfig, Oracle, Round},
 };
 
@@ -185,7 +185,7 @@ impl<'a> SubmitContext<'a> {
             .submissions
             .iter_mut()
             .enumerate()
-            .find(|(i, s)| {
+            .find(|(_i, s)| {
                 // either finds a new spot to put the submission, or find a spot
                 // that the oracle previously submitted to.
                 return !s.is_initialized() || s.oracle == self.oracle.key.to_bytes();
@@ -262,7 +262,7 @@ pub struct Processor {}
 
 impl Processor {
     pub fn process<'a>(
-        program_id: &Pubkey,
+        _program_id: &Pubkey,
         accounts: &'a [AccountInfo<'a>],
         input: &[u8],
     ) -> ProgramResult {
@@ -481,7 +481,7 @@ mod tests {
         let program_id = Pubkey::new_unique();
 
         let (mut aggregator, mut aggregator_owner) = create_aggregator(&program_id)?;
-        let (mut oracle, mut oracle_owner) =
+        let (mut oracle, _oracle_owner) =
             create_oracle(&program_id, &mut aggregator, &mut aggregator_owner)?;
 
         process(
