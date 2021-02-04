@@ -36,6 +36,9 @@ pub enum Error {
     #[error("Each oracle may only submit once per round")]
     OracleAlreadySubmitted,
 
+    #[error("Rewards overflow")]
+    RewardsOverflow,
+
     #[error("Unknown error")]
     UnknownError,
 }

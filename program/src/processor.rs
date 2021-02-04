@@ -150,7 +150,10 @@ impl<'a> SubmitContext<'a> {
         self.submit(&mut aggregator)?;
 
         // credit oracle for submission
-        oracle.withdrawable = aggregator.config.reward_amount;
+        oracle.withdrawable = oracle
+            .withdrawable
+            .checked_add(aggregator.config.reward_amount)
+            .ok_or(Error::RewardsOverflow)?;
 
         aggregator.save(self.aggregator)?;
         oracle.save(self.oracle)?;
@@ -466,6 +469,7 @@ mod tests {
                     min_submissions: 2,
                     max_submissions: 2,
                     restart_delay: 1,
+                    reward_amount: 10,
 
                     ..AggregatorConfig::default()
                 },
@@ -591,8 +595,10 @@ mod tests {
 
         let time = 100;
         let agr = fixture.submit(&mut oracle, &mut oracle_owner, time, 0, 1)?;
+        let oracle_state = Oracle::load_initialized(&oracle.info())?;
         let sub = &agr.current_round.submissions[0];
         let round = &agr.current_round;
+        assert_eq!(oracle_state.withdrawable, 10);
         assert_eq!(round.started_at, time);
         assert_eq!(round.updated_at, time);
         assert_eq!(sub.oracle, oracle.pubkey.to_bytes());
@@ -612,8 +618,10 @@ mod tests {
         let old_time = time;
         let time = 200;
         let agr = fixture.submit(&mut oracle2, &mut oracle_owner2, time, 0, 2)?;
+        let oracle_state = Oracle::load_initialized(&oracle.info())?;
         let sub = &agr.current_round.submissions[1];
         let round = &agr.current_round;
+        assert_eq!(oracle_state.withdrawable, 10);
         assert_eq!(round.started_at, old_time);
         assert_eq!(round.updated_at, time);
         assert_eq!(sub.oracle, oracle2.pubkey.to_bytes());
@@ -639,8 +647,10 @@ mod tests {
 
         let time = 300;
         let agr = fixture.submit(&mut oracle, &mut oracle_owner, time, 1, 10)?;
+        let oracle_state = Oracle::load_initialized(&oracle.info())?;
         let sub = &agr.current_round.submissions[0];
         let round = &agr.current_round;
+        assert_eq!(oracle_state.withdrawable, 20);
         assert_eq!(round.id, 1);
         assert_eq!(round.started_at, time);
         assert_eq!(round.updated_at, time);
