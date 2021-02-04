@@ -1,11 +1,7 @@
 //! Error types
 
 use num_derive::FromPrimitive;
-use solana_program::{
-    decode_error::DecodeError,
-    msg,
-    program_error::{PrintProgramError, ProgramError},
-};
+use solana_program::{decode_error::DecodeError, entrypoint::ProgramResult, msg, program_error::{PrintProgramError, ProgramError}};
 
 use num_traits::FromPrimitive;
 use thiserror::Error;
@@ -58,6 +54,9 @@ pub enum Error {
 
     #[error("Each oracle may only submit once per round")]
     OracleAlreadySubmitted,
+
+    #[error("Unknown error")]
+    UnknownError,
 }
 
 // impl PrintProgramError for Error {
@@ -88,8 +87,15 @@ impl From<Error> for ProgramError {
     }
 }
 
-// impl<T> DecodeError<T> for Error {
-//     fn type_of() -> &'static str {
-//         "Error"
-//     }
-// }
+impl From<ProgramError> for Error {
+    fn from(err: ProgramError) -> Self {
+        match err {
+            ProgramError::Custom(code) => {
+                Error::from_u32(code).unwrap_or(Error::UnknownError)
+            },
+            _ => {
+                Error::UnknownError
+            }
+        }
+    }
+}

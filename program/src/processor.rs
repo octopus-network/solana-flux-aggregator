@@ -164,7 +164,7 @@ impl<'a> SubmitContext<'a> {
             return Err(Error::InvalidRoundID)?;
         }
 
-        self.submit(&mut aggregator, &oracle)?;
+        self.submit(&mut aggregator)?;
 
         // credit oracle for submission
         oracle.withdrawable = aggregator.config.reward_amount;
@@ -177,7 +177,7 @@ impl<'a> SubmitContext<'a> {
 
     /// push oracle answer to the current round. update answer if min submissions
     /// had been satisfied.
-    fn submit(&self, aggregator: &mut Aggregator, oracle: &Oracle) -> ProgramResult {
+    fn submit(&self, aggregator: &mut Aggregator) -> ProgramResult {
         let now = self.clock.unix_timestamp as u64;
 
         let (i, submission) = aggregator
@@ -188,7 +188,7 @@ impl<'a> SubmitContext<'a> {
             .find(|(i, s)| {
                 // either finds a new spot to put the submission, or find a spot
                 // that the oracle previously submitted to.
-                return !s.is_initialized() || s.oracle == oracle.owner;
+                return !s.is_initialized() || s.oracle == self.oracle.key.to_bytes();
             })
             .ok_or(Error::MaxSubmissionsReached)?;
 
@@ -201,6 +201,11 @@ impl<'a> SubmitContext<'a> {
         if submission.is_initialized() {
             return Err(Error::OracleAlreadySubmitted)?;
         }
+
+        if aggregator.current_round.started_at == 0 {
+            aggregator.current_round.started_at = now;
+        }
+        aggregator.current_round.updated_at = now;
 
         submission.updated_at = now;
         submission.value = self.value;
@@ -216,8 +221,8 @@ impl<'a> SubmitContext<'a> {
         let round = &aggregator.current_round;
         let answer = &mut aggregator.answer;
 
-        let new_answer = !answer.submissions[0].is_initialized();
-        if new_answer {
+        // let new_answer = !answer.submissions[0].is_initialized();
+        if !answer.is_initialized() || round.id > answer.round_id {
             // a new round had just been resolved. copy the current round's submissions over
             answer.round_id = round.id;
             answer.created_at = now;
@@ -234,7 +239,7 @@ impl<'a> SubmitContext<'a> {
     fn start_new_round(&self, aggregator: &mut Aggregator, oracle: &mut Oracle) -> ProgramResult {
         let now = self.clock.unix_timestamp as u64;
 
-        if oracle.allow_start_round <= aggregator.current_round.id {
+        if aggregator.current_round.id < oracle.allow_start_round  {
             return Err(Error::OracleNewRoundCooldown)?;
         }
 
@@ -245,8 +250,8 @@ impl<'a> SubmitContext<'a> {
             ..Round::default()
         };
 
-        // oracle can start new round after `1 + restart_delay` rounds
-        oracle.allow_start_round = self.round_id + aggregator.config.restart_delay + 1;
+        // oracle can start new round after `restart_delay` rounds
+        oracle.allow_start_round = self.round_id + aggregator.config.restart_delay;
 
         Ok(())
     }
@@ -299,10 +304,7 @@ impl Processor {
                 value,
             }
             .process(),
-            _ => Err(ProgramError::InvalidInstructionData), // Instruction::Submit { submission } => {
-                                                            //     msg!("Instruction: Submit");
-                                                            //     Self::process_submit(accounts, submission)
-                                                            // }
+            _ => Err(ProgramError::InvalidInstructionData),
                                                             // Instruction::Withdraw { amount, seed } => {
                                                             //     msg!("Instruction: Withdraw");
                                                             //     Self::process_withdraw(accounts, amount, seed)
@@ -528,6 +530,7 @@ mod tests {
         let (mut aggregator, mut aggregator_owner) = create_aggregator(&program_id)?;
         let (mut oracle, mut oracle_owner) = create_oracle(&program_id, &mut aggregator, &mut aggregator_owner)?;
         let (mut oracle2, mut oracle_owner2) = create_oracle(&program_id, &mut aggregator, &mut aggregator_owner)?;
+        let (mut oracle3, mut oracle_owner3) = create_oracle(&program_id, &mut aggregator, &mut aggregator_owner)?;
 
         let mut fixture = SubmitTestFixture {
             program_id,
@@ -535,146 +538,119 @@ mod tests {
             aggregator_owner,
         };
 
-        let agr = fixture.submit(&mut oracle, &mut oracle_owner, 100, 0, 1)?;
-        let sub = agr.current_round.submissions[0];
+        let time = 100;
+        let agr = fixture.submit(&mut oracle, &mut oracle_owner, time, 0, 1)?;
+        let sub = &agr.current_round.submissions[0];
+        let round = &agr.current_round;
+        assert_eq!(round.started_at, time);
+        assert_eq!(round.updated_at, time);
         assert_eq!(sub.oracle, oracle.pubkey.to_bytes());
         assert_eq!(sub.value, 1);
         assert_eq!(sub.updated_at, 100);
         assert_eq!(agr.answer.is_initialized(), false);
 
-        let agr = fixture.submit(&mut oracle2, &mut oracle_owner2, 105, 0, 2)?;
-        let sub = agr.current_round.submissions[1];
+        // test: should fail with repeated submission
+        assert_eq!(
+            fixture.submit(&mut oracle, &mut oracle_owner, time+10, 0, 2).map_err(Error::from),
+            Err(Error::OracleAlreadySubmitted),
+            "should fail if oracle submits repeatedly in the same round"
+        );
+
+        let old_time = time;
+        let time = 200;
+        let agr = fixture.submit(&mut oracle2, &mut oracle_owner2, time, 0, 2)?;
+        let sub = &agr.current_round.submissions[1];
+        let round = &agr.current_round;
+        assert_eq!(round.started_at, old_time);
+        assert_eq!(round.updated_at, time);
         assert_eq!(sub.oracle, oracle2.pubkey.to_bytes());
         assert_eq!(sub.value, 2);
-        assert_eq!(sub.updated_at, 105);
+        assert_eq!(sub.updated_at, time);
 
         // test: answer resolved when min_submissions is reached
         let answer = &agr.answer;
         assert_eq!(answer.is_initialized(), true);
-        assert_eq!(answer.updated_at, 105);
-        assert_eq!(answer.created_at, 105);
+        assert_eq!(answer.updated_at, time);
+        assert_eq!(answer.created_at, time);
         assert_eq!(answer.submissions, agr.current_round.submissions);
 
-        // test: should fail with repeated submission
+        // test: max submission reached
         assert_eq!(
-            fixture.submit(&mut oracle2, &mut oracle_owner2, 110, 0, 2),
-            Err(ProgramError::Custom(13)),
-            "should fail if oracle submits repeatedly in the same round"
+            fixture.submit(&mut oracle3, &mut oracle_owner3, time+10, 0, 2).map_err(Error::from),
+            Err(Error::MaxSubmissionsReached),
         );
 
         // test: start new round
-        // test: restart delay
-        // test: max submission
 
+        let time = 300;
+        let agr = fixture.submit(&mut oracle, &mut oracle_owner, time, 1, 10)?;
+        let sub = &agr.current_round.submissions[0];
+        let round = &agr.current_round;
+        assert_eq!(round.id, 1);
+        assert_eq!(round.started_at, time);
+        assert_eq!(round.updated_at, time);
+        assert_eq!(sub.oracle, oracle.pubkey.to_bytes());
+        assert_eq!(sub.value, 10);
+        assert_eq!(sub.updated_at, time);
+        assert_eq!(round.submissions[1].is_initialized(), false, "other submissions should've been zero after starting a new round");
 
-        println!("{:?}", agr);
-        // println!("{}", hex::encode(aggregator.account.data));
+        // the last round answer should be reserved
+        let answer = &agr.answer;
+        assert_eq!(answer.is_initialized(), true);
+        assert_eq!(answer.round_id, 0);
+        assert_eq!(answer.updated_at, 200);
+        assert_eq!(answer.created_at, 200);
+
+        // test: oracle cannot immediately start a new round
+        assert_eq!(
+            fixture.submit(&mut oracle, &mut oracle_owner, time+10, 2, 2).map_err(Error::from),
+            Err(Error::OracleNewRoundCooldown),
+        );
+
+        // test: resolve a new round
+        let time = 400;
+        let agr = fixture.submit(&mut oracle2, &mut oracle_owner2, time, 1, 20)?;
+        let sub = &agr.current_round.submissions[1];
+
+        assert_eq!(sub.oracle, oracle2.pubkey.to_bytes());
+        assert_eq!(sub.value, 20);
+        assert_eq!(sub.updated_at, time);
+
+        let answer = &agr.answer;
+        assert_eq!(answer.is_initialized(), true);
+        assert_eq!(answer.round_id, 1);
+        assert_eq!(answer.updated_at, time);
+        assert_eq!(answer.created_at, time);
+        assert_eq!(answer.submissions[0].value, 10);
+        assert_eq!(answer.submissions[1].value, 20);
+
+        let time = 500;
+        // let oracle 2 start a new round
+        let agr = fixture.submit(&mut oracle2, &mut oracle_owner2, time, 2, 200)?;
+        let round = &agr.current_round;
+        assert_eq!(round.id, 2);
+
+        let agr = fixture.submit(&mut oracle, &mut oracle_owner, time, 3, 200)?;
+        let round = &agr.current_round;
+        assert_eq!(round.id, 3);
+
+        let agr = fixture.submit(&mut oracle2, &mut oracle_owner2, time, 4, 200)?;
+        let round = &agr.current_round;
+        assert_eq!(round.id, 4);
+
+        // InvalidRoundID
+        assert_eq!(
+            fixture.submit(&mut oracle, &mut oracle_owner, time+10, 10, 1000).map_err(Error::from),
+            Err(Error::InvalidRoundID),
+            "should only be able to start a round with current_round.id + 1"
+        );
+
+        assert_eq!(
+            fixture.submit(&mut oracle3, &mut oracle_owner3, time+10, 3, 1000).map_err(Error::from),
+            Err(Error::InvalidRoundID),
+            "should not be able to submit answer to previous rounds"
+        );
 
         Ok(())
     }
-
-    // #[test]
-    // fn test_submit() {
-    //     let program_id = Pubkey::new_unique();
-
-    //     let oracle_key = Pubkey::new_unique();
-    //     let oracle_owner_key = Pubkey::new_unique();
-    //     let aggregator_key = Pubkey::new_unique();
-    //     let aggregator_owner_key = Pubkey::new_unique();
-
-    //     let mut rent_sysvar = rent_sysvar();
-    //     let mut clock_sysvar = clock_sysvar();
-
-    //     let mut oracle_account = SolanaAccount::new(
-    //         oracle_minimum_balance(),
-    //         Oracle::get_packed_len(),
-    //         &program_id,
-    //     );
-    //     let mut aggregator_account = SolanaAccount::new(
-    //         aggregator_minimum_balance(),
-    //         Aggregator::get_packed_len(),
-    //         &program_id,
-    //     );
-
-    //     let mut oracle_owner_account = SolanaAccount::default();
-    //     let mut aggregator_owner_account = SolanaAccount::default();
-
-    //     // initialize aggregator
-    //     do_process_instruction(
-    //         initialize(
-    //             &program_id,
-    //             &aggregator_key,
-    //             &aggregator_owner_key,
-    //             6,
-    //             1,
-    //             9999,
-    //             6,
-    //             [1; 32],
-    //         ),
-    //         vec![
-    //             &mut rent_sysvar,
-    //             &mut aggregator_account,
-    //             &mut aggregator_owner_account,
-    //         ],
-    //     )
-    //     .unwrap();
-
-    //     // add oracle (index 0)
-    //     do_process_instruction(
-    //         add_oracle(
-    //             &program_id,
-    //             &oracle_key,
-    //             &oracle_owner_key,
-    //             &aggregator_key,
-    //             &aggregator_owner_key,
-    //             [1; 32],
-    //         ),
-    //         vec![
-    //             &mut oracle_account,
-    //             &mut oracle_owner_account,
-    //             &mut clock_sysvar,
-    //             &mut aggregator_account,
-    //             &mut aggregator_owner_account,
-    //         ],
-    //     )
-    //     .unwrap();
-
-    //     // oracle submit
-    //     do_process_instruction(
-    //         submit(
-    //             &program_id,
-    //             &aggregator_key,
-    //             &oracle_key,
-    //             &oracle_owner_key,
-    //             1,
-    //         ),
-    //         vec![
-    //             &mut aggregator_account,
-    //             &mut clock_sysvar,
-    //             &mut oracle_account,
-    //             &mut oracle_owner_account,
-    //         ],
-    //     )
-    //     .unwrap();
-
-    //     // submission cooling
-    //     assert_eq!(
-    //         Err(Error::SubmissonCooling.into()),
-    //         do_process_instruction(
-    //             submit(
-    //                 &program_id,
-    //                 &aggregator_key,
-    //                 &oracle_key,
-    //                 &oracle_owner_key,
-    //                 1
-    //             ),
-    //             vec![
-    //                 &mut aggregator_account,
-    //                 &mut clock_sysvar,
-    //                 &mut oracle_account,
-    //                 &mut oracle_owner_account,
-    //             ]
-    //         )
-    //     );
-    // }
 }
