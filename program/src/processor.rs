@@ -7,10 +7,9 @@ use crate::{
 };
 
 use solana_program::{
-    account_info::{next_account_info, AccountInfo},
+    account_info::AccountInfo,
     clock::Clock,
     entrypoint::ProgramResult,
-    msg,
     program::invoke_signed,
     program_error::ProgramError,
     program_pack::IsInitialized,

@@ -1,12 +1,7 @@
 //! Error types
 
 use num_derive::FromPrimitive;
-use solana_program::{
-    decode_error::DecodeError,
-    entrypoint::ProgramResult,
-    msg,
-    program_error::{PrintProgramError, ProgramError},
-};
+use solana_program::program_error::ProgramError;
 
 use num_traits::FromPrimitive;
 use thiserror::Error;
