@@ -18,6 +18,10 @@ pub enum Instruction {
         config: AggregatorConfig,
     },
 
+    Configure {
+        config: AggregatorConfig,
+    },
+
     AddOracle {
         description: [u8; 32],
     },

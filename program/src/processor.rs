@@ -43,22 +43,40 @@ impl<'a, 'b> Accounts<'a, 'b> {
 struct InitializeContext<'a> {
     rent: Rent,
     aggregator: &'a AccountInfo<'a>,
-    owner: &'a AccountInfo<'a>,
+    aggregator_owner: &'a AccountInfo<'a>,
 
     config: AggregatorConfig,
 }
 
 impl<'a> InitializeContext<'a> {
     fn process(&self) -> ProgramResult {
-        if !self.owner.is_signer {
+        if !self.aggregator_owner.is_signer {
             return Err(ProgramError::MissingRequiredSignature);
         }
 
         let mut aggregator = Aggregator::init_uninitialized(self.aggregator)?;
         aggregator.is_initialized = true;
         aggregator.config = self.config.clone();
-        aggregator.owner = self.owner.key.to_bytes();
+        aggregator.owner = self.aggregator_owner.key.to_bytes();
         aggregator.save_exempt(self.aggregator, &self.rent)?;
+
+        Ok(())
+    }
+}
+
+struct ConfigureContext<'a> {
+    aggregator: &'a AccountInfo<'a>,
+    aggregator_owner: &'a AccountInfo<'a>,
+
+    config: AggregatorConfig,
+}
+
+impl<'a> ConfigureContext<'a> {
+    fn process(&self) -> ProgramResult {
+        let mut aggregator = Aggregator::load_initialized(&self.aggregator)?;
+        aggregator.authorize(self.aggregator_owner)?;
+        aggregator.config = self.config.clone();
+        aggregator.save(self.aggregator)?;
 
         Ok(())
     }
@@ -310,7 +328,13 @@ impl Processor {
             Instruction::Initialize { config } => InitializeContext {
                 rent: accounts.get_rent(0)?,
                 aggregator: accounts.get(1)?,
-                owner: accounts.get(2)?,
+                aggregator_owner: accounts.get(2)?,
+                config,
+            }
+            .process(),
+            Instruction::Configure { config } => ConfigureContext {
+                aggregator: accounts.get(0)?,
+                aggregator_owner: accounts.get(1)?,
                 config,
             }
             .process(),
@@ -517,6 +541,28 @@ mod tests {
     fn test_intialize() -> ProgramResult {
         let program_id = Pubkey::new_unique();
         create_aggregator(&program_id)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_configure() -> ProgramResult {
+        let program_id = Pubkey::new_unique();
+        let (mut aggregator, mut aggregator_owner) = create_aggregator(&program_id)?;
+
+        process(
+            &program_id,
+            instruction::Instruction::Configure {
+                config: AggregatorConfig {
+                    reward_amount: 1000,
+                    ..AggregatorConfig::default()
+                },
+            },
+            vec![(&mut aggregator).into(), (&mut aggregator_owner).into()].as_slice(),
+        )?;
+
+        let aggregator_state = Aggregator::load_initialized(&aggregator.info())?;
+        assert_eq!(aggregator_state.config.reward_amount, 1000);
+
         Ok(())
     }
 
