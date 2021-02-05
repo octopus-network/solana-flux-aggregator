@@ -4,13 +4,19 @@ import fs from "fs"
 import path from "path"
 
 import {
-  BPFLoader, PublicKey, Wallet, NetworkName,
-  solana, Deployer, SPLToken, ProgramAccount
+  BPFLoader,
+  PublicKey,
+  Wallet,
+  NetworkName,
+  solana,
+  Deployer,
+  SPLToken,
+  ProgramAccount,
 } from "solray"
 
 import dotenv from "dotenv"
 
-import FluxAggregator, { AggregatorLayout, OracleLayout } from "./FluxAggregator"
+import FluxAggregator from "./FluxAggregator"
 
 import {
   decodeAggregatorInfo,
@@ -20,17 +26,20 @@ import {
 } from "./utils"
 
 import * as feed from "./feed"
+import { AggregatorConfig } from "./schema"
 
 dotenv.config()
 
 const cli = new Command()
 
-const FLUX_AGGREGATOR_SO = path.resolve(__dirname, "../build/flux_aggregator.so")
+const FLUX_AGGREGATOR_SO = path.resolve(
+  __dirname,
+  "../build/flux_aggregator.so"
+)
 const network = (process.env.NETWORK || "local") as NetworkName
 const conn = solana.connect(network)
 
 class AppContext {
-
   static readonly AGGREGATOR_PROGRAM = "aggregatorProgram"
 
   static async forAdmin() {
@@ -47,7 +56,7 @@ class AppContext {
     return new AppContext(deployer, wallet)
   }
 
-  constructor(public deployer: Deployer, public wallet: Wallet) { }
+  constructor(public deployer: Deployer, public wallet: Wallet) {}
 
   get aggregatorProgramID() {
     return this.aggregatorProgramAccount.publicKey
@@ -70,7 +79,16 @@ class AppContext {
 
 function color(s, c = "black", b = false): string {
   // 30m Black, 31m Red, 32m Green, 33m Yellow, 34m Blue, 35m Magenta, 36m Cyanic, 37m White
-  const cArr = ["black", "red", "green", "yellow", "blue", "megenta", "cyanic", "white"]
+  const cArr = [
+    "black",
+    "red",
+    "green",
+    "yellow",
+    "blue",
+    "megenta",
+    "cyanic",
+    "white",
+  ]
 
   let cIdx = cArr.indexOf(c)
   let bold = b ? "\x1b[1m" : ""
@@ -89,14 +107,13 @@ function log(message: any) {
   console.log(message)
 }
 
-cli
-  .command("generate-wallet").action(async () => {
-    const mnemonic = Wallet.generateMnemonic()
-    const wallet = await Wallet.fromMnemonic(mnemonic, conn)
+cli.command("generate-wallet").action(async () => {
+  const mnemonic = Wallet.generateMnemonic()
+  const wallet = await Wallet.fromMnemonic(mnemonic, conn)
 
-    log(`address: ${wallet.address}`)
-    log(`mnemonic: ${mnemonic}`)
-  })
+  log(`address: ${wallet.address}`)
+  log(`mnemonic: ${mnemonic}`)
+})
 
 cli
   .command("airdrop <address>")
@@ -118,40 +135,63 @@ cli
   .action(async () => {
     const { wallet, deployer } = await AppContext.forAdmin()
 
-    const programAccount = await deployer.ensure(AppContext.AGGREGATOR_PROGRAM, async () => {
-      const programBinary = fs.readFileSync(FLUX_AGGREGATOR_SO)
+    const programAccount = await deployer.ensure(
+      AppContext.AGGREGATOR_PROGRAM,
+      async () => {
+        const programBinary = fs.readFileSync(FLUX_AGGREGATOR_SO)
 
-      log(`deploying ${FLUX_AGGREGATOR_SO}...`)
-      const bpfLoader = new BPFLoader(wallet)
+        log(`deploying ${FLUX_AGGREGATOR_SO}...`)
+        const bpfLoader = new BPFLoader(wallet)
 
-      return bpfLoader.load(programBinary)
-    })
+        return bpfLoader.load(programBinary)
+      }
+    )
 
-    log(`deployed aggregator program. program id: ${color(programAccount.publicKey.toBase58(), "blue")}`)
+    log(
+      `deployed aggregator program. program id: ${color(
+        programAccount.publicKey.toBase58(),
+        "blue"
+      )}`
+    )
   })
 
 cli
   .command("add-aggregator")
   .description("create an aggregator")
   .option("--feedName <string>", "feed pair name")
-  .option("--submitInterval <number>", "min wait time between submissions", "6")
-  .option("--submissionDecimals <number>", "submission decimals", "12")
-  .option("--minSubmissionValue <number>", "minSubmissionValue", "0")
-  .option("--maxSubmissionValue <number>", "maxSubmissionValue", "18446744073709551615")
+  .option("--decimals <number>", "submission decimals", "2")
+  .option("--minSubmissions <number>", "minSubmissions", "1")
+  .option("--maxSubmissions <number>", "maxSubmissions", "12")
+  .option("--rewardAmount <number>", "rewardAmount", "1")
+  .option("--restartDelay <number>", "restartDelay", "1")
   .action(async (opts) => {
-    const { deployer, wallet, aggregatorProgramAccount: aggregatorProgram } = await AppContext.forAdmin()
+    const {
+      deployer,
+      wallet,
+      aggregatorProgramAccount: aggregatorProgram,
+    } = await AppContext.forAdmin()
 
-    const { feedName, submitInterval, minSubmissionValue, maxSubmissionValue, submissionDecimals } = opts
+    const {
+      feedName,
+      restartDelay,
+      minSubmissions,
+      maxSubmissions,
+      decimals,
+      rewardAmount,
+    } = opts
 
     const aggregator = new FluxAggregator(wallet, aggregatorProgram.publicKey)
 
     const feed = await deployer.ensure(feedName, async () => {
       return aggregator.initialize({
-        submitInterval: parseInt(submitInterval),
-        minSubmissionValue: BigInt(minSubmissionValue),
-        maxSubmissionValue: BigInt(maxSubmissionValue),
-        description: feedName,
-        submissionDecimals,
+        config: new AggregatorConfig({
+          description: feedName,
+          decimals,
+          minSubmissions,
+          maxSubmissions,
+          restartDelay,
+          rewardAmount: BigInt(rewardAmount),
+        }),
         owner: wallet.account,
       })
     })
@@ -200,7 +240,7 @@ cli
       description: oracleName.substr(0, 32).padEnd(32),
       aggregator: new PublicKey(feedAddress),
       aggregatorOwner: wallet.account,
-    });
+    })
 
     log(`added oracle. pubkey: ${color(oracle.publicKey.toBase58(), "blue")}`)
   })
@@ -264,10 +304,12 @@ cli
   .description("oracle feeds to aggregator")
   .option("--feedAddress <string>", "feed address to submit values to")
   .option("--oracleAddress <string>", "feed address to submit values to")
-    .option("--pairSymbol <string>", "market pair to feed")
+  .option("--pairSymbol <string>", "market pair to feed")
   .action(async (opts) => {
-
-    const { wallet, aggregatorProgramAccount: aggregatorProgram } = await AppContext.forOracle()
+    const {
+      wallet,
+      aggregatorProgramAccount: aggregatorProgram,
+    } = await AppContext.forOracle()
 
     const { feedAddress, oracleAddress, pairSymbol } = opts
 
@@ -286,7 +328,11 @@ cli
   .description("create test token")
   .option("--amount <number>", "amount of the test token")
   .action(async (opts) => {
-    const { wallet, aggregatorProgramAccount: aggregatorProgram, deployer } = await AppContext.forAdmin()
+    const {
+      wallet,
+      aggregatorProgramAccount: aggregatorProgram,
+      deployer,
+    } = await AppContext.forAdmin()
 
     const { amount } = opts
 
@@ -313,7 +359,7 @@ cli
     // 3. create token account
     const tokenAccount = await spltoken.initializeAccount({
       token: token.publicKey,
-      owner: tokenOwner.pubkey
+      owner: tokenOwner.pubkey,
     })
 
     log(`mint ${amount} token to token account...`)
@@ -332,10 +378,8 @@ cli
         address: tokenOwner.address,
         seed: tokenOwner.noncedSeed.toString("hex"),
         nonce: tokenOwner.nonce,
-      }
+      },
     })
-
   })
-
 
 cli.parse(process.argv)

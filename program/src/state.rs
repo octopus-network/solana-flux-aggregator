@@ -187,3 +187,24 @@ impl IsInitialized for Oracle {
     }
 }
 impl InitBorshState for Oracle {}
+
+mod tests {
+    use crate::borsh_utils;
+
+    use super::*;
+
+    #[test]
+    fn test_packed_len() {
+        println!(
+            "Aggregator len: {}",
+            borsh_utils::get_packed_len::<Aggregator>()
+        );
+
+        println!(
+            "Submissions len: {}",
+            borsh_utils::get_packed_len::<Submissions>()
+        );
+
+        println!("Oracle len: {}", borsh_utils::get_packed_len::<Oracle>());
+    }
+}
