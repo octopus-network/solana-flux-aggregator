@@ -25,17 +25,21 @@ pub struct ResolvedMedian {
     pub created_at: u64,
 }
 
-/// Read resolved median value from the aggregator
-pub fn read_median(aggregator_info: &AccountInfo) -> Result<ResolvedMedian, ProgramError> {
+/// Read resolved median value from the aggregator answer submissions
+pub fn read_median(
+    aggregator_info: &AccountInfo,
+    answer_submissions_info: &AccountInfo,
+) -> Result<ResolvedMedian, ProgramError> {
     let aggregator = Aggregator::load_initialized(&aggregator_info)?;
 
     if !aggregator.answer.is_initialized() {
         return Err(Error::NoResolvedAnswer)?;
     }
 
-    let mut values: Vec<_> = aggregator
-        .answer
-        .submissions
+    let submissions = aggregator.answer_submissions(answer_submissions_info)?;
+
+    let mut values: Vec<_> = submissions
+        .data
         .iter()
         .filter(|s| s.is_initialized())
         .map(|s| s.value)

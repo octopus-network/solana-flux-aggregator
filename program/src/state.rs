@@ -13,10 +13,16 @@ use solana_program::{
 };
 
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, Default, PartialEq)]
-pub struct Pubkey([u8; 32]);
+pub struct PublicKey(pub [u8; 32]);
+
+impl<'a> From<&'a AccountInfo<'a>> for PublicKey {
+    fn from(info: &'a AccountInfo<'a>) -> Self {
+        PublicKey(info.key.to_bytes())
+    }
+}
 
 pub trait Authority {
-    fn authority(&self) -> Pubkey;
+    fn authority(&self) -> &PublicKey;
 
     fn authorize(&self, account: &AccountInfo) -> ProgramResult {
         if !account.is_signer {
@@ -53,18 +59,33 @@ pub struct AggregatorConfig {
 }
 
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, Default, PartialEq)]
+pub struct Submissions {
+    pub is_initialized: bool,
+    // can we try using vector to avoid using the stack?
+    pub data: [Submission; MAX_ORACLES],
+    // pub data: Vec<Submission>,
+}
+
+impl IsInitialized for Submissions {
+    fn is_initialized(&self) -> bool {
+        self.is_initialized
+    }
+}
+impl BorshState for Submissions {}
+impl InitBorshState for Submissions {}
+
+#[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, Default, PartialEq)]
 pub struct Round {
     pub id: u64,
     pub created_at: u64,
     pub updated_at: u64,
-    pub submissions: [Submission; MAX_ORACLES],
 }
+
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, Default, PartialEq)]
 pub struct Answer {
     pub round_id: u64,
     pub created_at: u64,
     pub updated_at: u64,
-    pub submissions: [Submission; MAX_ORACLES],
 }
 
 impl IsInitialized for Answer {
@@ -80,16 +101,35 @@ pub struct Aggregator {
     /// is initialized
     pub is_initialized: bool,
     /// authority
-    pub owner: [u8; 32],
+    pub owner: PublicKey,
     /// current round accepting oracle submissions
-    pub current_round: Round,
+    pub round: Round,
+    pub round_submissions: PublicKey, // has_one: Submissions
     /// the latest answer resolved
     pub answer: Answer,
+    pub answer_submissions: PublicKey, // has_one: Submissions
+}
+
+impl Aggregator {
+    /// check & return the submissions linked with an aggregator
+    pub fn answer_submissions(&self, account: &AccountInfo) -> Result<Submissions, ProgramError> {
+        if self.answer_submissions.0 != account.key.to_bytes() {
+            Err(Error::AggregatorMismatch)?;
+        }
+        Submissions::load_initialized(account)
+    }
+
+    pub fn round_submissions(&self, account: &AccountInfo) -> Result<Submissions, ProgramError> {
+        if self.round_submissions.0 != account.key.to_bytes() {
+            Err(Error::AggregatorMismatch)?;
+        }
+        Submissions::load_initialized(account)
+    }
 }
 
 impl Authority for Aggregator {
-    fn authority(&self) -> Pubkey {
-        Pubkey(self.owner)
+    fn authority(&self) -> &PublicKey {
+        &self.owner
     }
 }
 impl IsInitialized for Aggregator {
@@ -131,13 +171,13 @@ pub struct Oracle {
     pub allow_start_round: u64,
 
     /// aggregator
-    pub aggregator: [u8; 32],
+    pub aggregator: PublicKey,
     /// owner
-    pub owner: [u8; 32],
+    pub owner: PublicKey,
 }
 impl Authority for Oracle {
-    fn authority(&self) -> Pubkey {
-        Pubkey(self.owner)
+    fn authority(&self) -> &PublicKey {
+        &self.owner
     }
 }
 impl BorshState for Oracle {}

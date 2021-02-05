@@ -3,7 +3,7 @@
 use crate::{
     error::Error,
     instruction::Instruction,
-    state::{Aggregator, AggregatorConfig, Authority, Oracle, Round},
+    state::{Aggregator, AggregatorConfig, Authority, Oracle, Round, Submissions},
 };
 
 use solana_program::{
@@ -43,6 +43,8 @@ struct InitializeContext<'a> {
     rent: Rent,
     aggregator: &'a AccountInfo<'a>,
     aggregator_owner: &'a AccountInfo<'a>,
+    round_submissions: &'a AccountInfo<'a>, // belongs_to: aggregator
+    answer_submissions: &'a AccountInfo<'a>, // belongs_to: aggregator
 
     config: AggregatorConfig,
 }
@@ -53,11 +55,26 @@ impl<'a> InitializeContext<'a> {
             return Err(ProgramError::MissingRequiredSignature);
         }
 
+        self.init_submissions(self.round_submissions)?;
+        self.init_submissions(self.answer_submissions)?;
+
         let mut aggregator = Aggregator::init_uninitialized(self.aggregator)?;
         aggregator.is_initialized = true;
         aggregator.config = self.config.clone();
-        aggregator.owner = self.aggregator_owner.key.to_bytes();
+        aggregator.owner = self.aggregator_owner.into();
+        // aggregator.round_submissions = PublicKey(self.round_submissions.key.to_bytes());
+        aggregator.round_submissions = self.round_submissions.into();
+        aggregator.answer_submissions = self.answer_submissions.into();
+
         aggregator.save_exempt(self.aggregator, &self.rent)?;
+
+        Ok(())
+    }
+
+    fn init_submissions(&self, account: &AccountInfo) -> ProgramResult {
+        let mut submissions = Submissions::init_uninitialized(account)?;
+        submissions.is_initialized = true;
+        submissions.save_exempt(account, &self.rent)?;
 
         Ok(())
     }
@@ -100,8 +117,8 @@ impl<'a> AddOracleContext<'a> {
         let mut oracle = Oracle::init_uninitialized(self.oracle)?;
         oracle.is_initialized = true;
         oracle.description = self.description;
-        oracle.owner = self.oracle_owner.key.to_bytes();
-        oracle.aggregator = self.aggregator.key.to_bytes();
+        oracle.owner = self.oracle_owner.into();
+        oracle.aggregator = self.aggregator.into();
         oracle.save_exempt(self.oracle, &self.rent)?;
 
         Ok(())
@@ -120,7 +137,7 @@ impl<'a> RemoveOracleContext<'a> {
         aggregator.authorize(self.aggregator_owner)?;
 
         let oracle = Oracle::load_initialized(self.oracle)?;
-        if oracle.aggregator != self.aggregator.key.to_bytes() {
+        if oracle.aggregator.0 != self.aggregator.key.to_bytes() {
             return Err(Error::AggregatorMismatch)?;
         }
 
@@ -135,6 +152,8 @@ impl<'a> RemoveOracleContext<'a> {
 struct SubmitContext<'a> {
     clock: Clock,
     aggregator: &'a AccountInfo<'a>,
+    round_submissions: &'a AccountInfo<'a>,
+    answer_submissions: &'a AccountInfo<'a>,
     oracle: &'a AccountInfo<'a>,
     oracle_owner: &'a AccountInfo<'a>, // signed
 
@@ -149,18 +168,18 @@ impl<'a> SubmitContext<'a> {
         let mut oracle = Oracle::load_initialized(self.oracle)?;
         oracle.authorize(self.oracle_owner)?;
 
-        if oracle.aggregator != self.aggregator.key.to_bytes() {
+        if oracle.aggregator.0 != self.aggregator.key.to_bytes() {
             return Err(Error::AggregatorMismatch)?;
         }
 
         // oracle starts a new round
-        if self.round_id == aggregator.current_round.id + 1 {
+        if self.round_id == aggregator.round.id + 1 {
             self.start_new_round(&mut aggregator, &mut oracle)?;
         }
 
         // only allowed to submit in the current round (or a new round that just
         // got started)
-        if self.round_id != aggregator.current_round.id {
+        if self.round_id != aggregator.round.id {
             return Err(Error::InvalidRoundID)?;
         }
 
@@ -183,9 +202,10 @@ impl<'a> SubmitContext<'a> {
     fn submit(&self, aggregator: &mut Aggregator) -> ProgramResult {
         let now = self.clock.unix_timestamp as u64;
 
-        let (i, submission) = aggregator
-            .current_round
-            .submissions
+        let mut round_submissions = aggregator.round_submissions(self.round_submissions)?;
+
+        let (i, submission) = round_submissions
+            .data
             .iter_mut()
             .enumerate()
             .find(|(_i, s)| {
@@ -205,23 +225,28 @@ impl<'a> SubmitContext<'a> {
             return Err(Error::OracleAlreadySubmitted)?;
         }
 
-        if aggregator.current_round.created_at == 0 {
-            aggregator.current_round.created_at = now;
+        if aggregator.round.created_at == 0 {
+            aggregator.round.created_at = now;
         }
-        aggregator.current_round.updated_at = now;
+        aggregator.round.updated_at = now;
 
         submission.updated_at = now;
         submission.value = self.value;
         submission.oracle = self.oracle.key.to_bytes();
+
+        // this line is for later, but put here to deal with borrow check...
+        let new_submission = *submission;
+
+        round_submissions.save(self.round_submissions)?;
 
         if count < aggregator.config.min_submissions as usize {
             // not enough submissions to update answer. return now.
             return Ok(());
         }
 
-        let new_submission = *submission;
         // update answer if the new round reached min_submissions
-        let round = &aggregator.current_round;
+        let mut answer_submissions = aggregator.answer_submissions(self.answer_submissions)?;
+        let round = &aggregator.round;
         let answer = &mut aggregator.answer;
 
         if !answer.is_initialized() || round.id > answer.round_id {
@@ -229,11 +254,13 @@ impl<'a> SubmitContext<'a> {
             answer.round_id = round.id;
             answer.created_at = now;
             answer.updated_at = now;
-            answer.submissions = round.submissions;
+            answer_submissions.data = round_submissions.data;
         } else {
             answer.updated_at = now;
-            answer.submissions[i] = new_submission;
+            answer_submissions.data[i] = new_submission;
         }
+
+        answer_submissions.save(self.answer_submissions)?;
 
         Ok(())
     }
@@ -241,16 +268,22 @@ impl<'a> SubmitContext<'a> {
     fn start_new_round(&self, aggregator: &mut Aggregator, oracle: &mut Oracle) -> ProgramResult {
         let now = self.clock.unix_timestamp as u64;
 
-        if aggregator.current_round.id < oracle.allow_start_round {
+        if aggregator.round.id < oracle.allow_start_round {
             return Err(Error::OracleNewRoundCooldown)?;
         }
 
-        // zero the submissions of the current round
-        aggregator.current_round = Round {
+        aggregator.round = Round {
             id: self.round_id,
             created_at: now,
-            ..Round::default()
+            updated_at: 0,
         };
+
+        // zero the submissions of the current round
+        let submissions = Submissions {
+            is_initialized: true,
+            data: Default::default(),
+        };
+        submissions.save(self.round_submissions)?;
 
         // oracle can start new round after `restart_delay` rounds
         oracle.allow_start_round = self.round_id + (aggregator.config.restart_delay as u64);
@@ -327,6 +360,8 @@ impl Processor {
                 rent: accounts.get_rent(0)?,
                 aggregator: accounts.get(1)?,
                 aggregator_owner: accounts.get(2)?,
+                round_submissions: accounts.get(3)?,
+                answer_submissions: accounts.get(4)?,
                 config,
             }
             .process(),
@@ -355,8 +390,10 @@ impl Processor {
             Instruction::Submit { round_id, value } => SubmitContext {
                 clock: accounts.get_clock(0)?,
                 aggregator: accounts.get(1)?,
-                oracle: accounts.get(2)?,
-                oracle_owner: accounts.get(3)?,
+                round_submissions: accounts.get(2)?,
+                answer_submissions: accounts.get(3)?,
+                oracle: accounts.get(4)?,
+                oracle_owner: accounts.get(5)?,
 
                 round_id,
                 value,
@@ -382,8 +419,8 @@ impl Processor {
 mod tests {
     use super::*;
 
-    use crate::borsh_utils;
     use crate::instruction;
+    use crate::{borsh_utils, state::Submission};
     use borsh::BorshSerialize;
     use solana_program::sysvar;
 
@@ -473,7 +510,14 @@ mod tests {
         }
     }
 
-    fn create_aggregator(program_id: &Pubkey) -> Result<(TAccount, TAccount), ProgramError> {
+    struct TAggregator {
+        aggregator: TAccount,
+        aggregator_owner: TAccount,
+        round_submissions: TAccount,
+        answer_submissions: TAccount,
+    }
+
+    fn create_aggregator(program_id: &Pubkey) -> Result<TAggregator, ProgramError> {
         let mut rent_sysvar = rent_sysvar();
         let mut aggregator = TAccount::new_rent_exempt(
             &program_id,
@@ -481,6 +525,16 @@ mod tests {
             false,
         );
         let mut aggregator_owner = TAccount::new(&program_id, true);
+        let mut round_submissions = TAccount::new_rent_exempt(
+            &program_id,
+            borsh_utils::get_packed_len::<Submissions>(),
+            false,
+        );
+        let mut answer_submissions = TAccount::new_rent_exempt(
+            &program_id,
+            borsh_utils::get_packed_len::<Submissions>(),
+            false,
+        );
 
         process(
             &program_id,
@@ -500,11 +554,18 @@ mod tests {
                 (&mut rent_sysvar).into(),
                 (&mut aggregator).into(),
                 (&mut aggregator_owner).into(),
+                (&mut round_submissions).into(),
+                (&mut answer_submissions).into(),
             ]
             .as_slice(),
         )?;
 
-        Ok((aggregator, aggregator_owner))
+        Ok(TAggregator {
+            aggregator,
+            aggregator_owner,
+            round_submissions,
+            answer_submissions,
+        })
     }
 
     fn create_oracle(
@@ -545,7 +606,11 @@ mod tests {
     #[test]
     fn test_configure() -> ProgramResult {
         let program_id = Pubkey::new_unique();
-        let (mut aggregator, mut aggregator_owner) = create_aggregator(&program_id)?;
+        let TAggregator {
+            mut aggregator,
+            mut aggregator_owner,
+            ..
+        } = create_aggregator(&program_id)?;
 
         process(
             &program_id,
@@ -568,7 +633,11 @@ mod tests {
     fn test_add_and_remove_oracle() -> ProgramResult {
         let program_id = Pubkey::new_unique();
 
-        let (mut aggregator, mut aggregator_owner) = create_aggregator(&program_id)?;
+        let TAggregator {
+            mut aggregator,
+            mut aggregator_owner,
+            ..
+        } = create_aggregator(&program_id)?;
         let (mut oracle, _oracle_owner) =
             create_oracle(&program_id, &mut aggregator, &mut aggregator_owner)?;
 
@@ -589,7 +658,7 @@ mod tests {
 
     struct SubmitTestFixture {
         program_id: Pubkey,
-        aggregator: TAccount,
+        t_aggregator: TAggregator,
     }
 
     impl SubmitTestFixture {
@@ -608,38 +677,66 @@ mod tests {
                 instruction::Instruction::Submit { round_id, value },
                 vec![
                     (&mut clock).into(),
-                    self.aggregator.info(),
+                    self.t_aggregator.aggregator.info(),
+                    self.t_aggregator.round_submissions.info(),
+                    self.t_aggregator.answer_submissions.info(),
                     oracle.into(),
                     oracle_owner.into(),
                 ]
                 .as_slice(),
             )?;
 
-            Aggregator::load_initialized(&self.aggregator.info())
+            Aggregator::load_initialized(&self.t_aggregator.aggregator.info())
+        }
+
+        fn aggregator(&mut self) -> Result<Aggregator, ProgramError> {
+            Aggregator::load_initialized(&self.t_aggregator.aggregator.info())
+        }
+
+        fn create_oracle(&mut self) -> Result<(TAccount, TAccount), ProgramError> {
+            create_oracle(
+                &self.program_id,
+                &mut self.t_aggregator.aggregator,
+                &mut self.t_aggregator.aggregator_owner,
+            )
+        }
+
+        fn round_submission(&mut self, i: usize) -> Result<Submission, ProgramError> {
+            Ok(self.round_submissions()?.data[i])
+        }
+
+        fn round_submissions(&mut self) -> Result<Submissions, ProgramError> {
+            self.aggregator()?
+                .round_submissions(&self.t_aggregator.round_submissions.info())
+        }
+
+        fn answer_submission(&mut self, i: usize) -> Result<Submission, ProgramError> {
+            Ok(self.answer_submissions()?.data[i])
+        }
+
+        fn answer_submissions(&mut self) -> Result<Submissions, ProgramError> {
+            self.aggregator()?
+                .answer_submissions(&self.t_aggregator.answer_submissions.info())
         }
     }
     #[test]
     fn test_submit() -> ProgramResult {
         let program_id = Pubkey::new_unique();
 
-        let (mut aggregator, mut aggregator_owner) = create_aggregator(&program_id)?;
-        let (mut oracle, mut oracle_owner) =
-            create_oracle(&program_id, &mut aggregator, &mut aggregator_owner)?;
-        let (mut oracle2, mut oracle_owner2) =
-            create_oracle(&program_id, &mut aggregator, &mut aggregator_owner)?;
-        let (mut oracle3, mut oracle_owner3) =
-            create_oracle(&program_id, &mut aggregator, &mut aggregator_owner)?;
-
-        let mut fixture = SubmitTestFixture {
+        let mut tt = SubmitTestFixture {
             program_id,
-            aggregator,
+            t_aggregator: create_aggregator(&program_id)?,
         };
 
+        let (mut oracle, mut oracle_owner) = tt.create_oracle()?;
+        let (mut oracle2, mut oracle_owner2) = tt.create_oracle()?;
+        let (mut oracle3, mut oracle_owner3) = tt.create_oracle()?;
+
         let time = 100;
-        let agr = fixture.submit(&mut oracle, &mut oracle_owner, time, 0, 1)?;
+        let agr = tt.submit(&mut oracle, &mut oracle_owner, time, 0, 1)?;
         let oracle_state = Oracle::load_initialized(&oracle.info())?;
-        let sub = &agr.current_round.submissions[0];
-        let round = &agr.current_round;
+        let sub = tt.round_submission(0)?;
+        let round = &agr.round;
         assert_eq!(oracle_state.withdrawable, 10);
         assert_eq!(round.created_at, time);
         assert_eq!(round.updated_at, time);
@@ -650,8 +747,7 @@ mod tests {
 
         // test: should fail with repeated submission
         assert_eq!(
-            fixture
-                .submit(&mut oracle, &mut oracle_owner, time + 10, 0, 2)
+            tt.submit(&mut oracle, &mut oracle_owner, time + 10, 0, 2)
                 .map_err(Error::from),
             Err(Error::OracleAlreadySubmitted),
             "should fail if oracle submits repeatedly in the same round"
@@ -659,10 +755,10 @@ mod tests {
 
         let old_time = time;
         let time = 200;
-        let agr = fixture.submit(&mut oracle2, &mut oracle_owner2, time, 0, 2)?;
+        let agr = tt.submit(&mut oracle2, &mut oracle_owner2, time, 0, 2)?;
         let oracle_state = Oracle::load_initialized(&oracle.info())?;
-        let sub = &agr.current_round.submissions[1];
-        let round = &agr.current_round;
+        let sub = tt.round_submission(1)?;
+        let round = &agr.round;
         assert_eq!(oracle_state.withdrawable, 10);
         assert_eq!(round.created_at, old_time);
         assert_eq!(round.updated_at, time);
@@ -670,28 +766,29 @@ mod tests {
         assert_eq!(sub.value, 2);
         assert_eq!(sub.updated_at, time);
 
-        // test: answer resolved when min_submissions is reached
+        // // test: answer resolved when min_submissions is reached
         let answer = &agr.answer;
         assert_eq!(answer.is_initialized(), true);
         assert_eq!(answer.updated_at, time);
         assert_eq!(answer.created_at, time);
-        assert_eq!(answer.submissions, agr.current_round.submissions);
+
+        let answer_submissions = tt.answer_submissions()?;
+        let round_submissions = tt.round_submissions()?;
+        assert_eq!(answer_submissions, round_submissions);
 
         // test: max submission reached
         assert_eq!(
-            fixture
-                .submit(&mut oracle3, &mut oracle_owner3, time + 10, 0, 2)
+            tt.submit(&mut oracle3, &mut oracle_owner3, time + 10, 0, 2)
                 .map_err(Error::from),
             Err(Error::MaxSubmissionsReached),
         );
 
         // test: start new round
-
         let time = 300;
-        let agr = fixture.submit(&mut oracle, &mut oracle_owner, time, 1, 10)?;
+        let agr = tt.submit(&mut oracle, &mut oracle_owner, time, 1, 10)?;
         let oracle_state = Oracle::load_initialized(&oracle.info())?;
-        let sub = &agr.current_round.submissions[0];
-        let round = &agr.current_round;
+        let sub = tt.round_submission(0)?;
+        let round = &agr.round;
         assert_eq!(oracle_state.withdrawable, 20);
         assert_eq!(round.id, 1);
         assert_eq!(round.created_at, time);
@@ -700,7 +797,7 @@ mod tests {
         assert_eq!(sub.value, 10);
         assert_eq!(sub.updated_at, time);
         assert_eq!(
-            round.submissions[1].is_initialized(),
+            tt.round_submission(1)?.is_initialized(),
             false,
             "other submissions should've been zero after starting a new round"
         );
@@ -714,16 +811,15 @@ mod tests {
 
         // test: oracle cannot immediately start a new round
         assert_eq!(
-            fixture
-                .submit(&mut oracle, &mut oracle_owner, time + 10, 2, 2)
+            tt.submit(&mut oracle, &mut oracle_owner, time + 10, 2, 2)
                 .map_err(Error::from),
             Err(Error::OracleNewRoundCooldown),
         );
 
         // test: resolve a new round
         let time = 400;
-        let agr = fixture.submit(&mut oracle2, &mut oracle_owner2, time, 1, 20)?;
-        let sub = &agr.current_round.submissions[1];
+        let agr = tt.submit(&mut oracle2, &mut oracle_owner2, time, 1, 20)?;
+        let sub = tt.round_submission(1)?;
 
         assert_eq!(sub.oracle, oracle2.pubkey.to_bytes());
         assert_eq!(sub.value, 20);
@@ -734,35 +830,34 @@ mod tests {
         assert_eq!(answer.round_id, 1);
         assert_eq!(answer.updated_at, time);
         assert_eq!(answer.created_at, time);
-        assert_eq!(answer.submissions[0].value, 10);
-        assert_eq!(answer.submissions[1].value, 20);
+
+        assert_eq!(tt.answer_submission(0)?.value, 10);
+        assert_eq!(tt.answer_submission(1)?.value, 20);
 
         let time = 500;
         // let oracle 2 start a new round
-        let agr = fixture.submit(&mut oracle2, &mut oracle_owner2, time, 2, 200)?;
-        let round = &agr.current_round;
+        let agr = tt.submit(&mut oracle2, &mut oracle_owner2, time, 2, 200)?;
+        let round = &agr.round;
         assert_eq!(round.id, 2);
 
-        let agr = fixture.submit(&mut oracle, &mut oracle_owner, time, 3, 200)?;
-        let round = &agr.current_round;
+        let agr = tt.submit(&mut oracle, &mut oracle_owner, time, 3, 200)?;
+        let round = &agr.round;
         assert_eq!(round.id, 3);
 
-        let agr = fixture.submit(&mut oracle2, &mut oracle_owner2, time, 4, 200)?;
-        let round = &agr.current_round;
+        let agr = tt.submit(&mut oracle2, &mut oracle_owner2, time, 4, 200)?;
+        let round = &agr.round;
         assert_eq!(round.id, 4);
 
         // InvalidRoundID
         assert_eq!(
-            fixture
-                .submit(&mut oracle, &mut oracle_owner, time + 10, 10, 1000)
+            tt.submit(&mut oracle, &mut oracle_owner, time + 10, 10, 1000)
                 .map_err(Error::from),
             Err(Error::InvalidRoundID),
             "should only be able to start a round with current_round.id + 1"
         );
 
         assert_eq!(
-            fixture
-                .submit(&mut oracle3, &mut oracle_owner3, time + 10, 3, 1000)
+            tt.submit(&mut oracle3, &mut oracle_owner3, time + 10, 3, 1000)
                 .map_err(Error::from),
             Err(Error::InvalidRoundID),
             "should not be able to submit answer to previous rounds"
