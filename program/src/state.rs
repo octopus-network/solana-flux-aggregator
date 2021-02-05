@@ -33,29 +33,29 @@ pub trait Authority {
 
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, Default, PartialEq)]
 pub struct AggregatorConfig {
-    /// decimals for this feed
-    pub decimals: u8,
-
     /// description
     pub description: [u8; 32],
 
-    /// oracle cannot start a new round until after `restart_relay` rounds
-    pub restart_delay: u64,
+    /// decimals for this feed
+    pub decimals: u8,
 
-    /// amount of tokens oracles are reward per submission
-    pub reward_amount: u64,
+    /// oracle cannot start a new round until after `restart_relay` rounds
+    pub restart_delay: u8,
 
     /// max number of submissions in a round
     pub max_submissions: u8,
 
     /// min number of submissions in a round to resolve an answer
     pub min_submissions: u8,
+
+    /// amount of tokens oracles are reward per submission
+    pub reward_amount: u64,
 }
 
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, Default, PartialEq)]
 pub struct Round {
     pub id: u64,
-    pub started_at: u64,
+    pub created_at: u64,
     pub updated_at: u64,
     pub submissions: [Submission; MAX_ORACLES],
 }

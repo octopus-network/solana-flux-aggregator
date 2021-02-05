@@ -205,8 +205,8 @@ impl<'a> SubmitContext<'a> {
             return Err(Error::OracleAlreadySubmitted)?;
         }
 
-        if aggregator.current_round.started_at == 0 {
-            aggregator.current_round.started_at = now;
+        if aggregator.current_round.created_at == 0 {
+            aggregator.current_round.created_at = now;
         }
         aggregator.current_round.updated_at = now;
 
@@ -248,12 +248,12 @@ impl<'a> SubmitContext<'a> {
         // zero the submissions of the current round
         aggregator.current_round = Round {
             id: self.round_id,
-            started_at: now,
+            created_at: now,
             ..Round::default()
         };
 
         // oracle can start new round after `restart_delay` rounds
-        oracle.allow_start_round = self.round_id + aggregator.config.restart_delay;
+        oracle.allow_start_round = self.round_id + (aggregator.config.restart_delay as u64);
 
         Ok(())
     }
@@ -590,7 +590,6 @@ mod tests {
     struct SubmitTestFixture {
         program_id: Pubkey,
         aggregator: TAccount,
-        aggregator_owner: TAccount,
     }
 
     impl SubmitTestFixture {
@@ -634,7 +633,6 @@ mod tests {
         let mut fixture = SubmitTestFixture {
             program_id,
             aggregator,
-            aggregator_owner,
         };
 
         let time = 100;
@@ -643,7 +641,7 @@ mod tests {
         let sub = &agr.current_round.submissions[0];
         let round = &agr.current_round;
         assert_eq!(oracle_state.withdrawable, 10);
-        assert_eq!(round.started_at, time);
+        assert_eq!(round.created_at, time);
         assert_eq!(round.updated_at, time);
         assert_eq!(sub.oracle, oracle.pubkey.to_bytes());
         assert_eq!(sub.value, 1);
@@ -666,7 +664,7 @@ mod tests {
         let sub = &agr.current_round.submissions[1];
         let round = &agr.current_round;
         assert_eq!(oracle_state.withdrawable, 10);
-        assert_eq!(round.started_at, old_time);
+        assert_eq!(round.created_at, old_time);
         assert_eq!(round.updated_at, time);
         assert_eq!(sub.oracle, oracle2.pubkey.to_bytes());
         assert_eq!(sub.value, 2);
@@ -696,7 +694,7 @@ mod tests {
         let round = &agr.current_round;
         assert_eq!(oracle_state.withdrawable, 20);
         assert_eq!(round.id, 1);
-        assert_eq!(round.started_at, time);
+        assert_eq!(round.created_at, time);
         assert_eq!(round.updated_at, time);
         assert_eq!(sub.oracle, oracle.pubkey.to_bytes());
         assert_eq!(sub.value, 10);
