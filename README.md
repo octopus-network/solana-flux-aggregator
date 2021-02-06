@@ -1,6 +1,6 @@
 # solana-flux-aggregator
 
-Solnana Flux Aggregator 
+Solnana Flux Aggregator
 
 Price Feeds: [https://sol.link](https://sol.link)
 
@@ -51,11 +51,7 @@ Create the `btc:usd` feed (that accepts max and min u64 as valid submission valu
 
 ```
 yarn solink add-aggregator \
-  --feedName btc:usd \
-  --submitInterval 6 \
-  --minSubmissionValue 0 \
-  --maxSubmissionValue 18446744073709551615 \
-  --submissionDecimals 2
+  --feedName btc:usd
 
 feed initialized, pubkey: 3aTBom2uodyWkuVPiUkwCZ2HiFywdUx9tp7su7U2H4Nx
 ```

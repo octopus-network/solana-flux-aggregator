@@ -2,6 +2,8 @@ import { PublicKey, Account } from "solray"
 import BN from "bn.js"
 import { deserialize, serialize } from "borsh"
 
+const MAX_ORACLES = 12
+
 const boolMapper = {
   encode: boolToInt,
   decode: intToBool,
@@ -75,23 +77,75 @@ class Submission {
   }
 }
 
-export class Aggregator extends Serialization {
-  public submitInterval!: number
-  public minSubmissionValue!: BN
-  public maxSubmissionValue!: BN
-  public submissions!: Submission[]
+export class AggregatorConfig extends Serialization {
+  public decimals!: number
+  public description!: string
+  public restartDelay!: number
+  public rewardAmount!: number
+  public maxSubmissions!: number
+  public minSubmissions!: number
 
   public static schema = {
     kind: "struct",
     fields: [
-      ["submitInterval", "u32"],
-      ["minSubmissionValue", "u64"],
-      ["maxSubmissionValue", "u64"],
-      ["submissionDecimals", "u8"],
-      ["description", [32], str32Mapper], // fixed-sized-u8-array
-      ["isInitialized", "u8", boolMapper], // no mapping for bool?
+      ["description", [32], str32Mapper],
+      ["decimals", "u8"],
+      ["restartDelay", "u8"],
+      ["maxSubmissions", "u8"],
+      ["minSubmissions", "u8"],
+      ["rewardAmount", "u64"],
+    ],
+  }
+}
+
+export class Submissions extends Serialization {
+  public static size = 625
+  public static schema = {
+    kind: "struct",
+    fields: [
+      ["isInitialized", "u8", boolMapper],
+      ["submissions", [MAX_ORACLES, Submission]],
+    ],
+  }
+}
+class Round extends Serialization {
+  public static schema = {
+    kind: "struct",
+    fields: [
+      ["id", "u64"],
+      ["created_at", "u64"],
+      ["updated_at", "u64"],
+    ],
+  }
+}
+
+class Answer extends Serialization {
+  public static schema = {
+    kind: "struct",
+    fields: [
+      ["round_id", "u64"],
+      ["created_at", "u64"],
+      ["updated_at", "u64"],
+    ],
+  }
+}
+
+export class Aggregator extends Serialization {
+  public static size = 189
+
+  public config!: AggregatorConfig
+  // public submissions!: Submission[]
+
+  public static schema = {
+    kind: "struct",
+    fields: [
+      ["config", AggregatorConfig],
+      ["isInitialized", "u8", boolMapper],
       ["owner", [32], pubkeyMapper],
-      ["submissions", [Submission, 12]],
+      ["round", Round],
+      ["round_submissions", [32], pubkeyMapper],
+      ["answer", Answer],
+      ["answer_submissions", [32], pubkeyMapper],
     ],
   }
 }
@@ -103,22 +157,16 @@ abstract class InstructionSerialization extends Serialization {
 }
 
 export class Initialize extends InstructionSerialization {
-  public submitInterval!: number
-  public minSubmissionValue!: number
-  public maxSubmissionValue!: number
-  public submissionDecimals!: number
-  /// A short description of what is being reported
-  public description!: string
+  // public submitInterval!: number
+  // public minSubmissionValue!: number
+  // public maxSubmissionValue!: number
+  // public submissionDecimals!: number
+  // /// A short description of what is being reported
+  // public description!: string
 
   public static schema = {
     kind: "struct",
-    fields: [
-      ["submitInterval", "u32"],
-      ["minSubmissionValue", "u64"],
-      ["maxSubmissionValue", "u64"],
-      ["submissionDecimals", "u8"],
-      ["description", [32], str32Mapper],
-    ],
+    fields: [["config", AggregatorConfig]],
   }
 }
 
@@ -167,12 +215,20 @@ function boolToInt(t: boolean) {
   }
 }
 
+export class Oracle {
+  public static size = 113
+}
+
 // if there is optional or variable length items, what is: borsh_utils::get_packed_len::<Submission>()?
 //
 // would panic given variable sized types
 
 export const schema = new Map([
   [Aggregator, Aggregator.schema],
+  [Round, Round.schema],
+  [Answer, Answer.schema],
+  [AggregatorConfig, AggregatorConfig.schema],
+  [Submissions, Submissions.schema],
   [Submission, Submission.schema],
   [Initialize, Initialize.schema],
   [Instruction, Instruction.schema],

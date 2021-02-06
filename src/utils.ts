@@ -1,6 +1,10 @@
 import { Connection, PublicKey } from "@solana/web3.js"
 
-import { AggregatorLayout, SubmissionLayout, OracleLayout } from "./FluxAggregator"
+import {
+  AggregatorLayout,
+  SubmissionLayout,
+  OracleLayout,
+} from "./FluxAggregator"
 
 import { solana, Wallet, NetworkName, Deployer } from "solray"
 
@@ -17,9 +21,8 @@ export function getMedian(submissions: number[]): number {
     return values[0]
   } else {
     let i = len / 2
-    return len % 2 == 0 ? (values[i] + values[i-1])/2 : values[i]
+    return len % 2 == 0 ? (values[i] + values[i - 1]) / 2 : values[i]
   }
-
 }
 
 export function sleep(ms: number): Promise<void> {
@@ -46,7 +49,10 @@ export function decodeAggregatorInfo(accountInfo) {
 
   for (let i = 0; i < aggregator.submissions.length / submissionSpace; i++) {
     let submission = SubmissionLayout.decode(
-      aggregator.submissions.slice(i*submissionSpace, (i+1)*submissionSpace)
+      aggregator.submissions.slice(
+        i * submissionSpace,
+        (i + 1) * submissionSpace
+      )
     )
 
     submission.oracle = new PublicKey(submission.oracle)
@@ -68,8 +74,8 @@ export function decodeAggregatorInfo(accountInfo) {
     submissionValue: getMedian(submissions),
     submitInterval,
     description,
-    oracles: submissions.map(s => s.oracle.toString()),
-    latestUpdateTime: new Date(Number(latestUpdateTime)*1000),
+    oracles: submissions.map((s) => s.oracle.toString()),
+    latestUpdateTime: new Date(Number(latestUpdateTime) * 1000),
   }
 }
 
@@ -88,7 +94,10 @@ export function decodeOracleInfo(accountInfo) {
   return oracle
 }
 
-export async function walletFromEnv(key: string, conn: Connection): Promise<Wallet> {
+export async function walletFromEnv(
+  key: string,
+  conn: Connection
+): Promise<Wallet> {
   const mnemonic = process.env[key]
   if (!mnemonic) {
     throw new Error(`Set ${key} in .env to be a mnemonic`)
