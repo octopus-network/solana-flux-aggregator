@@ -42,8 +42,8 @@ impl<'a, 'b> Accounts<'a, 'b> {
 struct InitializeContext<'a> {
     rent: Rent,
     aggregator: &'a AccountInfo<'a>,
-    aggregator_owner: &'a AccountInfo<'a>,
-    round_submissions: &'a AccountInfo<'a>, // belongs_to: aggregator
+    aggregator_owner: &'a AccountInfo<'a>,   // signed
+    round_submissions: &'a AccountInfo<'a>,  // belongs_to: aggregator
     answer_submissions: &'a AccountInfo<'a>, // belongs_to: aggregator
 
     config: AggregatorConfig,
