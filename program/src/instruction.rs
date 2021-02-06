@@ -6,7 +6,11 @@ use crate::state::AggregatorConfig;
 use borsh::{BorshDeserialize, BorshSchema, BorshSerialize};
 
 /// Maximum number of oracles
-pub const MAX_ORACLES: usize = 12;
+///
+/// change to 14, and it fails with:
+/// Stack offset of -4120 exceeded max offset of -4096 by 24 bytes, please minimize large stack variables
+pub const MAX_ORACLES: usize = 13;
+
 
 /// The amount paid of TOKEN paid to each oracle per submission, in lamports (10e-10 SOL)
 pub const PAYMENT_AMOUNT: u64 = 10;
