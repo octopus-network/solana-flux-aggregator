@@ -3,7 +3,7 @@
 use crate::{
     error::Error,
     instruction::Instruction,
-    state::{Aggregator, AggregatorConfig, Authority, Oracle, Round, Submissions},
+    state::{Answer, Aggregator, AggregatorConfig, Authority, Oracle, Round, Submissions},
 };
 
 use solana_program::{
@@ -44,7 +44,6 @@ struct InitializeContext<'a> {
     aggregator: &'a AccountInfo<'a>,
     aggregator_owner: &'a AccountInfo<'a>,
     round_submissions: &'a AccountInfo<'a>, // belongs_to: aggregator
-    answer_submissions: &'a AccountInfo<'a>, // belongs_to: aggregator
 
     config: AggregatorConfig,
 }
@@ -56,7 +55,6 @@ impl<'a> InitializeContext<'a> {
         }
 
         self.init_submissions(self.round_submissions)?;
-        self.init_submissions(self.answer_submissions)?;
 
         let mut aggregator = Aggregator::init_uninitialized(self.aggregator)?;
         aggregator.is_initialized = true;
@@ -64,7 +62,6 @@ impl<'a> InitializeContext<'a> {
         aggregator.owner = self.aggregator_owner.into();
         // aggregator.round_submissions = PublicKey(self.round_submissions.key.to_bytes());
         aggregator.round_submissions = self.round_submissions.into();
-        aggregator.answer_submissions = self.answer_submissions.into();
 
         aggregator.save_exempt(self.aggregator, &self.rent)?;
 
@@ -153,7 +150,7 @@ struct SubmitContext<'a> {
     clock: Clock,
     aggregator: &'a AccountInfo<'a>,
     round_submissions: &'a AccountInfo<'a>,
-    answer_submissions: &'a AccountInfo<'a>,
+    answer: &'a AccountInfo<'a>,
     oracle: &'a AccountInfo<'a>,
     oracle_owner: &'a AccountInfo<'a>, // signed
 
@@ -245,7 +242,6 @@ impl<'a> SubmitContext<'a> {
         }
 
         // update answer if the new round reached min_submissions
-        let mut answer_submissions = aggregator.answer_submissions(self.answer_submissions)?;
         let round = &aggregator.round;
         let answer = &mut aggregator.answer;
 
@@ -253,14 +249,30 @@ impl<'a> SubmitContext<'a> {
             // a new round had just been resolved. copy the current round's submissions over
             answer.round_id = round.id;
             answer.created_at = now;
-            answer.updated_at = now;
-            answer_submissions.data = round_submissions.data;
-        } else {
-            answer.updated_at = now;
-            answer_submissions.data[i] = new_submission;
         }
+        answer.updated_at = now;
 
-        answer_submissions.save(self.answer_submissions)?;
+        let mut values: Vec<_> = round_submissions
+            .data
+            .iter()
+            .filter(|s| s.is_initialized())
+            .map(|s| s.value)
+            .collect();
+
+        // get median value
+        values.sort();
+
+        let median: u64;
+        let l = values.len();
+        let i = l / 2;
+        if l % 2 == 0 {
+            median = (values[i] + values[i - 1]) / 2;
+        } else {
+            median = values[i];
+        }
+        answer.value = median;
+
+        answer.save(self.answer)?;
 
         Ok(())
     }
@@ -361,7 +373,6 @@ impl Processor {
                 aggregator: accounts.get(1)?,
                 aggregator_owner: accounts.get(2)?,
                 round_submissions: accounts.get(3)?,
-                answer_submissions: accounts.get(4)?,
                 config,
             }
             .process(),
@@ -391,7 +402,7 @@ impl Processor {
                 clock: accounts.get_clock(0)?,
                 aggregator: accounts.get(1)?,
                 round_submissions: accounts.get(2)?,
-                answer_submissions: accounts.get(3)?,
+                answer: accounts.get(3)?,
                 oracle: accounts.get(4)?,
                 oracle_owner: accounts.get(5)?,
 
@@ -514,7 +525,6 @@ mod tests {
         aggregator: TAccount,
         aggregator_owner: TAccount,
         round_submissions: TAccount,
-        answer_submissions: TAccount,
     }
 
     fn create_aggregator(program_id: &Pubkey) -> Result<TAggregator, ProgramError> {
@@ -526,11 +536,6 @@ mod tests {
         );
         let mut aggregator_owner = TAccount::new(&program_id, true);
         let mut round_submissions = TAccount::new_rent_exempt(
-            &program_id,
-            borsh_utils::get_packed_len::<Submissions>(),
-            false,
-        );
-        let mut answer_submissions = TAccount::new_rent_exempt(
             &program_id,
             borsh_utils::get_packed_len::<Submissions>(),
             false,
@@ -555,7 +560,6 @@ mod tests {
                 (&mut aggregator).into(),
                 (&mut aggregator_owner).into(),
                 (&mut round_submissions).into(),
-                (&mut answer_submissions).into(),
             ]
             .as_slice(),
         )?;
@@ -564,7 +568,6 @@ mod tests {
             aggregator,
             aggregator_owner,
             round_submissions,
-            answer_submissions,
         })
     }
 
@@ -679,7 +682,6 @@ mod tests {
                     (&mut clock).into(),
                     self.t_aggregator.aggregator.info(),
                     self.t_aggregator.round_submissions.info(),
-                    self.t_aggregator.answer_submissions.info(),
                     oracle.into(),
                     oracle_owner.into(),
                 ]
@@ -709,16 +711,8 @@ mod tests {
             self.aggregator()?
                 .round_submissions(&self.t_aggregator.round_submissions.info())
         }
-
-        fn answer_submission(&mut self, i: usize) -> Result<Submission, ProgramError> {
-            Ok(self.answer_submissions()?.data[i])
-        }
-
-        fn answer_submissions(&mut self) -> Result<Submissions, ProgramError> {
-            self.aggregator()?
-                .answer_submissions(&self.t_aggregator.answer_submissions.info())
-        }
     }
+
     #[test]
     fn test_submit() -> ProgramResult {
         let program_id = Pubkey::new_unique();
@@ -771,10 +765,7 @@ mod tests {
         assert_eq!(answer.is_initialized(), true);
         assert_eq!(answer.updated_at, time);
         assert_eq!(answer.created_at, time);
-
-        let answer_submissions = tt.answer_submissions()?;
-        let round_submissions = tt.round_submissions()?;
-        assert_eq!(answer_submissions, round_submissions);
+        assert_eq!(answer.value, 1);
 
         // test: max submission reached
         assert_eq!(
@@ -830,9 +821,7 @@ mod tests {
         assert_eq!(answer.round_id, 1);
         assert_eq!(answer.updated_at, time);
         assert_eq!(answer.created_at, time);
-
-        assert_eq!(tt.answer_submission(0)?.value, 10);
-        assert_eq!(tt.answer_submission(1)?.value, 20);
+        assert_eq!(answer.value, 2);
 
         let time = 500;
         // let oracle 2 start a new round

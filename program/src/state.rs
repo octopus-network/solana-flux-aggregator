@@ -81,11 +81,14 @@ pub struct Round {
     pub updated_at: u64,
 }
 
+impl BorshState for Answer {}
+
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, Default, PartialEq)]
 pub struct Answer {
     pub round_id: u64,
     pub created_at: u64,
     pub updated_at: u64,
+    pub value: u64,
 }
 
 impl IsInitialized for Answer {
@@ -107,18 +110,9 @@ pub struct Aggregator {
     pub round_submissions: PublicKey, // has_one: Submissions
     /// the latest answer resolved
     pub answer: Answer,
-    pub answer_submissions: PublicKey, // has_one: Submissions
 }
 
 impl Aggregator {
-    /// check & return the submissions linked with an aggregator
-    pub fn answer_submissions(&self, account: &AccountInfo) -> Result<Submissions, ProgramError> {
-        if self.answer_submissions.0 != account.key.to_bytes() {
-            Err(Error::AggregatorMismatch)?;
-        }
-        Submissions::load_initialized(account)
-    }
-
     pub fn round_submissions(&self, account: &AccountInfo) -> Result<Submissions, ProgramError> {
         if self.round_submissions.0 != account.key.to_bytes() {
             Err(Error::AggregatorMismatch)?;
