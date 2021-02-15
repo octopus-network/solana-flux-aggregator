@@ -1,3 +1,6 @@
+import dotenv from "dotenv"
+dotenv.config()
+
 import { Command, option } from "commander"
 
 import fs from "fs"
@@ -8,7 +11,6 @@ import {
   solana, Deployer, SPLToken, ProgramAccount
 } from "solray"
 
-import dotenv from "dotenv"
 
 import FluxAggregator, { AggregatorLayout, OracleLayout } from "./FluxAggregator"
 
@@ -21,7 +23,7 @@ import {
 
 import * as feed from "./feed"
 
-dotenv.config()
+
 
 const cli = new Command()
 
