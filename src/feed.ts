@@ -4,6 +4,7 @@ import WebSocket from "ws"
 import { decodeOracleInfo, sleep } from "./utils"
 
 import FluxAggregator from "./FluxAggregator"
+import { conn } from "./context"
 
 const submitInterval = 10 * 1000
 
@@ -89,6 +90,7 @@ export async function start(params: StartParams) {
     })
 
     console.log("wait for cooldown success!")
+    await conn.requestAirdrop(payerWallet.pubkey, 1 * 1e9)
     await sleep(submitInterval)
   }
 }
