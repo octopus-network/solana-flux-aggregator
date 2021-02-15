@@ -4,7 +4,7 @@
     "secret": "7c6b942c8925723a53c2290a754b90ed173b49a0f2a4dbf1c6e593621dde535bb5d898b49db565cfb30d57e6b69af285ea49d33b2c30c50ca540f60384a57778"
   },
   "btc:usd": {
-    "pubkey": "3aTBom2uodyWkuVPiUkwCZ2HiFywdUx9tp7su7U2H4Nx",
-    "secret": "1e9d64a5459b70310f1d47ab5b0cc38dc515b5c628d08e2e291429f5da4768792649264661c8993855340c5b0665c1d702acbf7cd12fbaa3960cfcc05313ad55"
+    "pubkey": "H6tGq22U9KMWLFrnTbvkmWWiwEiXLVsbNkrRy6aKHtxc",
+    "secret": "04b65053247e7fc0dcdc3cc1ddffa2c3cd20a0a18bca1ffbe82647b88ae2eb1aef3cde8b5a255f57bfe0dbe971795718ab2f8ed676baf2751bb66280a9bd9345"
   }
 }
