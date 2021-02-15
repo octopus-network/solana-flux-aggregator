@@ -4,7 +4,7 @@ import WebSocket from "ws"
 import { decodeOracleInfo, sleep } from "./utils"
 
 import FluxAggregator from "./FluxAggregator"
-import { conn } from "./context"
+import { conn } from "./cli"
 
 const submitInterval = 10 * 1000
 

@@ -28,8 +28,8 @@ import * as feed from "./feed"
 const cli = new Command()
 
 const FLUX_AGGREGATOR_SO = path.resolve(__dirname, "../build/flux_aggregator.so")
-const network = (process.env.NETWORK || "local") as NetworkName
-const conn = solana.connect(network)
+export const network = (process.env.NETWORK || "local") as NetworkName
+export const conn = solana.connect(network)
 
 class AppContext {
 
@@ -215,7 +215,7 @@ cli
     const { feedAddress, oracleAddress } = opts
 
     const { aggregator } = await AppContext.forAdmin()
- 
+
     await aggregator.removeOracle({
       aggregator: new PublicKey(feedAddress),
       oracle: new PublicKey(oracleAddress),
