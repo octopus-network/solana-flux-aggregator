@@ -29,6 +29,7 @@ import { decodeOracleInfo } from "./utils"
 import { schema } from "./schema"
 import * as encoding from "./schema"
 import { deserialize, serialize } from "borsh"
+import { conn } from "./context"
 
 export const AggregatorLayout = BufferLayout.struct([])
 
@@ -57,15 +58,11 @@ interface InitializeInstructionParams extends InitializeParams {
 }
 
 interface AddOracleParams {
-  owner: PublicKey
-  description: string
   aggregator: PublicKey
-  // To prove you are the aggregator owner
   aggregatorOwner: Account
-}
 
-interface AddOracleInstructionParams extends AddOracleParams {
-  oracle: PublicKey
+  oracleOwner: PublicKey
+  description: string
 }
 
 interface RemoveOracleParams {
@@ -78,15 +75,17 @@ interface RemoveOracleParams {
 interface RemoveOracleInstructionParams extends RemoveOracleParams {}
 
 interface SubmitParams {
-  aggregator: PublicKey
-  oracle: PublicKey
-  // The oracle"s index
-  submission: bigint
-  // oracle owner
-  owner: Account
-}
+  accounts: {
+    aggregator: { write: PublicKey }
+    roundSubmissions: { write: PublicKey }
+    answerSubmissions: { write: PublicKey }
+    oracle: { write: PublicKey }
+    oracle_owner: Account
+  }
 
-interface SubmitInstructionParams extends SubmitParams {}
+  round_id: BigInt
+  value: BigInt
+}
 
 interface WithdrawParams {
   aggregator: PublicKey
@@ -113,8 +112,6 @@ export default class FluxAggregator extends BaseProgram {
     const aggregator = new Account()
     const answer_submissions = new Account()
     const round_submissions = new Account()
-
-    console.log({ config: params.config, program: this.programID.toString() })
 
     const input = encoding.Initialize.serialize({ config: params.config })
 
@@ -158,6 +155,10 @@ export default class FluxAggregator extends BaseProgram {
   public async addOracle(params: AddOracleParams): Promise<Account> {
     const oracle = new Account()
 
+    const input = encoding.AddOracle.serialize({
+      description: params.description,
+    })
+
     await this.sendTx(
       [
         await this.sys.createRentFreeAccountInstruction({
@@ -165,10 +166,13 @@ export default class FluxAggregator extends BaseProgram {
           space: encoding.Oracle.size,
           programID: this.programID,
         }),
-        this.addOracleInstruction({
-          ...params,
-          oracle: oracle.publicKey,
-        }),
+        this.instruction(input, [
+          SYSVAR_RENT_PUBKEY,
+          params.aggregator,
+          params.aggregatorOwner, // signed
+          oracle.publicKey,
+          params.oracleOwner,
+        ]),
       ],
       [this.account, oracle, params.aggregatorOwner]
     )
@@ -179,32 +183,6 @@ export default class FluxAggregator extends BaseProgram {
   public async oracleInfo(pubkey: PublicKey) {
     const info = await this.conn.getAccountInfo(pubkey)
     return decodeOracleInfo(info)
-  }
-
-  private addOracleInstruction(
-    params: AddOracleInstructionParams
-  ): TransactionInstruction {
-    const { oracle, owner, description, aggregator, aggregatorOwner } = params
-
-    const layout = BufferLayout.struct([
-      BufferLayout.u8("instruction"),
-      BufferLayout.blob(32, "description"),
-    ])
-
-    return this.instructionEncode(
-      layout,
-      {
-        instruction: 1, // add oracle instruction
-        description: Buffer.from(description),
-      },
-      [
-        { write: oracle },
-        owner,
-        SYSVAR_CLOCK_PUBKEY,
-        { write: aggregator },
-        aggregatorOwner,
-      ]
-    )
   }
 
   public async removeOracle(params: RemoveOracleParams): Promise<void> {
@@ -239,29 +217,18 @@ export default class FluxAggregator extends BaseProgram {
   }
 
   public async submit(params: SubmitParams): Promise<void> {
+    const input = encoding.Submit.serialize(params)
+
+    let auths = [
+      SYSVAR_CLOCK_PUBKEY,
+      ...Object.values(params.accounts),
+    ]
+
     await this.sendTx(
-      [this.submitInstruction(params)],
-      [this.account, params.owner]
-    )
-  }
-
-  private submitInstruction(
-    params: SubmitInstructionParams
-  ): TransactionInstruction {
-    const { aggregator, oracle, submission, owner } = params
-
-    const layout = BufferLayout.struct([
-      BufferLayout.u8("instruction"),
-      uint64("submission"),
-    ])
-
-    return this.instructionEncode(
-      layout,
-      {
-        instruction: 3, // submit instruction
-        submission: u64LEBuffer(submission),
-      },
-      [{ write: aggregator }, SYSVAR_CLOCK_PUBKEY, { write: oracle }, owner]
+      [
+        this.instruction(input, auths),
+      ],
+      [this.account, params.accounts.oracle_owner]
     )
   }
 

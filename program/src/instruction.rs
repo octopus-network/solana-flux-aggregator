@@ -53,7 +53,8 @@ mod tests {
 
     #[test]
     fn test_decode_instruction() -> ProgramResult {
-        let input = hex::decode("004254433a5553442020202020202020202020202020202020202020202020202002010c010100000000000000").map_err(|_| ProgramError::InvalidInstructionData)?;
+        let mut input = hex::decode("004254433a5553442020202020202020202020202020202020202020202020202002010c010100000000000000").map_err(|_| ProgramError::InvalidInstructionData)?;
+        let mut input = hex::decode("02534f4c494e4b2d54455354202020202020202020202020202020202020202020").map_err(|_| ProgramError::InvalidInstructionData)?;
 
         let inx = Instruction::try_from_slice(&input)
             .map_err(|_| ProgramError::InvalidInstructionData)?;

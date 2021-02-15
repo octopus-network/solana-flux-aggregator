@@ -7,6 +7,7 @@ use crate::{
 };
 
 use solana_program::{
+    msg,
     account_info::AccountInfo,
     clock::Clock,
     entrypoint::ProgramResult,
@@ -112,9 +113,11 @@ impl<'a> AddOracleContext<'a> {
     fn process(&self) -> ProgramResult {
         // Note: there can in fact be more oracles than max_submissions
         let aggregator = Aggregator::load_initialized(self.aggregator)?;
+        msg!("loaded aggregator");
         aggregator.authorize(self.aggregator_owner)?;
 
         let mut oracle = Oracle::init_uninitialized(self.oracle)?;
+        msg!("loaded oracle");
         oracle.is_initialized = true;
         oracle.description = self.description;
         oracle.owner = self.oracle_owner.into();

@@ -81,7 +81,7 @@ Next we create a new oracle to the feed we've created previously, and set its ow
 
 ```
 yarn solink add-oracle \
-  --feedAddress 3aTBom2uodyWkuVPiUkwCZ2HiFywdUx9tp7su7U2H4Nx \
+  --aggregatorAddress 3aTBom2uodyWkuVPiUkwCZ2HiFywdUx9tp7su7U2H4Nx \
   --oracleName solink-test \
   --oracleOwner FosLwbttPgkEDv36VJLU3wwXcBSSoUGkh7dyZPsXNtT4
 

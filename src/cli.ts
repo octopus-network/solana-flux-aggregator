@@ -18,12 +18,7 @@ import dotenv from "dotenv"
 
 import FluxAggregator from "./FluxAggregator"
 
-import {
-  decodeAggregatorInfo,
-  walletFromEnv,
-  openDeployer,
-  sleep,
-} from "./utils"
+import { decodeAggregatorInfo, sleep } from "./utils"
 
 import * as feed from "./feed"
 import { AggregatorConfig } from "./schema"
@@ -39,43 +34,7 @@ const FLUX_AGGREGATOR_SO = path.resolve(
 const network = (process.env.NETWORK || "local") as NetworkName
 const conn = solana.connect(network)
 
-class AppContext {
-  static readonly AGGREGATOR_PROGRAM = "aggregatorProgram"
-
-  static async forAdmin() {
-    const deployer = await openDeployer()
-    const admin = await walletFromEnv("ADMIN_MNEMONIC", conn)
-
-    return new AppContext(deployer, admin)
-  }
-
-  static async forOracle() {
-    const deployer = await openDeployer()
-    const wallet = await walletFromEnv("ORACLE_MNEMONIC", conn)
-
-    return new AppContext(deployer, wallet)
-  }
-
-  constructor(public deployer: Deployer, public wallet: Wallet) {}
-
-  get aggregatorProgramID() {
-    return this.aggregatorProgramAccount.publicKey
-  }
-
-  get aggregator() {
-    return new FluxAggregator(this.wallet, this.aggregatorProgramID)
-  }
-
-  get aggregatorProgramAccount() {
-    const program = this.deployer.account(AppContext.AGGREGATOR_PROGRAM)
-
-    if (program == null) {
-      throw new Error(`flux aggregator program is not yet deployed`)
-    }
-
-    return program
-  }
-}
+import { AppContext } from "./context"
 
 function color(s, c = "black", b = false): string {
   // 30m Black, 31m Red, 32m Green, 33m Yellow, 34m Blue, 35m Magenta, 36m Cyanic, 37m White
@@ -226,7 +185,7 @@ cli
 cli
   .command("add-oracle")
   .description("add an oracle to aggregator")
-  .option("--feedAddress <string>", "feed address")
+  .option("--aggregatorAddress <string>", "aggregator address")
   .option("--oracleName <string>", "oracle name")
   .option("--oracleOwner <string>", "oracle owner address")
   .action(async (opts) => {
@@ -236,8 +195,8 @@ cli
 
     log("add oracle...")
     const oracle = await aggregator.addOracle({
-      owner: new PublicKey(oracleOwner),
-      description: oracleName.substr(0, 32).padEnd(32),
+      oracleOwner: new PublicKey(oracleOwner),
+      description: oracleName,
       aggregator: new PublicKey(feedAddress),
       aggregatorOwner: wallet.account,
     })

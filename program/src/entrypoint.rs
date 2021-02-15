@@ -3,6 +3,7 @@
 use crate::processor::Processor;
 
 use solana_program::{
+    msg,
     account_info::AccountInfo, entrypoint, entrypoint::ProgramResult, pubkey::Pubkey,
 };
 
@@ -14,11 +15,12 @@ fn process_instruction<'a>(
     accounts: &'a [AccountInfo<'a>],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    if let Err(error) = Processor::process(program_id, accounts, instruction_data) {
-        // catch the error so we can print it
-        // error.print::<Error>();
-        // msg!("{:?}", error);
-        return Err(error);
-    }
+    msg!("call aggregator yo");
+    // if let Err(error) = Processor::process(program_id, accounts, instruction_data) {
+    //     // catch the error so we can print it
+    //     // error.print::<Error>();
+    //     // msg!("{:?}", error);
+    //     return Err(error);
+    // }
     Ok(())
 }

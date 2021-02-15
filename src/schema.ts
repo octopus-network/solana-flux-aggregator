@@ -2,7 +2,7 @@ import { PublicKey, Account } from "solray"
 import BN from "bn.js"
 import { deserialize, serialize } from "borsh"
 
-const MAX_ORACLES = 12
+const MAX_ORACLES = 13
 
 const boolMapper = {
   encode: boolToInt,
@@ -28,7 +28,7 @@ const pubkeyMapper = {
 // support strings that can be contained in at most 32 bytes
 const str32Mapper = {
   encode: (str: String) => {
-    str = str.substr(0, 32).toUpperCase().padEnd(32)
+    str = str.substr(0, 32).padEnd(32)
     return Buffer.from(str, "utf8").slice(0, 32) // truncate at 32 bytes
   },
 
@@ -50,7 +50,11 @@ abstract class Serialization {
   }
 
   public serialize(): Buffer {
-    return Buffer.from(serialize(schema, this))
+    let buf = Buffer.from(serialize(schema, this))
+    if (buf.length == 0) {
+      throw new Error("serialized buffer is 0. something wrong with schema")
+    }
+    return buf
   }
 
   constructor(data) {
@@ -66,7 +70,7 @@ class Submission {
   public static schema = {
     kind: "struct",
     fields: [
-      ["time", "u64"],
+      ["updated_at", "u64"],
       ["value", "u64"],
       ["oracle", [32], pubkeyMapper],
     ],
@@ -104,7 +108,7 @@ export class Submissions extends Serialization {
     kind: "struct",
     fields: [
       ["isInitialized", "u8", boolMapper],
-      ["submissions", [MAX_ORACLES, Submission]],
+      ["submissions", [Submission, MAX_ORACLES]],
     ],
   }
 }
@@ -134,7 +138,8 @@ export class Aggregator extends Serialization {
   public static size = 189
 
   public config!: AggregatorConfig
-  // public submissions!: Submission[]
+  public roundSubmissions!: PublicKey
+  public answerSubmissions!: PublicKey
 
   public static schema = {
     kind: "struct",
@@ -143,9 +148,9 @@ export class Aggregator extends Serialization {
       ["isInitialized", "u8", boolMapper],
       ["owner", [32], pubkeyMapper],
       ["round", Round],
-      ["round_submissions", [32], pubkeyMapper],
+      ["roundSubmissions", [32], pubkeyMapper],
       ["answer", Answer],
-      ["answer_submissions", [32], pubkeyMapper],
+      ["answerSubmissions", [32], pubkeyMapper],
     ],
   }
 }
@@ -170,13 +175,51 @@ export class Initialize extends InstructionSerialization {
   }
 }
 
+export class Configure extends InstructionSerialization {
+  public static schema = {
+    kind: "struct",
+    fields: [["config", AggregatorConfig]],
+  }
+}
+
+export class AddOracle extends InstructionSerialization {
+  public static schema = {
+    kind: "struct",
+    fields: [["description", [32], str32Mapper]],
+  }
+}
+
+
+export class RemoveOracle extends InstructionSerialization {
+  public static schema = {
+    kind: "struct",
+    fields: [],
+  }
+}
+
+export class Submit extends InstructionSerialization {
+  public static schema = {
+    kind: "struct",
+    fields: [
+      ["round_id", "u64"],
+      ["value", "u64"],
+    ],
+  }
+}
+
 export class Instruction extends Serialization {
   public enum!: string
 
   public static schema = {
     kind: "enum",
     field: "enum",
-    values: [[Initialize.name, Initialize]],
+    values: [
+      [Initialize.name, Initialize],
+      [Configure.name, Configure],
+      [AddOracle.name, AddOracle],
+      [RemoveOracle.name, RemoveOracle],
+      [Submit.name, Submit],
+    ],
   }
 
   public constructor(prop: { [key: string]: any }) {
@@ -215,8 +258,20 @@ function boolToInt(t: boolean) {
   }
 }
 
-export class Oracle {
+export class Oracle extends Serialization {
   public static size = 113
+
+  public static schema = {
+    kind: "struct",
+    fields: [
+      ["description", [32], str32Mapper],
+      ["isInitialized", "u8", boolMapper],
+      ["withdrawable", "u64"],
+      ["allow_start_round", "u64"],
+      ["aggregator", [32], pubkeyMapper],
+      ["owner", [32], pubkeyMapper],
+    ],
+  }
 }
 
 // if there is optional or variable length items, what is: borsh_utils::get_packed_len::<Submission>()?
@@ -225,11 +280,16 @@ export class Oracle {
 
 export const schema = new Map([
   [Aggregator, Aggregator.schema],
+  [Oracle, Oracle.schema],
   [Round, Round.schema],
   [Answer, Answer.schema],
   [AggregatorConfig, AggregatorConfig.schema],
   [Submissions, Submissions.schema],
   [Submission, Submission.schema],
-  [Initialize, Initialize.schema],
+
   [Instruction, Instruction.schema],
+  [Initialize, Initialize.schema],
+  [AddOracle, AddOracle.schema],
+  [Submit, Submit.schema],
+
 ] as any) as any
