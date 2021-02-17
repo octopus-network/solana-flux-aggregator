@@ -203,7 +203,7 @@ impl<'a> SubmitContext<'a> {
     /// push oracle answer to the current round. update answer if min submissions
     /// had been satisfied.
     fn submit(&self, aggregator: &mut Aggregator) -> ProgramResult {
-        let now = self.clock.unix_timestamp as u64;
+        let now = self.clock.slot;
 
         let mut round_submissions = aggregator.round_submissions(self.round_submissions)?;
 
@@ -269,7 +269,7 @@ impl<'a> SubmitContext<'a> {
     }
 
     fn start_new_round(&self, aggregator: &mut Aggregator, oracle: &mut Oracle) -> ProgramResult {
-        let now = self.clock.unix_timestamp as u64;
+        let now = self.clock.slot;
 
         if aggregator.round.id < oracle.allow_start_round {
             return Err(Error::OracleNewRoundCooldown)?;
@@ -446,7 +446,7 @@ mod tests {
 
     fn sysclock(time: i64) -> TSysAccount {
         let mut clock = Clock::default();
-        clock.unix_timestamp = time;
+        clock.slot = time as u64;
         TSysAccount(sysvar::clock::id(), create_account(&clock, 42))
     }
 
