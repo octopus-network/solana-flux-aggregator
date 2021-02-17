@@ -15,12 +15,12 @@ fn process_instruction<'a>(
     accounts: &'a [AccountInfo<'a>],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    msg!("call aggregator yo");
-    // if let Err(error) = Processor::process(program_id, accounts, instruction_data) {
-    //     // catch the error so we can print it
-    //     // error.print::<Error>();
-    //     // msg!("{:?}", error);
-    //     return Err(error);
-    // }
+    msg!("calling aggregator yo");
+    if let Err(error) = Processor::process(program_id, accounts, instruction_data) {
+        // catch the error so we can print it
+        // error.print::<Error>();
+        // msg!("{:?}", error);
+        return Err(error);
+    }
     Ok(())
 }
