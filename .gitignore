@@ -11,3 +11,4 @@ dist
 deploy.json
 program/Cargo.lock
 integration-example/Cargo.lock
+.DS_Store
