@@ -7,6 +7,8 @@ import {
   SPLToken,
 } from "solray"
 
+import BN from "bn.js"
+
 import {
   SYSVAR_RENT_PUBKEY,
   SYSVAR_CLOCK_PUBKEY,
@@ -83,8 +85,8 @@ interface SubmitParams {
     oracle_owner: Account
   }
 
-  round_id: BigInt
-  value: BigInt
+  round_id: BN
+  value: BN
 }
 
 interface WithdrawParams {

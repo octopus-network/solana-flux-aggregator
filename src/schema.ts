@@ -1,6 +1,7 @@
 import { PublicKey, Account } from "solray"
 import BN from "bn.js"
 import { deserialize, serialize } from "borsh"
+import { conn } from "./context"
 
 const MAX_ORACLES = 13
 
@@ -37,7 +38,29 @@ const str32Mapper = {
   },
 }
 
-abstract class Serialization {
+const u64Date = {
+  encode: (date: Date) => {
+    return new BN(Math.floor(date.getTime() / 1000))
+  },
+
+  decode: (unixtime: BN) => {
+    return new Date(unixtime.toNumber() * 1000)
+  },
+}
+
+export abstract class Serialization {
+  public static async load<T>(
+    this: { new (data: any): T },
+    key: PublicKey
+  ): Promise<T> {
+    const info = await conn.getAccountInfo(key, "recent")
+    if (!info) {
+      throw new Error("account does not exist")
+    }
+
+    return deserialize(schema, this, info.data)
+  }
+
   public static deserialize<T>(this: { new (data: any): T }, data: Buffer): T {
     return deserialize(schema, this, data)
   }
@@ -103,6 +126,9 @@ export class AggregatorConfig extends Serialization {
 }
 
 export class Submissions extends Serialization {
+  public isInitialized!: boolean
+  public submissions!: Submission[]
+
   public static size = 625
   public static schema = {
     kind: "struct",
@@ -111,19 +137,33 @@ export class Submissions extends Serialization {
       ["submissions", [Submission, MAX_ORACLES]],
     ],
   }
+
+  public hadSubmitted(pk: PublicKey): boolean {
+    return !!this.submissions.find((s) => {
+      return s.oracle.equals(pk)
+    })
+  }
 }
 class Round extends Serialization {
+  public id!: BN
+  public createdAt!: BN
+  public updatedAt!: BN
+
   public static schema = {
     kind: "struct",
     fields: [
       ["id", "u64"],
-      ["created_at", "u64"],
-      ["updated_at", "u64"],
+      ["createdAt", "u64"],
+      ["updatedAt", "u64"],
     ],
   }
 }
 
 class Answer extends Serialization {
+  public round_id!: BN
+  public created_at!: BN
+  public updated_at!: BN
+
   public static schema = {
     kind: "struct",
     fields: [
@@ -140,6 +180,8 @@ export class Aggregator extends Serialization {
   public config!: AggregatorConfig
   public roundSubmissions!: PublicKey
   public answerSubmissions!: PublicKey
+  public answer!: Answer
+  public round!: Round
 
   public static schema = {
     kind: "struct",
@@ -260,6 +302,7 @@ function boolToInt(t: boolean) {
 
 export class Oracle extends Serialization {
   public static size = 113
+  public allowStartRound!: BN
 
   public static schema = {
     kind: "struct",
@@ -267,10 +310,14 @@ export class Oracle extends Serialization {
       ["description", [32], str32Mapper],
       ["isInitialized", "u8", boolMapper],
       ["withdrawable", "u64"],
-      ["allow_start_round", "u64"],
+      ["allowStartRound", "u64"],
       ["aggregator", [32], pubkeyMapper],
       ["owner", [32], pubkeyMapper],
     ],
+  }
+
+  public canStartNewRound(round: BN): boolean {
+    return this.allowStartRound.lte(round)
   }
 }
 

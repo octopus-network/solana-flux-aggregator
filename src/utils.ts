@@ -108,12 +108,3 @@ export async function walletFromEnv(
   return wallet
 }
 
-export async function openDeployer(): Promise<Deployer> {
-  const deployFile = process.env.DEPLOY_FILE
-
-  if (!deployFile) {
-    throw new Error(`Set DEPLOY_FILE in .env`)
-  }
-
-  return Deployer.open(deployFile)
-}
