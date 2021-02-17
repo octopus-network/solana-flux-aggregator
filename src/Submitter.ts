@@ -50,7 +50,7 @@ export class Submitter {
       aggregator: this.aggregator.config.description,
     })
 
-    await Promise.all([this.observeAggregatorState(), this.observePriceFlux()])
+    await Promise.all([this.observeAggregatorState(), this.observePriceFeed()])
   }
 
   private async observeAggregatorState() {
@@ -69,9 +69,7 @@ export class Submitter {
     })
   }
 
-  // TODO: immediately submit to current round if not submitted yet
-
-  private async observePriceFlux() {
+  private async observePriceFeed() {
     for await (let price of this.priceFeed) {
       if (price.decimals != this.aggregator.config.decimals) {
         throw new Error(
@@ -80,11 +78,10 @@ export class Submitter {
       }
 
       this.currentValue = new BN(price.value)
-      // TODO: check flux against current answer
+      // TODO: check price flux against current answer
       await this.trySubmit()
     }
   }
-  // compare with current answer
 
   private async trySubmit() {
     // TODO: make it possible to be triggered by chainlink task
@@ -92,22 +89,23 @@ export class Submitter {
 
     const { round } = this.aggregator
 
-    const epoch = await conn.getEpochInfo()
-
-    const sinceLastUpdate = new BN(epoch.absoluteSlot).sub(round.updatedAt)
-    // console.log("slot", epoch.absoluteSlot, sinceLastUpdate.toString())
-
     if (!this.hadSubmitted) {
       this.logger.info("Submit to current round")
       await this.submitCurrentValue(round.id)
       return
     }
 
-    if (!sinceLastUpdate.gtn(MAX_ROUND_STALENESS)) {
+    const epoch = await conn.getEpochInfo()
+    const sinceLastUpdate = new BN(epoch.absoluteSlot).sub(round.updatedAt)
+    // console.log("slot", epoch.absoluteSlot, sinceLastUpdate.toString())
+
+    if (sinceLastUpdate.ltn(MAX_ROUND_STALENESS)) {
+      // round is not stale yet. don't submit
       return
     }
 
-    // The round is stale. start a new round if possible
+    // The round is stale. start a new round if possible, or wait for another
+    // oracle to start
     this.logger.info("Starting a new round")
     const oracle = await Oracle.load(this.oraclePK)
     if (oracle.canStartNewRound(round.id)) {
