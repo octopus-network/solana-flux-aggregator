@@ -86,14 +86,14 @@ export abstract class Serialization {
 }
 
 class Submission {
-  public time!: BN
+  public updatedAt!: BN
   public value!: BN
   public oracle!: PublicKey
 
   public static schema = {
     kind: "struct",
     fields: [
-      ["updated_at", "u64"],
+      ["updatedAt", "u64"],
       ["value", "u64"],
       ["oracle", [32], pubkeyMapper],
     ],
@@ -136,6 +136,19 @@ export class Submissions extends Serialization {
       ["isInitialized", "u8", boolMapper],
       ["submissions", [Submission, MAX_ORACLES]],
     ],
+  }
+
+  // if not already submitted, and has empty spot
+  public canSubmit(pk: PublicKey, cfg: AggregatorConfig): boolean {
+    if (this.hadSubmitted(pk)) {
+      return false
+    }
+
+    let emptyIndex = this.submissions.findIndex((s) => {
+      return s.updatedAt.isZero()
+    })
+
+    return emptyIndex > 0 && emptyIndex < cfg.maxSubmissions
   }
 
   public hadSubmitted(pk: PublicKey): boolean {

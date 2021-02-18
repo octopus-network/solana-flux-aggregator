@@ -23,7 +23,8 @@ const MAX_ROUND_STALENESS = 10
 
 export class Submitter {
   public aggregator!: Aggregator
-  public submissions!: Submissions
+  public roundSubmissions!: Submissions
+  public answerSubmissions!: Submissions
   public program: FluxAggregator
   public logger!: Logger
   public currentValue: BN
@@ -45,7 +46,17 @@ export class Submitter {
   public async start() {
     // make sure the states are initialized
     this.aggregator = await Aggregator.load(this.aggregatorPK)
-    this.submissions = await Submissions.load(this.aggregator.roundSubmissions)
+    this.roundSubmissions = await Submissions.load(
+
+      this.aggregator.roundSubmissions
+
+    )
+    this.answerSubmissions = await Submissions.load(
+
+      this.aggregator.answerSubmissions
+
+    )
+
     this.logger = logger.child({
       aggregator: this.aggregator.config.description,
     })
@@ -56,13 +67,17 @@ export class Submitter {
   private async observeAggregatorState() {
     conn.onAccountChange(this.aggregatorPK, async (info) => {
       this.aggregator = Aggregator.deserialize(info.data)
-      this.submissions = await Submissions.load(
+      this.roundSubmissions = await Submissions.load(
         this.aggregator.roundSubmissions
+      )
+      this.answerSubmissions = await Submissions.load(
+        this.aggregator.answerSubmissions
       )
       // TODO: load answer
       this.logger.debug("state updated", {
         aggregator: this.aggregator,
-        submissions: this.submissions,
+        submissions: this.roundSubmissions,
+        answerSubmissions: this.answerSubmissions,
       })
 
       this.onAggregatorStateUpdate()
@@ -89,18 +104,19 @@ export class Submitter {
 
     const { round } = this.aggregator
 
-    if (!this.hadSubmitted) {
+    if (this.canSubmitToCurrentRound) {
       this.logger.info("Submit to current round")
       await this.submitCurrentValue(round.id)
       return
     }
 
+    // or, see if oracle can start a new round
     const epoch = await conn.getEpochInfo()
     const sinceLastUpdate = new BN(epoch.absoluteSlot).sub(round.updatedAt)
     // console.log("slot", epoch.absoluteSlot, sinceLastUpdate.toString())
 
     if (sinceLastUpdate.ltn(MAX_ROUND_STALENESS)) {
-      // round is not stale yet. don't submit
+      // round is not stale yet. don't submit new round
       return
     }
 
@@ -114,8 +130,7 @@ export class Submitter {
   }
 
   private async onAggregatorStateUpdate() {
-    // don't try to submit if already submitted...
-    if (this.hadSubmitted) {
+    if (this.canSubmitToCurrentRound) {
       return
     }
 
@@ -123,8 +138,8 @@ export class Submitter {
     await this.trySubmit()
   }
 
-  get hadSubmitted(): boolean {
-    return this.submissions.hadSubmitted(this.oraclePK)
+  get canSubmitToCurrentRound(): boolean {
+    return this.roundSubmissions.canSubmit(this.oraclePK, this.aggregator.config)
   }
 
   private async submitCurrentValue(round: BN) {
@@ -140,17 +155,24 @@ export class Submitter {
       value: value.toString(),
     })
 
-    await this.program.submit({
-      accounts: {
-        aggregator: { write: this.aggregatorPK },
-        roundSubmissions: { write: this.aggregator.roundSubmissions },
-        answerSubmissions: { write: this.aggregator.answerSubmissions },
-        oracle: { write: this.oraclePK },
-        oracle_owner: this.oracleOwnerWallet.account,
-      },
+    try {
+      await this.program.submit({
+        accounts: {
+          aggregator: { write: this.aggregatorPK },
+          roundSubmissions: { write: this.aggregator.roundSubmissions },
+          answerSubmissions: { write: this.aggregator.answerSubmissions },
+          oracle: { write: this.oraclePK },
+          oracle_owner: this.oracleOwnerWallet.account,
+        },
 
-      round_id: round,
-      value,
-    })
+        round_id: round,
+        value,
+      })
+    } catch (err) {
+      this.logger.error("submit error", {
+        err,
+      })
+      // throw err
+    }
   }
 }
