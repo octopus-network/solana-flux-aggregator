@@ -38,8 +38,7 @@ pub enum Instruction {
     },
 
     Withdraw {
-        // FIXME: why 32 bytes seed? could be a vec?
-        faucet_owner_seed: [u8; 32],
+        faucet_owner_seed: Vec<u8>,
     },
 }
 

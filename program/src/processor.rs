@@ -2,21 +2,31 @@
 
 use crate::{
     error::Error,
-    instruction::Instruction,
+    instruction::{self, Instruction},
     state::{Aggregator, AggregatorConfig, Authority, Oracle, Round, Submissions},
 };
 
 // use spl_token::state;
-use solana_program::{account_info::AccountInfo, clock::Clock, entrypoint::ProgramResult, msg, program::invoke_signed, program_error::ProgramError, program_pack::{IsInitialized, Pack}, pubkey::Pubkey, sysvar::{rent::Rent, Sysvar}};
+use solana_program::{
+    account_info::AccountInfo,
+    clock::Clock,
+    entrypoint::ProgramResult,
+    msg,
+    program::invoke_signed,
+    program_error::ProgramError,
+    program_pack::{IsInitialized, Pack},
+    pubkey::Pubkey,
+    sysvar::{rent::Rent, Sysvar},
+};
 
 use crate::borsh_state::{BorshState, InitBorshState};
 
 use borsh::BorshDeserialize;
 
-struct Accounts<'a, 'b>(&'a [AccountInfo<'b>]);
+struct Accounts<'a>(&'a [AccountInfo<'a>]);
 
-impl<'a, 'b> Accounts<'a, 'b> {
-    fn get(&self, i: usize) -> Result<&'a AccountInfo<'b>, ProgramError> {
+impl<'a> Accounts<'a> {
+    fn get(&self, i: usize) -> Result<&'a AccountInfo<'a>, ProgramError> {
         // fn get(&self, i: usize) -> Result<&AccountInfo, ProgramError> {
         // &accounts[input.token.account as usize]
         self.0.get(i).ok_or(ProgramError::NotEnoughAccountKeys)
@@ -249,7 +259,6 @@ impl<'a> SubmitContext<'a> {
             answer.created_at = now;
             answer.updated_at = now;
             answer_submissions.data = round_submissions.data;
-
         } else {
             answer.updated_at = now;
             answer_submissions.data[i] = new_submission;
@@ -308,8 +317,12 @@ impl<'a, 'b> WithdrawContext<'a, 'b> {
         oracle.authorize(&self.oracle_owner)?;
         oracle.check_aggregator(self.aggregator)?;
 
-        if !aggregator.config.reward_token_account.is_account(self.faucet) {
-            return Err(Error::InvalidFaucet)?
+        if !aggregator
+            .config
+            .reward_token_account
+            .is_account(self.faucet)
+        {
+            return Err(Error::InvalidFaucet)?;
         }
 
         if oracle.withdrawable == 0 {
@@ -359,38 +372,10 @@ impl Processor {
         let instruction =
             Instruction::try_from_slice(input).map_err(|_| ProgramError::InvalidInstructionData)?;
 
+        // match branches would increase stack frame, and hit the hard 4096
+        // frame limit. break the other branches into another function call, and
+        // mark it as never inline.
         match instruction {
-            Instruction::Initialize { config } => InitializeContext {
-                rent: accounts.get_rent(0)?,
-                aggregator: accounts.get(1)?,
-                aggregator_owner: accounts.get(2)?,
-                round_submissions: accounts.get(3)?,
-                answer_submissions: accounts.get(4)?,
-                config,
-            }
-            .process(),
-            Instruction::Configure { config } => ConfigureContext {
-                aggregator: accounts.get(0)?,
-                aggregator_owner: accounts.get(1)?,
-                config,
-            }
-            .process(),
-            Instruction::AddOracle { description } => AddOracleContext {
-                rent: accounts.get_rent(0)?,
-                aggregator: accounts.get(1)?,
-                aggregator_owner: accounts.get(2)?,
-                oracle: accounts.get(3)?,
-                oracle_owner: accounts.get(4)?,
-
-                description,
-            }
-            .process(),
-            Instruction::RemoveOracle => RemoveOracleContext {
-                aggregator: accounts.get(0)?,
-                aggregator_owner: accounts.get(1)?,
-                oracle: accounts.get(2)?,
-            }
-            .process(),
             Instruction::Submit { round_id, value } => SubmitContext {
                 clock: accounts.get_clock(0)?,
                 aggregator: accounts.get(1)?,
@@ -398,25 +383,63 @@ impl Processor {
                 answer_submissions: accounts.get(3)?,
                 oracle: accounts.get(4)?,
                 oracle_owner: accounts.get(5)?,
-
                 round_id,
                 value,
             }
             .process(),
-            // _ => Err(ProgramError::InvalidInstructionData),
+
             Instruction::Withdraw { faucet_owner_seed } => WithdrawContext {
                 token_program: accounts.get(0)?,
                 aggregator: accounts.get(1)?,
-                faucet: accounts.get(2)?,
-                faucet_owner: accounts.get(3)?,
-                oracle: accounts.get(4)?,
-                oracle_owner: accounts.get(5)?,
-                receiver: accounts.get(6)?,
+                faucet: accounts.get(2)?,       // write
+                faucet_owner: accounts.get(3)?, // program signed
+                oracle: accounts.get(4)?,       // write
+                oracle_owner: accounts.get(5)?, // signed
+                receiver: accounts.get(6)?,     // write
 
                 faucet_owner_seed: &faucet_owner_seed[..],
             }
             .process(),
+            instruction => process2(instruction, accounts),
         }
+    }
+}
+
+#[inline(never)]
+fn process2(instruction: Instruction, accounts: Accounts) -> ProgramResult {
+    match instruction {
+        Instruction::Initialize { config } => InitializeContext {
+            rent: accounts.get_rent(0)?,
+            aggregator: accounts.get(1)?,
+            aggregator_owner: accounts.get(2)?,
+            round_submissions: accounts.get(3)?,
+            answer_submissions: accounts.get(4)?,
+            config,
+        }
+        .process(),
+        Instruction::Configure { config } => ConfigureContext {
+            aggregator: accounts.get(0)?,
+            aggregator_owner: accounts.get(1)?,
+            config,
+        }
+        .process(),
+        Instruction::AddOracle { description } => AddOracleContext {
+            rent: accounts.get_rent(0)?,
+            aggregator: accounts.get(1)?,
+            aggregator_owner: accounts.get(2)?,
+            oracle: accounts.get(3)?,
+            oracle_owner: accounts.get(4)?,
+
+            description,
+        }
+        .process(),
+        Instruction::RemoveOracle => RemoveOracleContext {
+            aggregator: accounts.get(0)?,
+            aggregator_owner: accounts.get(1)?,
+            oracle: accounts.get(2)?,
+        }
+        .process(),
+        _ => Err(ProgramError::InvalidInstructionData),
     }
 }
 
