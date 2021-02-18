@@ -161,6 +161,7 @@ class Round extends Serialization {
 
 class Answer extends Serialization {
   public round_id!: BN
+  public median!: BN
   public created_at!: BN
   public updated_at!: BN
 
@@ -168,6 +169,7 @@ class Answer extends Serialization {
     kind: "struct",
     fields: [
       ["round_id", "u64"],
+      ["median", "u64"],
       ["created_at", "u64"],
       ["updated_at", "u64"],
     ],
@@ -175,7 +177,7 @@ class Answer extends Serialization {
 }
 
 export class Aggregator extends Serialization {
-  public static size = 189
+  public static size = 197
 
   public config!: AggregatorConfig
   public roundSubmissions!: PublicKey

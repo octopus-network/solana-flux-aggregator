@@ -258,11 +258,13 @@ impl<'a> SubmitContext<'a> {
             answer.created_at = now;
             answer.updated_at = now;
             answer_submissions.data = round_submissions.data;
+
         } else {
             answer.updated_at = now;
             answer_submissions.data[i] = new_submission;
         }
 
+        answer.median = answer_submissions.median()?;
         answer_submissions.save(self.answer_submissions)?;
 
         Ok(())
@@ -833,6 +835,7 @@ mod tests {
         assert_eq!(answer.round_id, 1);
         assert_eq!(answer.updated_at, time);
         assert_eq!(answer.created_at, time);
+        assert_eq!(answer.median, 15);
 
         assert_eq!(tt.answer_submission(0)?.value, 10);
         assert_eq!(tt.answer_submission(1)?.value, 20);

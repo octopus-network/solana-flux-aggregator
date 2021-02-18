@@ -37,6 +37,9 @@ pub enum Error {
     #[error("No resolve answer")]
     NoResolvedAnswer,
 
+    #[error("No submitted value")]
+    NoSubmission,
+
     #[error("Unknown error")]
     UnknownError,
 }

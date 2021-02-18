@@ -66,6 +66,40 @@ pub struct Submissions {
     // pub data: Vec<Submission>,
 }
 
+pub struct ResolvedMedian {
+    pub value: u64,
+    pub updated_at: u64,
+    pub created_at: u64,
+}
+
+impl Submissions {
+    pub fn median(&self) -> Result<u64, ProgramError> {
+        let mut values: Vec<_> = self.data
+            .iter()
+            .filter(|s| s.is_initialized())
+            .map(|s| s.value)
+            .collect();
+
+        if values.is_empty() {
+            return Err(Error::NoSubmission)?;
+        }
+
+        // get median value
+        values.sort();
+
+        let median: u64;
+        let l = values.len();
+        let i = l / 2;
+        if l % 2 == 0 {
+            median = (values[i] + values[i - 1]) / 2;
+        } else {
+            median = values[i];
+        }
+
+        Ok(median)
+    }
+}
+
 impl IsInitialized for Submissions {
     fn is_initialized(&self) -> bool {
         self.is_initialized
@@ -84,6 +118,7 @@ pub struct Round {
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, Default, PartialEq)]
 pub struct Answer {
     pub round_id: u64,
+    pub median: u64,
     pub created_at: u64,
     pub updated_at: u64,
 }
