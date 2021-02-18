@@ -40,6 +40,9 @@ pub enum Error {
     #[error("No submitted value")]
     NoSubmission,
 
+    #[error("Invalid faucet")]
+    InvalidFaucet,
+
     #[error("Unknown error")]
     UnknownError,
 }

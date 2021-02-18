@@ -3,7 +3,7 @@ dotenv.config()
 
 import BN from "bn.js"
 
-import { BPFLoader, Wallet } from "solray"
+import { BPFLoader, ProgramAccount, SPLToken, Wallet } from "solray"
 import { AppContext, conn, network } from "./src/context"
 
 import fs from "fs"
@@ -42,6 +42,40 @@ async function main() {
     }
   )
 
+  const spltoken = new SPLToken(adminWallet)
+  const rewardToken = await deployer.ensure("create reward token", async () => {
+    return spltoken.initializeMint({
+      mintAuthority: adminWallet.pubkey,
+      decimals: 8,
+    })
+  })
+
+  const rewardTokenOwner = await ProgramAccount.forSeed(
+    Buffer.from("solink"),
+    aggregatorProgram.publicKey
+  )
+
+  const rewardTokenAccount = await deployer.ensure(
+    "initialize reward token account",
+    async () => {
+      const vault = await spltoken.initializeAccount({
+        token: rewardToken.publicKey,
+        owner: rewardTokenOwner.pubkey,
+      })
+
+      await spltoken.mintTo({
+        token: rewardToken.publicKey,
+        to: vault.publicKey,
+        amount: BigInt(1e6 * 1e8), // 1M
+        authority: adminWallet.pubkey,
+      })
+
+      return vault
+    }
+  )
+
+  console.log(await spltoken.mintInfo(rewardToken.publicKey))
+
   const program = new FluxAggregator(adminWallet, aggregatorProgram.publicKey)
 
   let aggregator = await deployer.ensure(
@@ -56,6 +90,7 @@ async function main() {
           maxSubmissions: 3,
           restartDelay: 0,
           rewardAmount: BigInt(10),
+          rewardTokenAccount: rewardTokenAccount.publicKey,
         }),
         owner: adminWallet.account,
       })

@@ -15,6 +15,12 @@ use solana_program::{
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, Default, PartialEq)]
 pub struct PublicKey(pub [u8; 32]);
 
+impl PublicKey {
+    pub fn is_account(&self, info: &AccountInfo) -> bool {
+        self.eq(&PublicKey(info.key.to_bytes()))
+    }
+}
+
 impl<'a> From<&'a AccountInfo<'a>> for PublicKey {
     fn from(info: &'a AccountInfo<'a>) -> Self {
         PublicKey(info.key.to_bytes())
@@ -56,6 +62,9 @@ pub struct AggregatorConfig {
 
     /// amount of tokens oracles are reward per submission
     pub reward_amount: u64,
+
+    /// SPL token account from which to withdraw rewards
+    pub reward_token_account: PublicKey,
 }
 
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, Default, PartialEq)]
@@ -210,6 +219,17 @@ pub struct Oracle {
     /// owner
     pub owner: PublicKey,
 }
+
+impl Oracle {
+    pub fn check_aggregator(&self, account: &AccountInfo) -> ProgramResult {
+        if !self.aggregator.is_account(account) {
+            return Err(Error::AggregatorMismatch)?;
+        }
+
+        Ok(())
+    }
+}
+
 impl Authority for Oracle {
     fn authority(&self) -> &PublicKey {
         &self.owner

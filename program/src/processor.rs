@@ -6,17 +6,8 @@ use crate::{
     state::{Aggregator, AggregatorConfig, Authority, Oracle, Round, Submissions},
 };
 
-use solana_program::{
-    msg,
-    account_info::AccountInfo,
-    clock::Clock,
-    entrypoint::ProgramResult,
-    program::invoke_signed,
-    program_error::ProgramError,
-    program_pack::IsInitialized,
-    pubkey::Pubkey,
-    sysvar::{rent::Rent, Sysvar},
-};
+// use spl_token::state;
+use solana_program::{account_info::AccountInfo, clock::Clock, entrypoint::ProgramResult, msg, program::invoke_signed, program_error::ProgramError, program_pack::{IsInitialized, Pack}, pubkey::Pubkey, sysvar::{rent::Rent, Sysvar}};
 
 use crate::borsh_state::{BorshState, InitBorshState};
 
@@ -300,6 +291,7 @@ impl<'a> SubmitContext<'a> {
 // Withdraw token from reward faucet to receiver account, deducting oracle's withdrawable credit.
 struct WithdrawContext<'a, 'b> {
     token_program: &'a AccountInfo<'a>,
+    aggregator: &'a AccountInfo<'a>,
     faucet: &'a AccountInfo<'a>,
     faucet_owner: &'a AccountInfo<'a>, // program signed
     oracle: &'a AccountInfo<'a>,
@@ -311,8 +303,14 @@ struct WithdrawContext<'a, 'b> {
 
 impl<'a, 'b> WithdrawContext<'a, 'b> {
     fn process(&self) -> ProgramResult {
+        let aggregator = Aggregator::load_initialized(self.aggregator)?;
         let mut oracle = Oracle::load_initialized(self.oracle)?;
         oracle.authorize(&self.oracle_owner)?;
+        oracle.check_aggregator(self.aggregator)?;
+
+        if !aggregator.config.reward_token_account.is_account(self.faucet) {
+            return Err(Error::InvalidFaucet)?
+        }
 
         if oracle.withdrawable == 0 {
             return Err(Error::InsufficientWithdrawable)?;
@@ -323,6 +321,7 @@ impl<'a, 'b> WithdrawContext<'a, 'b> {
         oracle.withdrawable = 0;
         oracle.save(self.oracle)?;
 
+        // The SPL Token ensures that faucet and receiver are the same type of token
         let inx = spl_token::instruction::transfer(
             self.token_program.key,
             self.faucet.key,
@@ -407,11 +406,12 @@ impl Processor {
             // _ => Err(ProgramError::InvalidInstructionData),
             Instruction::Withdraw { faucet_owner_seed } => WithdrawContext {
                 token_program: accounts.get(0)?,
-                faucet: accounts.get(1)?,
-                faucet_owner: accounts.get(2)?,
-                oracle: accounts.get(3)?,
-                oracle_owner: accounts.get(4)?,
-                receiver: accounts.get(5)?,
+                aggregator: accounts.get(1)?,
+                faucet: accounts.get(2)?,
+                faucet_owner: accounts.get(3)?,
+                oracle: accounts.get(4)?,
+                oracle_owner: accounts.get(5)?,
+                receiver: accounts.get(6)?,
 
                 faucet_owner_seed: &faucet_owner_seed[..],
             }

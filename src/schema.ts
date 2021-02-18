@@ -111,6 +111,7 @@ export class AggregatorConfig extends Serialization {
   public rewardAmount!: number
   public maxSubmissions!: number
   public minSubmissions!: number
+  public rewardTokenAccount!: PublicKey
 
   public static schema = {
     kind: "struct",
@@ -121,6 +122,7 @@ export class AggregatorConfig extends Serialization {
       ["maxSubmissions", "u8"],
       ["minSubmissions", "u8"],
       ["rewardAmount", "u64"],
+      ["rewardTokenAccount", [32], pubkeyMapper],
     ],
   }
 }
@@ -190,7 +192,7 @@ class Answer extends Serialization {
 }
 
 export class Aggregator extends Serialization {
-  public static size = 197
+  public static size = 229
 
   public config!: AggregatorConfig
   public roundSubmissions!: PublicKey
