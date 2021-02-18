@@ -103,7 +103,11 @@ async function main() {
       aggregator.publicKey,
       role.oracle,
       owner,
-      priceFeed
+      priceFeed,
+      {
+        // don't submit value unless btc changes at least a dollar
+        minValueChangeForNewRound: 100,
+      }
     )
 
     submitter.start()

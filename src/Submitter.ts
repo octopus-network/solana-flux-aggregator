@@ -21,6 +21,11 @@ import { IPriceFeed } from "./PriceFeed"
 // allow oracle to start a new round after this many slots. each slot is about 500ms
 const MAX_ROUND_STALENESS = 10
 
+interface SubmitterConfig {
+  // won't start a new round unless price changed this much
+  minValueChangeForNewRound: number
+}
+
 export class Submitter {
   public aggregator!: Aggregator
   public roundSubmissions!: Submissions
@@ -34,7 +39,8 @@ export class Submitter {
     public aggregatorPK: PublicKey,
     public oraclePK: PublicKey,
     private oracleOwnerWallet: Wallet,
-    private priceFeed: IPriceFeed
+    private priceFeed: IPriceFeed,
+    private cfg: SubmitterConfig,
   ) {
     this.program = new FluxAggregator(this.oracleOwnerWallet, programID)
 
@@ -47,14 +53,10 @@ export class Submitter {
     // make sure the states are initialized
     this.aggregator = await Aggregator.load(this.aggregatorPK)
     this.roundSubmissions = await Submissions.load(
-
       this.aggregator.roundSubmissions
-
     )
     this.answerSubmissions = await Submissions.load(
-
       this.aggregator.answerSubmissions
-
     )
 
     this.logger = logger.child({
@@ -93,7 +95,13 @@ export class Submitter {
       }
 
       this.currentValue = new BN(price.value)
-      // TODO: check price flux against current answer
+
+      const valueDiff = this.aggregator.answer.median.sub(this.currentValue).abs()
+      if(valueDiff.lten(this.cfg.minValueChangeForNewRound)) {
+        this.logger.debug("price did not change enough to start a new round", { diff: valueDiff.toNumber()});
+        continue
+      }
+
       await this.trySubmit()
     }
   }
@@ -139,7 +147,10 @@ export class Submitter {
   }
 
   get canSubmitToCurrentRound(): boolean {
-    return this.roundSubmissions.canSubmit(this.oraclePK, this.aggregator.config)
+    return this.roundSubmissions.canSubmit(
+      this.oraclePK,
+      this.aggregator.config
+    )
   }
 
   private async submitCurrentValue(round: BN) {
@@ -169,10 +180,10 @@ export class Submitter {
         value,
       })
     } catch (err) {
+      console.log(err)
       this.logger.error("submit error", {
-        err,
+        err: err.toString(),
       })
-      // throw err
     }
   }
 }
