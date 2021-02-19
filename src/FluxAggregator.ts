@@ -28,7 +28,7 @@ import { decodeOracleInfo } from "./utils"
 // @ts-ignore
 // import BufferLayout from "buffer-layout";
 
-import { schema } from "./schema"
+import { AggregatorConfig, IAggregatorConfig, schema } from "./schema"
 import * as encoding from "./schema"
 import { deserialize, serialize } from "borsh"
 import { conn } from "./context"
@@ -51,7 +51,7 @@ export const SubmissionLayout = BufferLayout.struct([
 ])
 
 interface InitializeParams {
-  config: encoding.AggregatorConfig
+  config: IAggregatorConfig
   owner: Account
 }
 
@@ -90,15 +90,17 @@ interface SubmitParams {
 }
 
 interface WithdrawParams {
-  aggregator: PublicKey
-  // withdraw to
-  receiver: PublicKey
-  // withdraw amount
-  amount: bigint
-  tokenAccount: PublicKey
-  tokenOwner: PublicKey
-  // signer
-  authority: Account
+  accounts: {
+    aggregator: PublicKey
+
+    faucet: { write: PublicKey },
+    faucetOwner: PublicKey,
+    oracle: { write: PublicKey },
+    oracleOwner: Account,
+    receiver: { write: PublicKey },
+  }
+
+  faucetOwnerSeed: Buffer
 }
 
 interface WithdrawInstructionParams extends WithdrawParams {}
@@ -115,7 +117,9 @@ export default class FluxAggregator extends BaseProgram {
     const answer_submissions = new Account()
     const round_submissions = new Account()
 
-    const input = encoding.Initialize.serialize({ config: params.config })
+    const input = encoding.Initialize.serialize({
+      config: new AggregatorConfig(params.config),
+    })
 
     await this.sendTx(
       [
@@ -182,96 +186,95 @@ export default class FluxAggregator extends BaseProgram {
     return oracle
   }
 
-  public async oracleInfo(pubkey: PublicKey) {
-    const info = await this.conn.getAccountInfo(pubkey)
-    return decodeOracleInfo(info)
-  }
+  // public async oracleInfo(pubkey: PublicKey) {
+  //   const info = await this.conn.getAccountInfo(pubkey)
+  //   return decodeOracleInfo(info)
+  // }
 
-  public async removeOracle(params: RemoveOracleParams): Promise<void> {
-    await this.sendTx(
-      [this.removeOracleInstruction(params)],
-      [this.account, params.authority || this.wallet.account]
-    )
-  }
+  // public async removeOracle(params: RemoveOracleParams): Promise<void> {
+  //   await this.sendTx(
+  //     [this.removeOracleInstruction(params)],
+  //     [this.account, params.authority || this.wallet.account]
+  //   )
+  // }
 
-  private removeOracleInstruction(
-    params: RemoveOracleInstructionParams
-  ): TransactionInstruction {
-    const { authority, aggregator, oracle } = params
+  // private removeOracleInstruction(
+  //   params: RemoveOracleInstructionParams
+  // ): TransactionInstruction {
+  //   const { authority, aggregator, oracle } = params
 
-    const layout = BufferLayout.struct([
-      BufferLayout.u8("instruction"),
-      BufferLayout.blob(32, "oracle"),
-    ])
+  //   const layout = BufferLayout.struct([
+  //     BufferLayout.u8("instruction"),
+  //     BufferLayout.blob(32, "oracle"),
+  //   ])
 
-    return this.instructionEncode(
-      layout,
-      {
-        instruction: 2, // remove oracle instruction
-        oracle: oracle.toBuffer(),
-      },
-      [
-        //
-        { write: aggregator },
-        authority || this.wallet.account,
-      ]
-    )
-  }
+  //   return this.instructionEncode(
+  //     layout,
+  //     {
+  //       instruction: 2, // remove oracle instruction
+  //       oracle: oracle.toBuffer(),
+  //     },
+  //     [
+  //       //
+  //       { write: aggregator },
+  //       authority || this.wallet.account,
+  //     ]
+  //   )
+  // }
 
   public async submit(params: SubmitParams): Promise<void> {
     const input = encoding.Submit.serialize(params)
 
-    let auths = [
-      SYSVAR_CLOCK_PUBKEY,
-      ...Object.values(params.accounts),
-    ]
+    let auths = [SYSVAR_CLOCK_PUBKEY, ...Object.values(params.accounts)]
 
     await this.sendTx(
-      [
-        this.instruction(input, auths),
-      ],
+      [this.instruction(input, auths)],
       [this.account, params.accounts.oracle_owner]
     )
   }
 
   public async withdraw(params: WithdrawParams): Promise<void> {
+    const input = encoding.Withdraw.serialize(params)
+
+    let auths = [SPLToken.programID, ...Object.values(params.accounts)]
+
     await this.sendTx(
-      [this.withdrawInstruction(params)],
-      [this.account, params.authority]
+      [this.instruction(input, auths)],
+      [this.account, params.accounts.oracleOwner]
     )
   }
 
-  private withdrawInstruction(
-    params: WithdrawInstructionParams
-  ): TransactionInstruction {
-    const {
-      aggregator,
-      receiver,
-      amount,
-      tokenOwner,
-      tokenAccount,
-      authority,
-    } = params
+  // private withdrawInstruction(
+  //   params: WithdrawInstructionParams
+  // ): TransactionInstruction {
+  //   const {
+  //     aggregator,
+  //     receiver,
+  //     amount,
+  //     tokenOwner,
+  //     tokenAccount,
+  //     authority,
+  //   } = params
 
-    const layout = BufferLayout.struct([
-      BufferLayout.u8("instruction"),
-      uint64("amount"),
-    ])
+  //   const layout = BufferLayout.struct([
+  //     BufferLayout.u8("instruction"),
+  //     uint64("amount"),
+  //   ])
 
-    return this.instructionEncode(
-      layout,
-      {
-        instruction: 4, // withdraw instruction
-        amount: u64LEBuffer(amount),
-      },
-      [
-        { write: aggregator },
-        { write: tokenAccount },
-        { write: receiver },
-        SPLToken.programID,
-        tokenOwner,
-        { write: authority },
-      ]
-    )
-  }
+  //   return this.instructionEncode(
+  //     layout,
+  //     {
+  //       instruction: 4, // withdraw instruction
+  //       amount: u64LEBuffer(amount),
+  //     },
+  //     [
+  //       { write: aggregator },
+  //       { write: tokenAccount },
+  //       { write: receiver },
+  //       SPLToken.programID,
+  //       tokenOwner,
+  //       { write: authority },
+  //     ]
+  //   )
+  // }
 }

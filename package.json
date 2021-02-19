@@ -13,6 +13,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@ltd/j-toml": "^1.6.0",
     "@solana/web3.js": "^0.90.5",
     "buffer-layout": "^1.2.0",
     "commander": "^6.2.0",

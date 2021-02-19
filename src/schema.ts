@@ -104,7 +104,19 @@ class Submission {
   }
 }
 
-export class AggregatorConfig extends Serialization {
+export interface IAggregatorConfig {
+  decimals: number
+  description: string
+  restartDelay: number
+  rewardAmount: number
+  maxSubmissions: number
+  minSubmissions: number
+  rewardTokenAccount: PublicKey
+}
+
+export class AggregatorConfig
+  extends Serialization
+  implements IAggregatorConfig {
   public decimals!: number
   public description!: string
   public restartDelay!: number
@@ -248,11 +260,17 @@ export class AddOracle extends InstructionSerialization {
   }
 }
 
-
 export class RemoveOracle extends InstructionSerialization {
   public static schema = {
     kind: "struct",
     fields: [],
+  }
+}
+
+export class Withdraw extends InstructionSerialization {
+  public static schema = {
+    kind: "struct",
+    fields: [["faucetOwnerSeed", ["u8"]]],
   }
 }
 

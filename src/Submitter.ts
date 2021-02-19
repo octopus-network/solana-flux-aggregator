@@ -28,6 +28,7 @@ interface SubmitterConfig {
 
 export class Submitter {
   public aggregator!: Aggregator
+  public oracle!: Oracle
   public roundSubmissions!: Submissions
   public answerSubmissions!: Submissions
   public program: FluxAggregator
@@ -40,7 +41,7 @@ export class Submitter {
     public oraclePK: PublicKey,
     private oracleOwnerWallet: Wallet,
     private priceFeed: IPriceFeed,
-    private cfg: SubmitterConfig,
+    private cfg: SubmitterConfig
   ) {
     this.program = new FluxAggregator(this.oracleOwnerWallet, programID)
 
@@ -64,6 +65,10 @@ export class Submitter {
     })
 
     await Promise.all([this.observeAggregatorState(), this.observePriceFeed()])
+  }
+
+  public async withdrawRewards() {
+
   }
 
   private async observeAggregatorState() {
@@ -96,9 +101,13 @@ export class Submitter {
 
       this.currentValue = new BN(price.value)
 
-      const valueDiff = this.aggregator.answer.median.sub(this.currentValue).abs()
-      if(valueDiff.lten(this.cfg.minValueChangeForNewRound)) {
-        this.logger.debug("price did not change enough to start a new round", { diff: valueDiff.toNumber()});
+      const valueDiff = this.aggregator.answer.median
+        .sub(this.currentValue)
+        .abs()
+      if (valueDiff.lten(this.cfg.minValueChangeForNewRound)) {
+        this.logger.debug("price did not change enough to start a new round", {
+          diff: valueDiff.toNumber(),
+        })
         continue
       }
 
@@ -109,6 +118,9 @@ export class Submitter {
   private async trySubmit() {
     // TODO: make it possible to be triggered by chainlink task
     // TODO: If from chainlink node, update state before running
+
+    this.oracle = await Oracle.load(this.oraclePK)
+    this.logger.debug("oracle", { oracle: this.oracle })
 
     const { round } = this.aggregator
 
