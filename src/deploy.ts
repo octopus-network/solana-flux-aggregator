@@ -26,6 +26,7 @@ interface OracleDeployInfo {
 }
 interface AggregatorDeployInfo {
   pubkey: PublicKey
+  owner: PublicKey
   config: IAggregatorConfig
 
   oracles: {
@@ -118,6 +119,7 @@ export class Deployer {
           key,
           aggregatorSetup
         )
+        // get the value again to wrap it in proxy...
         info = this.state.aggregators[key]
       }
 
@@ -129,8 +131,6 @@ export class Deployer {
         let oinfo = info.oracles[oracleName]
         if (!oinfo) {
           oinfo = await this.createOracle(info, oracleName, oracleSetup)
-
-          // hmm... not triggering save
           info.oracles[oracleName] = oinfo
         }
         console.log(`${key} added oracle:`, oracleSetup.owner)
@@ -184,6 +184,7 @@ export class Deployer {
 
     return {
       pubkey: account.publicKey,
+      owner: this.wallet.pubkey,
       config,
       oracles: {},
     }
