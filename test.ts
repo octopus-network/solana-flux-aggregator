@@ -2,7 +2,7 @@ import dotenv from "dotenv"
 dotenv.config()
 
 import { AppContext, conn, network } from "./src/context"
-import { Deployer } from "./src/deploy"
+import { Deployer } from "./src/Deployer"
 import { PriceFeeder } from "./src/PriceFeeder"
 
 async function main() {

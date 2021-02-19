@@ -1,9 +1,9 @@
 import fs from "fs"
 import { Wallet } from "solray"
 import { config } from "winston"
-import { AggregatorDeployFile } from "./deploy"
+import { AggregatorDeployFile } from "./Deployer"
 import { loadJSONFile } from "./json"
-import { coinbase } from "./PriceFeed"
+import { coinbase } from "./feeds"
 import { Submitter, SubmitterConfig } from "./Submitter"
 
 interface IPriceFeederConfig {

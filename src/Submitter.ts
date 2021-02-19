@@ -16,7 +16,7 @@ logger.add(
   })
 )
 
-import { IPriceFeed } from "./PriceFeed"
+import { IPriceFeed } from "./feeds"
 
 // allow oracle to start a new round after this many slots. each slot is about 500ms
 const MAX_ROUND_STALENESS = 10
