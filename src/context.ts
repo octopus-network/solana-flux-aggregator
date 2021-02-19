@@ -39,7 +39,7 @@ export class AppContext {
   }
 
   async oracleWallet() {
-    return walletFromEnv("ADMIN_MNEMONIC", conn)
+    return walletFromEnv("ORACLE_MNEMONIC", conn)
   }
 
   // get aggregatorProgramID() {

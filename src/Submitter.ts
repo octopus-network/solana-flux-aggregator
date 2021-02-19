@@ -21,7 +21,7 @@ import { IPriceFeed } from "./PriceFeed"
 // allow oracle to start a new round after this many slots. each slot is about 500ms
 const MAX_ROUND_STALENESS = 10
 
-interface SubmitterConfig {
+export interface SubmitterConfig {
   // won't start a new round unless price changed this much
   minValueChangeForNewRound: number
 }

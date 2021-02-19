@@ -18,7 +18,8 @@ import {
 } from "./config"
 import FluxAggregator from "./FluxAggregator"
 import { AggregatorConfig, IAggregatorConfig } from "./schema"
-// import { AggregatorConfig } from "./schema"
+import { jsonReplacer, jsonReviver } from "./json"
+
 
 interface OracleDeployInfo {
   pubkey: PublicKey
@@ -46,30 +47,6 @@ const FLUX_AGGREGATOR_SO = path.resolve(
   __dirname,
   "../build/flux_aggregator.so"
 )
-
-function jsonReviver(_key: string, val: any) {
-  if (val && typeof val == "object") {
-    if (val["type"] == "PublicKey") {
-      return new PublicKey(val.base58)
-    }
-  }
-  return val
-}
-
-function jsonReplacer(key: string, value: any) {
-  if (value && typeof value != "object") {
-    return value
-  }
-
-  if (value.constructor == PublicKey) {
-    return {
-      type: "PublicKey",
-      base58: value.toBase58(),
-    }
-  }
-
-  return value
-}
 
 export class Deployer {
   // file backed json state

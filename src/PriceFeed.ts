@@ -40,16 +40,19 @@ function events<T>(emitter: EventEmitter, key: string) {
 }
 
 export function coinbase(pair: string): IPriceFeed {
+  // TODO: can subscribe to many pairs with one connection
   const emitter = new EventEmitter()
 
   const ws = new WebSocket("wss://ws-feed.pro.coinbase.com")
 
+  // "btc:usd" => "BTC-USD"
+  pair = pair.replace(":", "-").toUpperCase()
   ws.on("open", () => {
     console.log(`${pair} price feed connected`)
     ws.send(
       JSON.stringify({
         type: "subscribe",
-        product_ids: [pair.replace("/", "-").toUpperCase()],
+        product_ids: [pair],
         channels: ["ticker"],
       })
     )
