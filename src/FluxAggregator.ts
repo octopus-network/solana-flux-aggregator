@@ -16,39 +16,10 @@ import {
   SystemProgram,
 } from "@solana/web3.js"
 
-import {
-  publicKey,
-  u64LEBuffer,
-  uint64,
-  BufferLayout,
-} from "solray/lib/util/encoding"
-
-import { decodeOracleInfo } from "./utils"
-
-// @ts-ignore
-// import BufferLayout from "buffer-layout";
-
 import { AggregatorConfig, IAggregatorConfig, schema } from "./schema"
 import * as encoding from "./schema"
 import { deserialize, serialize } from "borsh"
 import { conn } from "./context"
-
-export const AggregatorLayout = BufferLayout.struct([])
-
-export const OracleLayout = BufferLayout.struct([
-  uint64("nextSubmitTime"),
-  BufferLayout.blob(32, "description"),
-  BufferLayout.u8("isInitialized"),
-  uint64("withdrawable"),
-  publicKey("aggregator"),
-  publicKey("owner"),
-])
-
-export const SubmissionLayout = BufferLayout.struct([
-  uint64("time"),
-  uint64("value"),
-  publicKey("oracle"),
-])
 
 interface InitializeParams {
   config: IAggregatorConfig
