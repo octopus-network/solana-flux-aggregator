@@ -1724,7 +1724,7 @@ simple-swizzle@^0.2.2:
 
 "solray@git+https://github.com/defactojob/solray":
   version "0.0.1"
-  resolved "git+https://github.com/defactojob/solray#5eca6331f59bcb795b2508f22a7420c75431f0f7"
+  resolved "git+https://github.com/defactojob/solray#66c34e74a27e8556668410372d5a96d11f1da14a"
   dependencies:
     "@solana/web3.js" "^0.91.3"
     bip32 "^2.0.6"
