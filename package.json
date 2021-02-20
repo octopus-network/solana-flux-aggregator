@@ -18,6 +18,7 @@
     "buffer-layout": "^1.2.0",
     "commander": "^6.2.0",
     "dotenv": "^8.2.0",
+    "borsh": "https://github.com/defactojob/borsh-js#field-mapper",
     "solray": "git+https://github.com/defactojob/solray",
     "winston": "^3.3.3",
     "ws": "^7.4.1"
