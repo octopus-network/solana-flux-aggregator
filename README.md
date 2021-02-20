@@ -81,3 +81,18 @@ NETWORK=dev DEPLOY_FILE=deploy.dev.json yarn solink observe
 
 * `btc:usd` => 8tawJxhUbVJV7Aiss8DBkYoN4ZA1vpNVwjNmUdgpMw7J
 * `eth:usd` => 4X5QRNHs3saF35fhL7FJtPR58PeqoFmzgq82EiHqa9a9
+
+## Joining Devnet
+
+If you want to become a testnet oracle, generate a solana devnet wallet (10 SOL will be airdropped):
+
+```
+NETWORK=dev yarn solink new-wallet
+
+info:     address: 8CGZz277PT6yA7nU6HEdpbwQsNYLvyJhP1guoUNxt9mF
+info:     mnemonic: ....
+info:     airdrop 10 SOL {"address":"8CGZz277PT6yA7nU6HEdpbwQsNYLvyJhP1guoUNxt9mF"}
+```
+
+Save the mnemonic in your `.env` file, and give the address to me, and I'll add
+you to the oracle list so you can submit.
