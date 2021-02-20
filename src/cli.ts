@@ -51,31 +51,35 @@ cli.command("oracle").action(async (name) => {
   feeder.start()
 })
 
-cli.command("observe <name>").action(async (name) => {
+cli.command("observe").action(async (name?: string) => {
   let deploy = loadJSONFile<AggregatorDeployFile>(process.env.DEPLOY_FILE!)
 
-  const aggregatorInfo = deploy.aggregators[name]
-  if (!aggregatorInfo) {
-    throw new Error(`Cannot find aggregator: ${name}`)
-  }
-  const observer = new AggregatorObserver(aggregatorInfo.pubkey, conn)
+  for (let [name, aggregatorInfo] of Object.entries(deploy.aggregators)) {
+    const observer = new AggregatorObserver(aggregatorInfo.pubkey, conn)
 
-  let agg = await Aggregator.load(aggregatorInfo.pubkey)
+    let agg = await Aggregator.load(aggregatorInfo.pubkey)
 
-  function printAnswer(answer: Answer) {
-    console.log({
-      description: aggregatorInfo.config.description,
-      decimals: aggregatorInfo.config.decimals,
-      roundID: answer.roundID.toString(),
-      median: answer.median.toString(),
-      updatedAt: answer.updatedAt.toString(),
-      createdAt: answer.createdAt.toString(),
-    })
-  }
+    log.debug("observe aggregator", { name })
 
-  printAnswer(agg.answer)
-  for await (let answer of observer.answers()) {
-    printAnswer(answer)
+    function printAnswer(answer: Answer) {
+      log.info("update", {
+        description: aggregatorInfo.config.description,
+        decimals: aggregatorInfo.config.decimals,
+        roundID: answer.roundID.toString(),
+        median: answer.median.toString(),
+        updatedAt: answer.updatedAt.toString(),
+        createdAt: answer.createdAt.toString(),
+      })
+    }
+
+    async function go() {
+      printAnswer(agg.answer)
+      for await (let answer of observer.answers()) {
+        printAnswer(answer)
+      }
+    }
+
+    go()
   }
 })
 
