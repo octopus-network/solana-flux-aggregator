@@ -29,6 +29,8 @@ export class Submitter {
   public logger!: Logger
   public currentValue: BN
 
+  public reportedRound: BN
+
   constructor(
     programID: PublicKey,
     public aggregatorPK: PublicKey,
@@ -40,19 +42,14 @@ export class Submitter {
     this.program = new FluxAggregator(this.oracleOwnerWallet, programID)
 
     this.currentValue = new BN(0)
+    this.reportedRound = new BN(0)
   }
 
   // TODO: harvest rewards if > n
 
   public async start() {
     // make sure the states are initialized
-    this.aggregator = await Aggregator.load(this.aggregatorPK)
-    this.roundSubmissions = await Submissions.load(
-      this.aggregator.roundSubmissions
-    )
-    this.answerSubmissions = await Submissions.load(
-      this.aggregator.answerSubmissions
-    )
+    await this.reloadState()
 
     this.logger = log.child({
       aggregator: this.aggregator.config.description,
@@ -61,20 +58,28 @@ export class Submitter {
     await Promise.all([this.observeAggregatorState(), this.observePriceFeed()])
   }
 
-  public async withdrawRewards() {
+  public async withdrawRewards() {}
 
+  private async reloadState(loadAggregator = true) {
+    if (loadAggregator) {
+      this.aggregator = await Aggregator.load(this.aggregatorPK)
+    }
+
+    this.roundSubmissions = await Submissions.load(
+      this.aggregator.roundSubmissions
+    )
+    this.answerSubmissions = await Submissions.load(
+      this.aggregator.answerSubmissions
+    )
+
+    this.oracle = await Oracle.load(this.oraclePK)
   }
 
   private async observeAggregatorState() {
     conn.onAccountChange(this.aggregatorPK, async (info) => {
       this.aggregator = Aggregator.deserialize(info.data)
-      this.roundSubmissions = await Submissions.load(
-        this.aggregator.roundSubmissions
-      )
-      this.answerSubmissions = await Submissions.load(
-        this.aggregator.answerSubmissions
-      )
-      // TODO: load answer
+      await this.reloadState(false)
+
       this.logger.debug("state updated", {
         aggregator: this.aggregator,
         submissions: this.roundSubmissions,
@@ -138,8 +143,11 @@ export class Submitter {
     // oracle to start
     const oracle = await Oracle.load(this.oraclePK)
     if (oracle.canStartNewRound(round.id)) {
-      this.logger.info("Starting a new round")
-      return this.submitCurrentValue(round.id.addn(1))
+      let newRoundID = round.id.addn(1)
+      this.logger.info("Starting a new round", {
+        round: newRoundID.toString(),
+      })
+      return this.submitCurrentValue(newRoundID)
     }
   }
 
@@ -148,7 +156,9 @@ export class Submitter {
       return
     }
 
-    this.logger.info("Another oracle started a new round")
+    this.logger.info("Another oracle started a new round", {
+      round: this.aggregator.round.id.toString(),
+    })
     await this.trySubmit()
   }
 
@@ -159,20 +169,27 @@ export class Submitter {
     )
   }
 
-  private async submitCurrentValue(round: BN) {
+  private async submitCurrentValue(roundID: BN) {
     // guard zero value
     const value = this.currentValue
     if (value.isZero()) {
-      this.logger.warn("current value is zero. skip submit.")
+      this.logger.warn("current value is zero. skip submit")
+      return
+    }
+
+    if (!roundID.isZero() && roundID.lte(this.reportedRound)) {
+      this.logger.debug("don't report to the same round twice")
       return
     }
 
     this.logger.info("Submit value", {
-      round: round.toString(),
+      round: roundID.toString(),
       value: value.toString(),
     })
 
     try {
+      // prevent async race condition where submit could be called twice on the same round
+      this.reportedRound = roundID
       await this.program.submit({
         accounts: {
           aggregator: { write: this.aggregatorPK },
@@ -182,8 +199,15 @@ export class Submitter {
           oracle_owner: this.oracleOwnerWallet.account,
         },
 
-        round_id: round,
+        round_id: roundID,
         value,
+      })
+
+      await this.reloadState()
+
+      this.logger.info("Submit OK", {
+        withdrawable: this.oracle.withdrawable.toString(),
+        rewardToken: this.aggregator.config.rewardTokenAccount.toString(),
       })
     } catch (err) {
       console.log(err)
@@ -191,5 +215,7 @@ export class Submitter {
         err: err.toString(),
       })
     }
+
+
   }
 }

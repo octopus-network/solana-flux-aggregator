@@ -10,28 +10,28 @@ use thiserror::Error;
 #[derive(Clone, Debug, Eq, Error, FromPrimitive, PartialEq)]
 pub enum Error {
     /// Owner mismatch
-    #[error("Owner mismatch")]
+    #[error("Owner mismatch")] // 0
     OwnerMismatch,
 
-    #[error("Insufficient withdrawable")]
+    #[error("Insufficient withdrawable")] // 1
     InsufficientWithdrawable,
 
-    #[error("Aggregator key not match")]
+    #[error("Aggregator key not match")] // 2
     AggregatorMismatch,
 
-    #[error("Invalid round id")]
+    #[error("Invalid round id")] // 3
     InvalidRoundID,
 
-    #[error("Cannot start new round until cooldown")]
+    #[error("Cannot start new round until cooldown")] // 4
     OracleNewRoundCooldown,
 
-    #[error("Max number of submissions reached for this round")]
+    #[error("Max number of submissions reached for this round")] // 5
     MaxSubmissionsReached,
 
-    #[error("Each oracle may only submit once per round")]
+    #[error("Each oracle may only submit once per round")] // 6
     OracleAlreadySubmitted,
 
-    #[error("Rewards overflow")]
+    #[error("Rewards overflow")] // 7
     RewardsOverflow,
 
     #[error("No resolve answer")]

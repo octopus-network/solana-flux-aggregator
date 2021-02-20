@@ -31,7 +31,7 @@ export class PriceFeeder {
       )
 
       if (oracleInfo == null) {
-        log.debug("Is not an oracle for:", name)
+        log.debug("Is not an oracle", { name })
         continue
       }
 

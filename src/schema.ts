@@ -351,6 +351,7 @@ function boolToInt(t: boolean) {
 export class Oracle extends Serialization {
   public static size = 113
   public allowStartRound!: BN
+  public withdrawable!: BN
 
   public static schema = {
     kind: "struct",

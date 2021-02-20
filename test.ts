@@ -2,8 +2,9 @@ import dotenv from "dotenv"
 dotenv.config()
 
 import { AppContext, conn, network } from "./src/context"
-import { Deployer } from "./src/Deployer"
+import { AggregatorDeployFile, Deployer } from "./src/Deployer"
 import { coinbase } from "./src/feeds"
+import { loadJSONFile } from "./src/json"
 import { log } from "./src/log"
 import { PriceFeeder } from "./src/PriceFeeder"
 
@@ -22,7 +23,8 @@ async function main() {
 
   await deployer.runAll()
 
-  const feeder = new PriceFeeder(deployFile, feederConfigFile, oracleWallet)
+  const deploy = loadJSONFile<AggregatorDeployFile>(deployFile)
+  const feeder = new PriceFeeder(deploy, oracleWallet)
   feeder.start()
 
   return
