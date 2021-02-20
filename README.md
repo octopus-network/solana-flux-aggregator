@@ -67,3 +67,14 @@ info:     update {"description":"eth:usd","decimals":2,"roundID":"9","median":"2
 info:     update {"description":"btc:usd","decimals":2,"roundID":"22","median":"5743803","updatedAt":"37820552","createdAt":"37820552"}
 info:     update {"description":"btc:usd","decimals":2,"roundID":"23","median":"5740350","updatedAt":"37820565","createdAt":"37820565"}
 ```
+
+# Devnet Oracles
+
+The sandbox environment could be modified by anyone, and is not suitable for
+development purposes. For a reliable devnet price feed, use [./deploy.dev.json](./deploy.dev.json).
+
+Observe the devnet prices by running:
+
+```
+NETWORK=dev DEPLOY_FILE=deploy.dev.json yarn solink observe
+```

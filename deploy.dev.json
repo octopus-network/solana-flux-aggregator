@@ -1,0 +1,76 @@
+{
+  "aggregators": {
+    "btc:usd": {
+      "pubkey": {
+        "type": "PublicKey",
+        "base58": "8tawJxhUbVJV7Aiss8DBkYoN4ZA1vpNVwjNmUdgpMw7J"
+      },
+      "owner": {
+        "type": "PublicKey",
+        "base58": "Draee2EHoVoPkRrMXnh17EcJMxuyirFSBsfMHuNBy2bq"
+      },
+      "config": {
+        "description": "btc:usd",
+        "decimals": 2,
+        "minSubmissions": 1,
+        "maxSubmissions": 13,
+        "restartDelay": 0,
+        "rewardTokenAccount": {
+          "type": "PublicKey",
+          "base58": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1"
+        },
+        "rewardAmount": 10000
+      },
+      "oracles": {
+        "solink": {
+          "pubkey": {
+            "type": "PublicKey",
+            "base58": "Aqmq1RVMwYZoPaTZPAsCDjxsYcmyyNtfjx5HhwuEejvT"
+          },
+          "owner": {
+            "type": "PublicKey",
+            "base58": "Draee2EHoVoPkRrMXnh17EcJMxuyirFSBsfMHuNBy2bq"
+          }
+        }
+      }
+    },
+    "eth:usd": {
+      "pubkey": {
+        "type": "PublicKey",
+        "base58": "4X5QRNHs3saF35fhL7FJtPR58PeqoFmzgq82EiHqa9a9"
+      },
+      "owner": {
+        "type": "PublicKey",
+        "base58": "Draee2EHoVoPkRrMXnh17EcJMxuyirFSBsfMHuNBy2bq"
+      },
+      "config": {
+        "description": "eth:usd",
+        "decimals": 2,
+        "minSubmissions": 1,
+        "maxSubmissions": 13,
+        "restartDelay": 0,
+        "rewardTokenAccount": {
+          "type": "PublicKey",
+          "base58": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1"
+        },
+        "rewardAmount": 10000
+      },
+      "oracles": {
+        "solink": {
+          "pubkey": {
+            "type": "PublicKey",
+            "base58": "faD2Nb35rKQurydFEEgJVWjpAdqAWK5z34bpEEn1spr"
+          },
+          "owner": {
+            "type": "PublicKey",
+            "base58": "Draee2EHoVoPkRrMXnh17EcJMxuyirFSBsfMHuNBy2bq"
+          }
+        }
+      }
+    }
+  },
+  "programID": {
+    "type": "PublicKey",
+    "base58": "xazycZNMfCeDKNnjDmhBCk57nnjPWS22pa91za2W2dC"
+  }
+}
