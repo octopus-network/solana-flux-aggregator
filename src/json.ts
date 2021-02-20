@@ -1,5 +1,6 @@
 import { PublicKey } from "solray"
 import fs from "fs"
+import BN from "bn.js"
 
 export function jsonReviver(_key: string, val: any) {
   if (val && typeof val == "object") {
@@ -11,14 +12,12 @@ export function jsonReviver(_key: string, val: any) {
 }
 
 export function jsonReplacer(key: string, value: any) {
-  if (value && typeof value != "object") {
-    return value
-  }
-
-  if (value.constructor == PublicKey) {
-    return {
-      type: "PublicKey",
-      base58: value.toBase58(),
+  if (value && typeof value == "object") {
+    if (value.constructor == PublicKey) {
+      return {
+        type: "PublicKey",
+        base58: value.toBase58(),
+      }
     }
   }
 

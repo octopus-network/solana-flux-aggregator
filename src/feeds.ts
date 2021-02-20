@@ -1,5 +1,6 @@
 import WebSocket from "ws"
 import EventEmitter from "events"
+import { eventsIter } from "./utils"
 
 export const UPDATE = "UPDATE"
 
@@ -10,33 +11,6 @@ export interface IPrice {
 
 export interface IPriceFeed {
   [Symbol.asyncIterator]: () => AsyncIterator<IPrice>
-}
-
-// events convert an particular event type of event emitter to an async iterator
-function events<T>(emitter: EventEmitter, key: string) {
-  // TODO support cancel
-
-  let resolve
-  let p = new Promise<T>((resolveFn) => {
-    resolve = resolveFn
-  })
-
-  emitter.on(key, (value) => {
-    resolve(value)
-    p = new Promise<T>((resolveFn) => {
-      resolve = resolveFn
-    })
-  })
-
-  return {
-    [Symbol.asyncIterator]: () => {
-      return {
-        next() {
-          return p.then((info) => ({ done: false, value: info }))
-        },
-      }
-    },
-  }
 }
 
 export function coinbase(pair: string): IPriceFeed {
@@ -77,5 +51,5 @@ export function coinbase(pair: string): IPriceFeed {
     process.exit(1)
   })
 
-  return events(emitter, UPDATE)
+  return eventsIter(emitter, UPDATE)
 }

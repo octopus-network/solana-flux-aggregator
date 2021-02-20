@@ -2,6 +2,7 @@ import { PublicKey, Account } from "solray"
 import BN from "bn.js"
 import { deserialize, serialize } from "borsh"
 import { conn } from "./context"
+import { jsonReplacer } from "./json"
 
 const MAX_ORACLES = 13
 
@@ -80,7 +81,18 @@ export abstract class Serialization {
     return buf
   }
 
+  // public toJSON(pretty = true) {
+  //   return JSON.stringify(
+  //     this[Serialization.DATA_KEY],
+  //     jsonReplacer,
+  //     pretty ? 2 : 0
+  //   )
+  // }
+
+  // public static DATA_KEY = Symbol("DATA")
+
   constructor(data) {
+    // this[Serialization.DATA_KEY] = data
     Object.assign(this, data)
   }
 }
@@ -171,7 +183,8 @@ export class Submissions extends Serialization {
     })
   }
 }
-class Round extends Serialization {
+
+export class Round extends Serialization {
   public id!: BN
   public createdAt!: BN
   public updatedAt!: BN
@@ -186,19 +199,19 @@ class Round extends Serialization {
   }
 }
 
-class Answer extends Serialization {
-  public round_id!: BN
+export class Answer extends Serialization {
+  public roundID!: BN
   public median!: BN
-  public created_at!: BN
-  public updated_at!: BN
+  public createdAt!: BN
+  public updatedAt!: BN
 
   public static schema = {
     kind: "struct",
     fields: [
-      ["round_id", "u64"],
+      ["roundID", "u64"],
       ["median", "u64"],
-      ["created_at", "u64"],
-      ["updated_at", "u64"],
+      ["createdAt", "u64"],
+      ["updatedAt", "u64"],
     ],
   }
 }

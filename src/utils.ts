@@ -1,4 +1,5 @@
 import { Connection, PublicKey } from "@solana/web3.js"
+import EventEmitter from "events"
 
 import { solana, Wallet, NetworkName, Deployer } from "solray"
 
@@ -41,3 +42,29 @@ export async function walletFromEnv(
   return wallet
 }
 
+// events convert an particular event type of event emitter to an async iterator
+export function eventsIter<T>(emitter: EventEmitter, key: string) {
+  // TODO support cancel
+
+  let resolve
+  let p = new Promise<T>((resolveFn) => {
+    resolve = resolveFn
+  })
+
+  emitter.on(key, (value) => {
+    resolve(value)
+    p = new Promise<T>((resolveFn) => {
+      resolve = resolveFn
+    })
+  })
+
+  return {
+    [Symbol.asyncIterator]: () => {
+      return {
+        next() {
+          return p.then((info) => ({ done: false, value: info }))
+        },
+      }
+    },
+  }
+}
