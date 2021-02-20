@@ -1,7 +1,5 @@
 node_modules
 target
-target
-yarn.lock
 build
 .yarn
 dist
