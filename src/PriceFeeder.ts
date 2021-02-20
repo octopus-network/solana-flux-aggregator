@@ -1,28 +1,18 @@
 import fs from "fs"
 import { Wallet } from "solray"
-import { config } from "winston"
 import { AggregatorDeployFile } from "./Deployer"
 import { loadJSONFile } from "./json"
 import { coinbase } from "./feeds"
 import { Submitter, SubmitterConfig } from "./Submitter"
+import { log } from "./log"
 
-interface IPriceFeederConfig {
-  feeds: {
-    [key: string]: SubmitterConfig
-  }
-}
-
+// Look at all the available aggregators and submit to those that the wallet can
+// act as an oracle.
 export class PriceFeeder {
-  private deployInfo: AggregatorDeployFile
-  private config: IPriceFeederConfig
-
   constructor(
-    deployInfoFile: string,
-    configFile: string,
+    private deployInfo: AggregatorDeployFile,
     private wallet: Wallet
   ) {
-    this.deployInfo = loadJSONFile(deployInfoFile)
-    this.config = loadJSONFile(configFile)
   }
 
   async start() {
@@ -41,7 +31,7 @@ export class PriceFeeder {
       )
 
       if (oracleInfo == null) {
-        console.log("no oracle found for:", name)
+        log.debug("Is not an oracle for:", name)
         continue
       }
 
@@ -53,8 +43,8 @@ export class PriceFeeder {
         this.wallet,
         priceFeed,
         {
-          // TODO: errrrr... how do i make this configurable?
-          // don't submit value unless btc changes at least a dollar
+          // TODO: errrrr... probably make configurable on chain. hardwire for
+          // now, don't submit value unless btc changes at least a dollar
           minValueChangeForNewRound: 100,
         }
       )
