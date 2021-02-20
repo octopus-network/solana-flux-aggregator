@@ -20,10 +20,7 @@ export function stateFromJSON<T extends Object>(
     const data = fs.readFileSync(filepath, "utf8")
     // TODO: support custom revive
     root = JSON.parse(data, opts.reviver as any)
-    console.log(`Loaded state object: ${filepath}`)
-  } catch (err) {
-    console.log(`Init state object: ${filepath}`)
-  }
+  } catch (err) {}
 
   function save() {
     // should be sync to avoid write races

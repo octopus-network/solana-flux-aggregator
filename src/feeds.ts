@@ -2,6 +2,8 @@ import WebSocket from "ws"
 import EventEmitter from "events"
 import { eventsIter } from "./utils"
 
+import { log } from "./log"
+
 export const UPDATE = "UPDATE"
 
 export interface IPrice {
@@ -22,7 +24,7 @@ export function coinbase(pair: string): IPriceFeed {
   // "btc:usd" => "BTC-USD"
   pair = pair.replace(":", "-").toUpperCase()
   ws.on("open", () => {
-    console.log(`${pair} price feed connected`)
+    log.debug(`price feed connected`, { pair })
     ws.send(
       JSON.stringify({
         type: "subscribe",
@@ -34,8 +36,10 @@ export function coinbase(pair: string): IPriceFeed {
 
   ws.on("message", async (data) => {
     const json = JSON.parse(data)
+    log.debug("price update", json)
+
     if (!json || !json.price) {
-      return console.log(data)
+      return
     }
     const price: IPrice = {
       decimals: 2,
@@ -47,7 +51,7 @@ export function coinbase(pair: string): IPriceFeed {
 
   ws.on("close", (err) => {
     // TODO: automatic reconnect
-    console.error(`websocket closed: ${err}`)
+    log.debug(`price feed closed`, { pair, err: err.toString() })
     process.exit(1)
   })
 

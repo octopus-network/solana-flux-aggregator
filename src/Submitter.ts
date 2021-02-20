@@ -8,14 +8,8 @@ import { sleep } from "./utils"
 import FluxAggregator from "./FluxAggregator"
 
 import { createLogger, Logger } from "winston"
-import logger from "winston"
-logger.add(
-  new logger.transports.Console({
-    format: logger.format.simple(),
-    level: "debug",
-  })
-)
 
+import { log } from "./log"
 import { IPriceFeed } from "./feeds"
 
 // allow oracle to start a new round after this many slots. each slot is about 500ms
@@ -60,7 +54,7 @@ export class Submitter {
       this.aggregator.answerSubmissions
     )
 
-    this.logger = logger.child({
+    this.logger = log.child({
       aggregator: this.aggregator.config.description,
     })
 
@@ -142,15 +136,15 @@ export class Submitter {
 
     // The round is stale. start a new round if possible, or wait for another
     // oracle to start
-    this.logger.info("Starting a new round")
     const oracle = await Oracle.load(this.oraclePK)
     if (oracle.canStartNewRound(round.id)) {
+      this.logger.info("Starting a new round")
       return this.submitCurrentValue(round.id.addn(1))
     }
   }
 
   private async onAggregatorStateUpdate() {
-    if (this.canSubmitToCurrentRound) {
+    if (!this.canSubmitToCurrentRound) {
       return
     }
 
@@ -173,7 +167,7 @@ export class Submitter {
       return
     }
 
-    this.logger.info("submit", {
+    this.logger.info("Submit value", {
       round: round.toString(),
       value: value.toString(),
     })
@@ -193,7 +187,7 @@ export class Submitter {
       })
     } catch (err) {
       console.log(err)
-      this.logger.error("submit error", {
+      this.logger.error("Submit error", {
         err: err.toString(),
       })
     }

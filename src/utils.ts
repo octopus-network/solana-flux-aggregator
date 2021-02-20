@@ -38,7 +38,6 @@ export async function walletFromEnv(
   }
 
   const wallet = await Wallet.fromMnemonic(mnemonic, conn)
-  console.log("using wallet:", wallet.address)
   return wallet
 }
 

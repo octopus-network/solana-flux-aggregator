@@ -19,7 +19,7 @@ import {
 import FluxAggregator from "./FluxAggregator"
 import { AggregatorConfig, IAggregatorConfig } from "./schema"
 import { jsonReplacer, jsonReviver } from "./json"
-
+import { log } from "./log"
 
 interface OracleDeployInfo {
   pubkey: PublicKey
@@ -72,35 +72,40 @@ export class Deployer {
   }
 
   async deployProgram() {
-    if (this.state.programID) {
-      console.log("program deployed")
-      return
+    if (!this.state.programID) {
+      const programBinary = fs.readFileSync(FLUX_AGGREGATOR_SO)
+
+      console.log(`deploying ${FLUX_AGGREGATOR_SO}...`)
+      const bpfLoader = new BPFLoader(this.wallet)
+
+      const account = await bpfLoader.load(programBinary)
+      this.state.programID = account.publicKey
     }
 
-    const programBinary = fs.readFileSync(FLUX_AGGREGATOR_SO)
-
-    console.log(`deploying ${FLUX_AGGREGATOR_SO}...`)
-    const bpfLoader = new BPFLoader(this.wallet)
-
-    const account = await bpfLoader.load(programBinary)
-    this.state.programID = account.publicKey
+    log.info("Program deployed", {
+      programID: this.state.programID.toBase58(),
+    })
   }
 
   async createAggregators() {
-    for (let key of Object.keys(this.setup.aggregators)) {
-      const aggregatorSetup = this.setup.aggregators[key]
+    for (let name of Object.keys(this.setup.aggregators)) {
+      const aggregatorSetup = this.setup.aggregators[name]
 
-      let info = this.state.aggregators[key]
+      let info = this.state.aggregators[name]
       if (!info) {
-        this.state.aggregators[key] = await this.createAggregator(
-          key,
+        this.state.aggregators[name] = await this.createAggregator(
+          name,
           aggregatorSetup
         )
         // get the value again to wrap it in proxy...
-        info = this.state.aggregators[key]
+        info = this.state.aggregators[name]
       }
 
-      console.log(`${key} aggregator deployed`)
+      log.info("Aggregator deployed", {
+        name,
+        aggregator: info.pubkey.toBase58(),
+      })
+
       for (let oracleName of aggregatorSetup.oracles || []) {
         const oracleSetup = this.setup.oracles[oracleName]
         // TODO: check that key exists
@@ -110,7 +115,7 @@ export class Deployer {
           oinfo = await this.createOracle(info, oracleName, oracleSetup)
           info.oracles[oracleName] = oinfo
         }
-        console.log(`${key} added oracle:`, oracleSetup.owner)
+        log.info(`Oracle added`, { name, oracleName })
       }
     }
   }

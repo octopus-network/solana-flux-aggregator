@@ -59,7 +59,6 @@ export class PriceFeeder {
         }
       )
 
-      console.log("start price feeding:", name)
       submitter.start()
     }
   }

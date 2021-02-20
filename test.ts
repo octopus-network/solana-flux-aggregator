@@ -3,11 +3,11 @@ dotenv.config()
 
 import { AppContext, conn, network } from "./src/context"
 import { Deployer } from "./src/Deployer"
+import { coinbase } from "./src/feeds"
+import { log } from "./src/log"
 import { PriceFeeder } from "./src/PriceFeeder"
 
 async function main() {
-
-  console.log({network})
   const setupFile = `config/setup.${network}.json`
   const deployFile = `deploy.${network}.json`
   const feederConfigFile = "feeder.json"
@@ -24,7 +24,7 @@ async function main() {
 
   const feeder = new PriceFeeder(deployFile, feederConfigFile, oracleWallet)
   feeder.start()
-  console.log("done")
+
   return
 
   // const spltoken = new SPLToken(adminWallet)
