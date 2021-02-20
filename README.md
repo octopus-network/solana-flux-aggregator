@@ -78,3 +78,6 @@ Observe the devnet prices by running:
 ```
 NETWORK=dev DEPLOY_FILE=deploy.dev.json yarn solink observe
 ```
+
+* `btc:usd` => 8tawJxhUbVJV7Aiss8DBkYoN4ZA1vpNVwjNmUdgpMw7J
+* `eth:usd` => 4X5QRNHs3saF35fhL7FJtPR58PeqoFmzgq82EiHqa9a9
