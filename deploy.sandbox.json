@@ -1,0 +1,76 @@
+{
+  "aggregators": {
+    "btc:usd": {
+      "pubkey": {
+        "type": "PublicKey",
+        "base58": "9u7fuQCJCX13HhU8DZoj4bwP3vWsDFVWkurNkv7JvhYh"
+      },
+      "owner": {
+        "type": "PublicKey",
+        "base58": "EQ54CB7UTuteAYtbmsDuphcwVhB44rf2fcZpBqkv8ewh"
+      },
+      "config": {
+        "description": "btc:usd",
+        "decimals": 2,
+        "minSubmissions": 1,
+        "maxSubmissions": 3,
+        "restartDelay": 0,
+        "rewardTokenAccount": {
+          "type": "PublicKey",
+          "base58": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1"
+        },
+        "rewardAmount": 10000
+      },
+      "oracles": {
+        "tester": {
+          "pubkey": {
+            "type": "PublicKey",
+            "base58": "EiJ93oR38pvJNjZDdAufYFDReYGGBpHPEXYfcTKYYgVq"
+          },
+          "owner": {
+            "type": "PublicKey",
+            "base58": "FosLwbttPgkEDv36VJLU3wwXcBSSoUGkh7dyZPsXNtT4"
+          }
+        }
+      }
+    },
+    "eth:usd": {
+      "pubkey": {
+        "type": "PublicKey",
+        "base58": "ELz3y7PCa6gp8GjD8TrXnggmS2bxsDrznrxAMmSz9Thq"
+      },
+      "owner": {
+        "type": "PublicKey",
+        "base58": "EQ54CB7UTuteAYtbmsDuphcwVhB44rf2fcZpBqkv8ewh"
+      },
+      "config": {
+        "description": "eth:usd",
+        "decimals": 2,
+        "minSubmissions": 1,
+        "maxSubmissions": 3,
+        "restartDelay": 0,
+        "rewardTokenAccount": {
+          "type": "PublicKey",
+          "base58": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1"
+        },
+        "rewardAmount": 10000
+      },
+      "oracles": {
+        "tester": {
+          "pubkey": {
+            "type": "PublicKey",
+            "base58": "5X62rNUqSBAcB39kjyeJrTivguYxeeEFh738oMvpaPXc"
+          },
+          "owner": {
+            "type": "PublicKey",
+            "base58": "FosLwbttPgkEDv36VJLU3wwXcBSSoUGkh7dyZPsXNtT4"
+          }
+        }
+      }
+    }
+  },
+  "programID": {
+    "type": "PublicKey",
+    "base58": "97diqBRSqa4nYRro2QPzyoWrDp78mkGiiAVV3sQYRBes"
+  }
+}

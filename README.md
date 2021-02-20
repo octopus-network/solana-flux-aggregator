@@ -2,135 +2,68 @@
 
 Solnana Flux Aggregator
 
-Price Feeds: [https://sol.link](https://sol.link)
-
-## Install
+## Install Dependencies
 
 ```
 yarn install
 ```
 
-## Admin Wallet Setup
+# Submit Prices As Oracle (devnet)
 
-Setup a wallet for the flux aggregator admin:
+There are price oracles already deployed on the devnet, you can see their deploy
+configuration and addresses at [./deploy.sandbox.json](./deploy.sandbox.json)
 
-```
-yarn solink generate-wallet
-
-address: 7YMUUCzZir7AAuoy4CtZih9JFBqYwtQiCxjA5dtqwRxU
-mnemonic: wine vault fancy enhance trade dolphin hard traffic social butter client pave
-```
+Configure `.env` to use the devnet:
 
 ```
-yarn solink airdrop 7YMUUCzZir7AAuoy4CtZih9JFBqYwtQiCxjA5dtqwRxU
+cp .env.sandbox .env
 ```
 
-Create `.env` configuration file for the deploy script.
+The `.env` will set the price oracle to be the account:
 
 ```
-NETWORK=dev
-DEPLOY_FILE=deploy.json
-ADMIN_MNEMONIC="wine vault fancy enhance trade dolphin hard traffic social butter client pave"
+FosLwbttPgkEDv36VJLU3wwXcBSSoUGkh7dyZPsXNtT4
 ```
 
-## Aggregator Setup
-
-Build and deploy the flux aggregator:
+Then run the oracle:
 
 ```
-yarn build:program
+yarn solink oracle
 ```
 
-```
-yarn solink deploy-program
-
-deployed aggregator program. program id: DErMSHHbyVisohfM6miHaxstZEAxD5GBq2RrkdcXEasy
-```
-
-Create the `btc:usd` feed (that accepts max and min u64 as valid submission values):
+The oracle should submit updates if the price changes by more than $1. You should see:
 
 ```
-yarn solink add-aggregator \
-  --feedName btc:usd
-
-feed initialized, pubkey: 3aTBom2uodyWkuVPiUkwCZ2HiFywdUx9tp7su7U2H4Nx
+info:     Starting a new round {"aggregator":"btc:usd","round":"9"}
+info:     Submit value {"aggregator":"btc:usd","round":"9","value":"5748914"}
+info:     Submit OK {"aggregator":"btc:usd","withdrawable":"90000","rewardToken":"3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1"}
+info:     Starting a new round {"aggregator":"btc:usd","round":"10"}
+info:     Submit value {"aggregator":"btc:usd","round":"10","value":"5749313"}
+info:     Submit OK {"aggregator":"btc:usd","withdrawable":"100000","rewardToken":"3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1"}
 ```
 
-## Adding an oracle
+NOTE: This is a "sandbox" environment on the devnet to make it easy for you to
+try running the price oracle. Anyone reading this README has access to the
+private key of the account `FosLwbttPgkEDv36VJLU3wwXcBSSoUGkh7dyZPsXNtT4`. Do
+not use this key for production!
 
-Next, we create a separate wallet to control oracles:
+NOTE 2: You might get error messages if somebody else is also running the
+oracle.
 
-```
-yarn solink generate-wallet
+# Observe The Aggregators
 
-address: FosLwbttPgkEDv36VJLU3wwXcBSSoUGkh7dyZPsXNtT4
-mnemonic: amount smoke bar coil current trial toward minimum model pass moral liberty
-```
-
-```
-yarn solink airdrop FosLwbttPgkEDv36VJLU3wwXcBSSoUGkh7dyZPsXNtT4
-```
-
-Add this wallet to `.env`:
+With the oracle running, you can subscribe to price changes. In another
+terminal, run:
 
 ```
-ORACLE_MNEMONIC="amount smoke bar coil current trial toward minimum model pass moral liberty"
+yarn solink observe
 ```
 
-Next we create a new oracle to the feed we've created previously, and set its owner to be the new oracle wallet that we've generated:
+You should get prices pushed to you when they update:
 
 ```
-yarn solink add-oracle \
-  --aggregatorAddress 3aTBom2uodyWkuVPiUkwCZ2HiFywdUx9tp7su7U2H4Nx \
-  --oracleName solink-test \
-  --oracleOwner FosLwbttPgkEDv36VJLU3wwXcBSSoUGkh7dyZPsXNtT4
-
-added oracle. pubkey: 7bsB4v6nvHuVC5cWwRheg8opJgmvKVP27pjxiGgoXLoq
-```
-
-Start submitting data from a price feed (e.g. coinbase BTC-USDT):
-
-```
-yarn solink feed \
-  --feedAddress 3aTBom2uodyWkuVPiUkwCZ2HiFywdUx9tp7su7U2H4Nx \
-  --oracleAddress 7bsB4v6nvHuVC5cWwRheg8opJgmvKVP27pjxiGgoXLoq \
-  --pairSymbol BTC/USD
-```
-
-## Read price
-
-Poll the latest aggregated (median) value from a feed:
-
-```
-yarn solink feed-poll \
-  --feedAddress 3aTBom2uodyWkuVPiUkwCZ2HiFywdUx9tp7su7U2H4Nx
-```
-
-## Remove oracle
-
-```
-yarn solink remove-oracle \
-  --feedAddress 3aTBom2uodyWkuVPiUkwCZ2HiFywdUx9tp7su7U2H4Nx \
-  --oracleAddress 7bsB4v6nvHuVC5cWwRheg8opJgmvKVP27pjxiGgoXLoq
-```
-
-## Test Token
-
-For testing purposes, create a test token held by the aggregator program to reward:
-
-```
-yarn solink testToken --amount 10000000000
-```
-
-## Program Integration
-
-Refer to the [integration-example][./integration-example].
-
-The gist is to pass in the feed address to the program, and call `get_median` from the flux_aggregator crate.
-
-```rust
-use flux_aggregator;
-
-let feed_info = next_account_info(accounts_iter)?;
-let value = flux_aggregator::get_median(feed_info)?;
+info:     update {"description":"btc:usd","decimals":2,"roundID":"21","median":"5744000","updatedAt":"37820525","createdAt":"37820525"}
+info:     update {"description":"eth:usd","decimals":2,"roundID":"9","median":"202600","updatedAt":"37820513","createdAt":"37820513"}
+info:     update {"description":"btc:usd","decimals":2,"roundID":"22","median":"5743803","updatedAt":"37820552","createdAt":"37820552"}
+info:     update {"description":"btc:usd","decimals":2,"roundID":"23","median":"5740350","updatedAt":"37820565","createdAt":"37820565"}
 ```
