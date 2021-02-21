@@ -8,6 +8,10 @@ Solnana Flux Aggregator
 yarn install
 ```
 
+# Setup
+
+If you want to setup the whole thing, read: [SETUP.md](./SETUP.md)
+
 # Submit Prices As Oracle (devnet)
 
 There are price oracles already deployed on the devnet, you can see their deploy
