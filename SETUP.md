@@ -72,13 +72,13 @@ yarn solink setup config/setup.private.json
 You may need to implement your own price feed to test liquidation. We will
 support custom feeds in the future... for now edit the code manually.
 
-1. Create an EventEmitter that emits an IPrice:
+1. Create an EventEmitter that emits an IPrice
 
 https://github.com/czl1378/solana-flux-aggregator/blob/91712880abbb16b3c620995cabcca6e4a8582ad8/src/feeds.ts#L48
 
 2. Wrap the EventEmitter instance as an async iterator
 
-https://github.com/czl1378/solana-flux-aggregator/blob/91712880abbb16b3c620995cabcca6e4a8582ad8/src/PriceFeeder.ts#L38
+https://github.com/czl1378/solana-flux-aggregator/blob/3b9513dd8d3723533a66cd62081be087fb704a60/src/feeds.ts#L58
 
 
 3. In `PriceFeeder` change `coinbase` to your custom price feed
