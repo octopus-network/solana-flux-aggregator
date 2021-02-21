@@ -31,6 +31,16 @@
             "type": "PublicKey",
             "base58": "Draee2EHoVoPkRrMXnh17EcJMxuyirFSBsfMHuNBy2bq"
           }
+        },
+        "blockworks": {
+          "pubkey": {
+            "type": "PublicKey",
+            "base58": "FPDLmdxQpKtYVXdv5riGZcpEXkLqi6yT1HHZQoqkL2ii"
+          },
+          "owner": {
+            "type": "PublicKey",
+            "base58": "GW6bnJN6cMNzVnoVfV9hW6vx6XxTfP8k3HA1PgWCumxV"
+          }
         }
       }
     },
@@ -64,6 +74,16 @@
           "owner": {
             "type": "PublicKey",
             "base58": "Draee2EHoVoPkRrMXnh17EcJMxuyirFSBsfMHuNBy2bq"
+          }
+        },
+        "blockworks": {
+          "pubkey": {
+            "type": "PublicKey",
+            "base58": "2JRS9YHyeaSWMomFCoQVeSJXxv8tqJPX1ffwXvbmosVi"
+          },
+          "owner": {
+            "type": "PublicKey",
+            "base58": "GW6bnJN6cMNzVnoVfV9hW6vx6XxTfP8k3HA1PgWCumxV"
           }
         }
       }

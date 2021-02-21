@@ -8,7 +8,8 @@
       "rewardAmount": 10000,
       "rewardTokenAccount": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1",
       "oracles": [
-        "solink"
+        "solink",
+        "blockworks"
       ]
     },
     "eth:usd": {
@@ -19,13 +20,17 @@
       "rewardAmount": 10000,
       "rewardTokenAccount": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1",
       "oracles": [
-        "solink"
+        "solink",
+        "blockworks"
       ]
     }
   },
   "oracles": {
     "solink": {
       "owner": "Draee2EHoVoPkRrMXnh17EcJMxuyirFSBsfMHuNBy2bq"
+    },
+    "blockworks": {
+      "owner": "GW6bnJN6cMNzVnoVfV9hW6vx6XxTfP8k3HA1PgWCumxV"
     }
   }
 }
