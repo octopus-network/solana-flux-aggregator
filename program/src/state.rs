@@ -100,7 +100,9 @@ impl Submissions {
         let l = values.len();
         let i = l / 2;
         if l % 2 == 0 {
-            median = (values[i] + values[i - 1]) / 2;
+            // take u64 average of two numbers in u128 then cast back, to prevent overflow
+            median = (((values[i] as u128) + (values[i - 1] as u128)) / 2) as u64;
+            // median = values[i].checked_add(values[i - 1]).ok_or(Error::Overflow) / 2;
         } else {
             median = values[i];
         }
