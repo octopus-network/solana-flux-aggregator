@@ -5,6 +5,7 @@ import { loadJSONFile } from "./json"
 import { coinbase } from "./feeds"
 import { Submitter, SubmitterConfig } from "./Submitter"
 import { log } from "./log"
+import { conn } from "./context"
 
 // Look at all the available aggregators and submit to those that the wallet can
 // act as an oracle.
@@ -20,7 +21,12 @@ export class PriceFeeder {
     this.startAccessibleAggregators()
   }
 
-  private startAccessibleAggregators() {
+  private async startAccessibleAggregators() {
+    let slot = await conn.getSlot()
+    conn.onSlotChange(slotInfo => {
+      slot = slotInfo.slot
+    })
+
     for (let [name, aggregatorInfo] of Object.entries(
       this.deployInfo.aggregators
     )) {
@@ -46,7 +52,8 @@ export class PriceFeeder {
           // TODO: errrrr... probably make configurable on chain. hardwire for
           // now, don't submit value unless btc changes at least a dollar
           minValueChangeForNewRound: 100,
-        }
+        },
+        () => slot,
       )
 
       submitter.start()

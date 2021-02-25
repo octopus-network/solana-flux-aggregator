@@ -10,3 +10,6 @@ deploy.json
 program/Cargo.lock
 integration-example/Cargo.lock
 .DS_Store
+.vscode/launch.json
+config/setup.private.json
+deploy.private.json
