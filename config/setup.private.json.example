@@ -8,7 +8,7 @@
       "rewardAmount": 10000,
       "rewardTokenAccount": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1",
       "oracles": [
-        "testerA"
+        "tester"
       ]
     },
     "eth:usd": {
@@ -19,12 +19,12 @@
       "rewardAmount": 10000,
       "rewardTokenAccount": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1",
       "oracles": [
-        "testerA"
+        "tester"
       ]
     }
   },
   "oracles": {
-    "testerA": {
+    "tester": {
       "owner": "9QYPHz91uGZMSueGBhtxmy17L4ynJoWXdTE7mU21kizc"
     }
   }

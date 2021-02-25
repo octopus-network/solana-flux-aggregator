@@ -211,8 +211,7 @@ export class Deployer {
       oracles: {},
     } as any
 
-    // will set
-    await this.createRewardFaucet(info)
+    // await this.createRewardFaucet(info)
 
     return info
   }
