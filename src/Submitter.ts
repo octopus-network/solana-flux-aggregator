@@ -1,4 +1,3 @@
-import { AccountInfo, Connection, EpochInfo } from "@solana/web3.js"
 import { PublicKey, Wallet } from "solray"
 import { conn } from "./context"
 
@@ -28,9 +27,6 @@ export class Submitter {
   public program: FluxAggregator
   public logger!: Logger
   public currentValue: BN
-  private epoch?: EpochInfo
-  private refreshAccounts: () => Promise<void> = async () => {}
-
   public reportedRound: BN
 
   constructor(
@@ -65,9 +61,7 @@ export class Submitter {
     // if (this.oracle.withdrawable.isZero()) {
     //   return
     // }
-
     // //
-
     // this.program.withdraw({
     //   accounts: {
     //     aggregator: this.aggregatorPK,
@@ -76,7 +70,7 @@ export class Submitter {
     // })
   }
 
-  private async updateStates() {
+  private async reloadStates() {
     if (!this.aggregator) {
       this.aggregator = await Aggregator.load(this.aggregatorPK)
     }
@@ -101,7 +95,7 @@ export class Submitter {
   }
 
   private async observeAggregatorState() {
-    await this.updateStates()
+    await this.reloadStates()
 
     conn.onAccountChange(this.aggregatorPK, async (info) => {
       this.aggregator = Aggregator.deserialize(info.data)
@@ -111,7 +105,7 @@ export class Submitter {
       }
 
       // only update states if actually reporting to save RPC calls
-      await this.updateStates()
+      await this.reloadStates()
       this.onAggregatorStateUpdate()
     })
   }
@@ -136,6 +130,8 @@ export class Submitter {
         continue
       }
 
+      // should reload the state before trying to submit
+      await this.reloadStates()
       await this.trySubmit()
     }
   }
@@ -203,7 +199,7 @@ export class Submitter {
       return
     }
 
-    if (!roundID.isZero() && roundID.lte(this.reportedRound)) {
+    if (this.isRoundReported(roundID)) {
       this.logger.debug("don't report to the same round twice")
       return
     }
@@ -229,7 +225,12 @@ export class Submitter {
         value,
       })
 
-      this.logger.info("Submit OK")
+      this.reloadStates()
+
+      this.logger.info("Submit OK", {
+        withdrawable: this.oracle.withdrawable.toString(),
+        rewardToken: this.aggregator.config.rewardTokenAccount.toString(),
+      })
     } catch (err) {
       console.log(err)
       this.logger.error("Submit error", {
