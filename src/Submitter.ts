@@ -36,6 +36,7 @@ export class Submitter {
     public aggregatorPK: PublicKey,
     public oraclePK: PublicKey,
     private oracleOwnerWallet: Wallet,
+
     private priceFeed: IPriceFeed,
     private cfg: SubmitterConfig
   ) {
@@ -58,7 +59,20 @@ export class Submitter {
     await Promise.all([this.observeAggregatorState(), this.observePriceFeed()])
   }
 
-  public async withdrawRewards() {}
+  public async withdrawRewards() {
+    // if (this.oracle.withdrawable.isZero()) {
+    //   return
+    // }
+
+    // //
+
+    // this.program.withdraw({
+    //   accounts: {
+    //     aggregator: this.aggregatorPK,
+    //     // faucet
+    //   }
+    // })
+  }
 
   private async reloadState(loadAggregator = true) {
     if (loadAggregator) {

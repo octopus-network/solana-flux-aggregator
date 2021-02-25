@@ -20,15 +20,25 @@ import FluxAggregator from "./FluxAggregator"
 import { AggregatorConfig, IAggregatorConfig } from "./schema"
 import { jsonReplacer, jsonReviver } from "./json"
 import { log } from "./log"
+import { config } from "dotenv/types"
 
 interface OracleDeployInfo {
   pubkey: PublicKey
   owner: PublicKey
 }
+
+interface FaucetInfo {
+  pubkey: PublicKey
+  // program account public key
+  owner: PublicKey
+  ownerSeed: Buffer
+}
+
 interface AggregatorDeployInfo {
   pubkey: PublicKey
   owner: PublicKey
   config: IAggregatorConfig
+  faucet: FaucetInfo
 
   oracles: {
     [key: string]: OracleDeployInfo
@@ -124,6 +134,34 @@ export class Deployer {
     return new FluxAggregator(this.wallet, this.state.programID)
   }
 
+  async createRewardFaucet(
+    aggregatorInfo: AggregatorDeployInfo
+  ): Promise<FaucetInfo> {
+    if (aggregatorInfo.faucet) {
+      return aggregatorInfo.faucet
+    }
+
+    const seed = Buffer.from(aggregatorInfo.config.description)
+
+    const faucetOwner = await ProgramAccount.forSeed(seed, this.state.programID)
+
+    const spltoken = new SPLToken(this.wallet)
+
+    const faucet = await spltoken.initializeAccount({
+      // TODO: check if rewardTokenAccount is null
+      token: aggregatorInfo.config.rewardTokenAccount,
+      owner: faucetOwner.pubkey,
+    })
+
+    aggregatorInfo.faucet = {
+      pubkey: faucet.publicKey,
+      owner: faucetOwner.pubkey,
+      ownerSeed: seed,
+    }
+
+    return aggregatorInfo.faucet
+  }
+
   async createOracle(
     aggregatorInfo: AggregatorDeployInfo,
     name: string,
@@ -164,11 +202,18 @@ export class Deployer {
       owner: this.wallet.account,
     })
 
-    return {
+    const info: AggregatorDeployInfo = {
       pubkey: account.publicKey,
       owner: this.wallet.pubkey,
       config,
+      // to be set by `createRewardFaucet`
+      faucet: undefined,
       oracles: {},
-    }
+    } as any
+
+    // will set
+    await this.createRewardFaucet(info)
+
+    return info
   }
 }
