@@ -1,10 +1,10 @@
-import { Connection } from "@solana/web3.js"
+import { AccountInfo, Connection, EpochInfo } from "@solana/web3.js"
 import { PublicKey, Wallet } from "solray"
 import { conn } from "./context"
 
 import { Aggregator, Submissions, Oracle } from "./schema"
 import BN from "bn.js"
-import { sleep } from "./utils"
+import { getAccounts, getMultipleAccounts, sleep } from "./utils"
 import FluxAggregator from "./FluxAggregator"
 
 import { createLogger, Logger } from "winston"
@@ -28,6 +28,8 @@ export class Submitter {
   public program: FluxAggregator
   public logger!: Logger
   public currentValue: BN
+  private epoch?: EpochInfo
+  private refreshAccounts: () => Promise<void> = async () => {}
 
   public reportedRound: BN
 
@@ -38,7 +40,8 @@ export class Submitter {
     private oracleOwnerWallet: Wallet,
 
     private priceFeed: IPriceFeed,
-    private cfg: SubmitterConfig
+    private cfg: SubmitterConfig,
+    private getSlot: () => number
   ) {
     this.program = new FluxAggregator(this.oracleOwnerWallet, programID)
 
@@ -49,14 +52,13 @@ export class Submitter {
   // TODO: harvest rewards if > n
 
   public async start() {
-    // make sure the states are initialized
-    await this.reloadState()
+    await this.observeAggregatorState()
 
     this.logger = log.child({
       aggregator: this.aggregator.config.description,
     })
 
-    await Promise.all([this.observeAggregatorState(), this.observePriceFeed()])
+    await this.observePriceFeed()
   }
 
   public async withdrawRewards() {
@@ -74,32 +76,42 @@ export class Submitter {
     // })
   }
 
-  private async reloadState(loadAggregator = true) {
-    if (loadAggregator) {
+  private async updateStates() {
+    if (!this.aggregator) {
       this.aggregator = await Aggregator.load(this.aggregatorPK)
     }
 
-    this.roundSubmissions = await Submissions.load(
-      this.aggregator.roundSubmissions
-    )
-    this.answerSubmissions = await Submissions.load(
-      this.aggregator.answerSubmissions
-    )
+    const [
+      oracle,
+      roundSubmissions,
+      answerSubmissions,
+    ] = await getAccounts(conn, [
+      this.oraclePK,
+      this.aggregator.roundSubmissions,
+      this.aggregator.answerSubmissions,
+    ])
 
-    this.oracle = await Oracle.load(this.oraclePK)
+    this.oracle = Oracle.deserialize(oracle.data)
+    this.answerSubmissions = Submissions.deserialize(answerSubmissions.data)
+    this.roundSubmissions = Submissions.deserialize(roundSubmissions.data)
+  }
+
+  private isRoundReported(roundID: BN): boolean {
+    return !roundID.isZero() && roundID.lte(this.reportedRound)
   }
 
   private async observeAggregatorState() {
+    await this.updateStates()
+
     conn.onAccountChange(this.aggregatorPK, async (info) => {
       this.aggregator = Aggregator.deserialize(info.data)
-      await this.reloadState(false)
 
-      this.logger.debug("state updated", {
-        aggregator: this.aggregator,
-        submissions: this.roundSubmissions,
-        answerSubmissions: this.answerSubmissions,
-      })
+      if (this.isRoundReported(this.aggregator.round.id)) {
+        return
+      }
 
+      // only update states if actually reporting to save RPC calls
+      await this.updateStates()
       this.onAggregatorStateUpdate()
     })
   }
@@ -131,8 +143,6 @@ export class Submitter {
   private async trySubmit() {
     // TODO: make it possible to be triggered by chainlink task
     // TODO: If from chainlink node, update state before running
-
-    this.oracle = await Oracle.load(this.oraclePK)
     this.logger.debug("oracle", { oracle: this.oracle })
 
     const { round } = this.aggregator
@@ -144,10 +154,7 @@ export class Submitter {
     }
 
     // or, see if oracle can start a new round
-    const epoch = await conn.getEpochInfo()
-    const sinceLastUpdate = new BN(epoch.absoluteSlot).sub(round.updatedAt)
-    // console.log("slot", epoch.absoluteSlot, sinceLastUpdate.toString())
-
+    const sinceLastUpdate = new BN(this.getSlot()).sub(round.updatedAt)
     if (sinceLastUpdate.ltn(MAX_ROUND_STALENESS)) {
       // round is not stale yet. don't submit new round
       return
@@ -155,8 +162,7 @@ export class Submitter {
 
     // The round is stale. start a new round if possible, or wait for another
     // oracle to start
-    const oracle = await Oracle.load(this.oraclePK)
-    if (oracle.canStartNewRound(round.id)) {
+    if (this.oracle.canStartNewRound(round.id)) {
       let newRoundID = round.id.addn(1)
       this.logger.info("Starting a new round", {
         round: newRoundID.toString(),
@@ -166,6 +172,12 @@ export class Submitter {
   }
 
   private async onAggregatorStateUpdate() {
+    this.logger.debug("state updated", {
+      aggregator: this.aggregator,
+      submissions: this.roundSubmissions,
+      answerSubmissions: this.answerSubmissions,
+    })
+
     if (!this.canSubmitToCurrentRound) {
       return
     }
@@ -217,19 +229,12 @@ export class Submitter {
         value,
       })
 
-      await this.reloadState()
-
-      this.logger.info("Submit OK", {
-        withdrawable: this.oracle.withdrawable.toString(),
-        rewardToken: this.aggregator.config.rewardTokenAccount.toString(),
-      })
+      this.logger.info("Submit OK")
     } catch (err) {
       console.log(err)
       this.logger.error("Submit error", {
         err: err.toString(),
       })
     }
-
-
   }
 }
