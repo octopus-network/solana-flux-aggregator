@@ -1,7 +1,7 @@
 import { AccountInfo, Connection, PublicKey } from "@solana/web3.js"
 import EventEmitter from "events"
 
-import { solana, Wallet, NetworkName, Deployer } from "solray"
+import { solana, Wallet } from "solray"
 
 export function getMedian(submissions: number[]): number {
   const values = submissions
