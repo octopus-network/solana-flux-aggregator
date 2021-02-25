@@ -86,6 +86,20 @@ NETWORK=dev DEPLOY_FILE=deploy.dev.json yarn solink observe
 * `btc:usd` => 8tawJxhUbVJV7Aiss8DBkYoN4ZA1vpNVwjNmUdgpMw7J
 * `eth:usd` => 4X5QRNHs3saF35fhL7FJtPR58PeqoFmzgq82EiHqa9a9
 
+## Using Your Own RPC
+
+By default the oracle uses the public RPC host. If you run many price feeds, you
+may hit the rate limit of the public RPC.
+
+For better stability, you should run use your own private RPC instead.
+
+Configure in `.env`:
+
+```
+# (Optional) Specify the RPC host you want to use for your network
+SOLANA_RPC_HOST=http://localhost:8899
+```
+
 ## Joining Devnet
 
 If you want to become a testnet oracle, generate a solana devnet wallet (10 SOL will be airdropped):
@@ -100,3 +114,4 @@ info:     airdrop 10 SOL {"address":"8CGZz277PT6yA7nU6HEdpbwQsNYLvyJhP1guoUNxt9m
 
 Save the mnemonic in your `.env` file, and give the address to me. I'll add
 you to the oracle list so you can submit.
+
