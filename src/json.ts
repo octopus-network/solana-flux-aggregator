@@ -17,7 +17,6 @@ export function jsonReviver(_key: string, val: any) {
 
 export function jsonReplacer(key: string, value: any) {
   if (value && typeof value == "object") {
-    console.log("jsonReplacer", key, value)
     if (value.constructor == PublicKey) {
       return {
         type: "PublicKey",
