@@ -41,6 +41,16 @@
             "type": "PublicKey",
             "base58": "GW6bnJN6cMNzVnoVfV9hW6vx6XxTfP8k3HA1PgWCumxV"
           }
+        },
+        "bonafida": {
+          "pubkey": {
+            "type": "PublicKey",
+            "base58": "GXzM2V8LVnrD7AudnxKuHBznH49PsJduwXW7SjqoeVBj"
+          },
+          "owner": {
+            "type": "PublicKey",
+            "base58": "5tTHnk3YjZuPUKUKAXR9PoAPhbLRCyy7AthLLZUTKpUX"
+          }
         }
       }
     },
@@ -84,6 +94,16 @@
           "owner": {
             "type": "PublicKey",
             "base58": "GW6bnJN6cMNzVnoVfV9hW6vx6XxTfP8k3HA1PgWCumxV"
+          }
+        },
+        "bonafida": {
+          "pubkey": {
+            "type": "PublicKey",
+            "base58": "6iFDreaMC45sHUHCAquyKQ1Q23sbpVPhp9syk9Ubk1p2"
+          },
+          "owner": {
+            "type": "PublicKey",
+            "base58": "5tTHnk3YjZuPUKUKAXR9PoAPhbLRCyy7AthLLZUTKpUX"
           }
         }
       }

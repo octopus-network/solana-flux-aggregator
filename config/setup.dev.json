@@ -9,7 +9,8 @@
       "rewardTokenAccount": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1",
       "oracles": [
         "solink",
-        "blockworks"
+        "blockworks",
+        "bonafida"
       ]
     },
     "eth:usd": {
@@ -21,7 +22,8 @@
       "rewardTokenAccount": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1",
       "oracles": [
         "solink",
-        "blockworks"
+        "blockworks",
+        "bonafida"
       ]
     }
   },
@@ -31,6 +33,9 @@
     },
     "blockworks": {
       "owner": "GW6bnJN6cMNzVnoVfV9hW6vx6XxTfP8k3HA1PgWCumxV"
+    },
+    "bonafida": {
+      "owner": "5tTHnk3YjZuPUKUKAXR9PoAPhbLRCyy7AthLLZUTKpUX"
     }
   }
 }
