@@ -72,19 +72,25 @@ export function chunks<T>(array: T[], size: number): T[][] {
   return Array.apply<number, T[], T[][]>(
     0,
     new Array(Math.ceil(array.length / size))
-  ).map((_, index) => array.slice(index * size, (index + 1) * size));
+  ).map((_, index) => array.slice(index * size, (index + 1) * size))
 }
 
-export const getMultipleAccounts = async (
+export const getAccounts = async (
   connection: Connection,
-  keys: string[],
-  commitment: string = 'single'
+  keys: PublicKey[],
+  commitment: string = "single"
 ) => {
+  // const [a, b, c] = getAccounts(pk1, pk2, pk3)
+
   const result = await Promise.all(
     chunks(keys, 99).map((chunk) =>
-      getMultipleAccountsCore(connection, chunk, commitment)
+      getMultipleAccountsCore(
+        connection,
+        chunk.map((key) => key.toBase58()),
+        commitment
+      )
     )
-  );
+  )
 
   const array = result
     .map(
@@ -92,37 +98,65 @@ export const getMultipleAccounts = async (
         a.array
           .filter((acc) => !!acc)
           .map((acc) => {
-            const { data, ...rest } = acc;
+            const { data, ...rest } = acc
             const obj = {
               ...rest,
               data: Buffer.from(data[0], "base64"),
-            } as AccountInfo<Buffer>;
-            return obj;
+            } as AccountInfo<Buffer>
+            return obj
           }) as AccountInfo<Buffer>[]
     )
-    .flat();
-  return { keys, array };
-};
+    .flat()
+  return array
+}
+
+export const getMultipleAccounts = async (
+  connection: Connection,
+  keys: string[],
+  commitment: string = "single"
+) => {
+  const result = await Promise.all(
+    chunks(keys, 99).map((chunk) =>
+      getMultipleAccountsCore(connection, chunk, commitment)
+    )
+  )
+
+  const array = result
+    .map(
+      (a) =>
+        a.array
+          .filter((acc) => !!acc)
+          .map((acc) => {
+            const { data, ...rest } = acc
+            const obj = {
+              ...rest,
+              data: Buffer.from(data[0], "base64"),
+            } as AccountInfo<Buffer>
+            return obj
+          }) as AccountInfo<Buffer>[]
+    )
+    .flat()
+  return { keys, array }
+}
 
 const getMultipleAccountsCore = async (
   connection: any,
   keys: string[],
   commitment: string
 ) => {
-  const args = connection._buildArgs([keys], commitment, "base64");
+  const args = connection._buildArgs([keys], commitment, "base64")
 
-  const unsafeRes = await connection._rpcRequest("getMultipleAccounts", args);
+  const unsafeRes = await connection._rpcRequest("getMultipleAccounts", args)
   if (unsafeRes.error) {
     throw new Error(
       "failed to get info about account " + unsafeRes.error.message
-    );
+    )
   }
 
   if (unsafeRes.result.value) {
-    const array = unsafeRes.result.value as AccountInfo<string[]>[];
-    return { keys, array };
+    const array = unsafeRes.result.value as AccountInfo<string[]>[]
+    return { keys, array }
   }
 
-  throw new Error('Unable to get account');
-};
-
+  throw new Error("Unable to get account")
+}

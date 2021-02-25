@@ -4,7 +4,7 @@ import { conn } from "./context"
 
 import { Aggregator, Submissions, Oracle } from "./schema"
 import BN from "bn.js"
-import { getMultipleAccounts, sleep } from "./utils"
+import { getAccounts, getMultipleAccounts, sleep } from "./utils"
 import FluxAggregator from "./FluxAggregator"
 
 import { createLogger, Logger } from "winston"
@@ -29,7 +29,7 @@ export class Submitter {
   public logger!: Logger
   public currentValue: BN
   private epoch?: EpochInfo
-  private refreshAccounts: () => Promise<void> =  async () => {  }
+  private refreshAccounts: () => Promise<void> = async () => {}
 
   public reportedRound: BN
 
@@ -40,7 +40,7 @@ export class Submitter {
     private oracleOwnerWallet: Wallet,
     private priceFeed: IPriceFeed,
     private cfg: SubmitterConfig,
-    private getSlot: () => number,
+    private getSlot: () => number
   ) {
     this.program = new FluxAggregator(this.oracleOwnerWallet, programID)
 
@@ -62,54 +62,42 @@ export class Submitter {
 
   public async withdrawRewards() {}
 
-  private async observeAggregatorState() {
-    // load state
+  private async updateStates() {
     if (!this.aggregator) {
       this.aggregator = await Aggregator.load(this.aggregatorPK)
     }
-    
-    let registeredHooks = false
-    const keysToQuery: { [keys: string]: (key: string, acc: AccountInfo<Buffer>) => void } = {
-      [this.oraclePK.toBase58()]: (key, acc) => {
-        this.oracle = Oracle.deserialize(acc.data)
-        log.debug(`Update oracle: ${key}`)
-      }, 
-      [this.aggregator.answerSubmissions.toBase58()]: (key, acc) => {
-        this.answerSubmissions = Submissions.deserialize(acc.data);
-        log.debug(`Update answerSubmissions: ${key}`)
-      }, 
-      [this.aggregator.roundSubmissions.toBase58()]: (key, acc) => {
-        this.roundSubmissions = Submissions.deserialize(acc.data);
-        log.debug(`Update roundSubmissions: ${key}`)
-      }, 
-    }
 
-    this.refreshAccounts = async () => {
-      const { keys, array } = await getMultipleAccounts(conn, Object.keys(keysToQuery));
-      keys.forEach((key, i) => {
-        keysToQuery[key](key, array[i])
+    const [
+      oracle,
+      roundSubmissions,
+      answerSubmissions,
+    ] = await getAccounts(conn, [
+      this.oraclePK,
+      this.aggregator.roundSubmissions,
+      this.aggregator.answerSubmissions,
+    ])
 
-        if(!registeredHooks) {
-          conn.onAccountChange(new PublicKey(key), async (info) => {
-            keysToQuery[key](key, info)
-          })
-        }
-      })
+    this.oracle = Oracle.deserialize(oracle.data)
+    this.answerSubmissions = Submissions.deserialize(answerSubmissions.data)
+    this.roundSubmissions = Submissions.deserialize(roundSubmissions.data)
+  }
 
-      registeredHooks = true;
-    };
+  private isRoundReported(roundID: BN): boolean {
+    return !roundID.isZero() && roundID.lte(this.reportedRound)
+  }
 
-    await this.refreshAccounts()
+  private async observeAggregatorState() {
+    await this.updateStates()
 
     conn.onAccountChange(this.aggregatorPK, async (info) => {
       this.aggregator = Aggregator.deserialize(info.data)
 
-      const roundID = this.aggregator.round.id
-      if (!roundID.isZero() && roundID.lte(this.reportedRound)) {
-        this.logger.debug("don't report to the same round twice")
+      if (this.isRoundReported(this.aggregator.round.id)) {
         return
       }
 
+      // only update states if actually reporting to save RPC calls
+      await this.updateStates()
       this.onAggregatorStateUpdate()
     })
   }
@@ -174,7 +162,7 @@ export class Submitter {
       aggregator: this.aggregator,
       submissions: this.roundSubmissions,
       answerSubmissions: this.answerSubmissions,
-    });
+    })
 
     if (!this.canSubmitToCurrentRound) {
       return
@@ -227,14 +215,12 @@ export class Submitter {
         value,
       })
 
-      this.logger.info("Submit OK");
+      this.logger.info("Submit OK")
     } catch (err) {
       console.log(err)
       this.logger.error("Submit error", {
         err: err.toString(),
       })
     }
-
-
   }
 }

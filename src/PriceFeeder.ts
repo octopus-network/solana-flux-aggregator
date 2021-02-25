@@ -13,8 +13,7 @@ export class PriceFeeder {
   constructor(
     private deployInfo: AggregatorDeployFile,
     private wallet: Wallet
-  ) {
-  }
+  ) {}
 
   async start() {
     // find aggregators that this wallet can act as oracle
@@ -23,7 +22,7 @@ export class PriceFeeder {
 
   private async startAccessibleAggregators() {
     let slot = await conn.getSlot()
-    conn.onSlotChange(slotInfo => {
+    conn.onSlotChange((slotInfo) => {
       slot = slotInfo.slot
     })
 
@@ -53,7 +52,7 @@ export class PriceFeeder {
           // now, don't submit value unless btc changes at least a dollar
           minValueChangeForNewRound: 100,
         },
-        () => slot,
+        () => slot
       )
 
       submitter.start()
