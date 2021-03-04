@@ -167,6 +167,7 @@ struct SubmitContext<'a> {
 }
 
 impl<'a> SubmitContext<'a> {
+    #[inline(never)]
     fn process(&self) -> ProgramResult {
         let mut aggregator = Aggregator::load_initialized(self.aggregator)?;
         let mut oracle = Oracle::load_initialized(self.oracle)?;

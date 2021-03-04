@@ -41,6 +41,15 @@ export class PriceFeeder {
       }
 
       const priceFeed = coinbase(name)
+
+      const pair = name.replace(":", "-").toUpperCase()
+      let minValueChangeForNewRound = 100
+      if (pair === "BTC-USD") {
+        minValueChangeForNewRound = 5000
+      } else if (pair === "ETH-USD") {
+        minValueChangeForNewRound = 150
+      }
+
       const submitter = new Submitter(
         this.deployInfo.programID,
         aggregatorInfo.pubkey,
@@ -50,7 +59,7 @@ export class PriceFeeder {
         {
           // TODO: errrrr... probably make configurable on chain. hardwire for
           // now, don't submit value unless btc changes at least a dollar
-          minValueChangeForNewRound: 100,
+          minValueChangeForNewRound,
         },
         () => slot
       )
