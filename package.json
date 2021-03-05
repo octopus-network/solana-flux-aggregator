@@ -19,7 +19,7 @@
     "buffer-layout": "^1.2.0",
     "commander": "^6.2.0",
     "dotenv": "^8.2.0",
-    "solray": "git+https://github.com/defactojob/solray",
+    "solray": "https://github.com/blockworks-foundation/solray.git",
     "winston": "^3.3.3",
     "ws": "^7.4.1"
   },
