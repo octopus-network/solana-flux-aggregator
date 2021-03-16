@@ -155,10 +155,10 @@ impl<'a> RemoveOracleContext<'a> {
 
 struct SubmitContext<'a> {
     clock: Clock,
-    aggregator: &'a AccountInfo<'a>,
-    round_submissions: &'a AccountInfo<'a>,
-    answer_submissions: &'a AccountInfo<'a>,
-    oracle: &'a AccountInfo<'a>,
+    aggregator: &'a AccountInfo<'a>, // write
+    round_submissions: &'a AccountInfo<'a>, // write
+    answer_submissions: &'a AccountInfo<'a>, // write
+    oracle: &'a AccountInfo<'a>, // write
     oracle_owner: &'a AccountInfo<'a>, // signed
 
     // NOTE: 5.84942*10^11 years even if 1 sec per round. don't bother with handling wrapparound.
