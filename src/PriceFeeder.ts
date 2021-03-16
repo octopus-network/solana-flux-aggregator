@@ -2,7 +2,14 @@ import fs from "fs"
 import { Wallet } from "solray"
 import { AggregatorDeployFile } from "./Deployer"
 import { loadJSONFile } from "./json"
-import { coinbase } from "./feeds"
+import {
+  AggregatedFeed,
+  BitStamp,
+  CoinBase,
+  coinbase,
+  FTX,
+  PriceFeed,
+} from "./feeds"
 import { Submitter, SubmitterConfig } from "./Submitter"
 import { log } from "./log"
 import { conn } from "./context"
@@ -10,12 +17,21 @@ import { conn } from "./context"
 // Look at all the available aggregators and submit to those that the wallet can
 // act as an oracle.
 export class PriceFeeder {
+  private feeds: PriceFeed[]
+
   constructor(
     private deployInfo: AggregatorDeployFile,
     private wallet: Wallet
-  ) {}
+  ) {
+    this.feeds = [new CoinBase(), new BitStamp(), new FTX()]
+  }
 
   async start() {
+    // connect to the price feeds
+    for (const feed of this.feeds) {
+      feed.connect()
+    }
+
     // find aggregators that this wallet can act as oracle
     this.startAccessibleAggregators()
   }
@@ -40,7 +56,10 @@ export class PriceFeeder {
         continue
       }
 
-      const priceFeed = coinbase(name)
+      const feed = new AggregatedFeed(this.feeds, name)
+      const priceFeed = feed.medians()
+      // const priceFeed = coinbase(name)
+
       const submitter = new Submitter(
         this.deployInfo.programID,
         aggregatorInfo.pubkey,
