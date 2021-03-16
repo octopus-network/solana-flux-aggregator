@@ -296,13 +296,16 @@ export class AggregatedFeed {
     this.emitter.emit(UPDATE, this)
   }
 
-  async* medians() {
+  async *medians() {
     for await (let _ of this.updates()) {
-      yield this.median
+      const price = this.median
+      if (price) {
+        yield price
+      }
     }
   }
 
-  async* updates() {
+  async *updates() {
     for await (let _ of eventsIter<AggregatedFeed>(this.emitter, "UPDATE")) {
       yield this
     }
