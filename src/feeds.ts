@@ -1,4 +1,5 @@
-import WebSocket from "ws"
+import WebSocket from 'ws'
+import ReconnectingWebSocket from 'reconnecting-websocket'
 import EventEmitter from "events"
 import { eventsIter, median } from "./utils"
 
@@ -21,7 +22,7 @@ export interface IPriceFeed {
 export abstract class PriceFeed {
   public emitter = new EventEmitter()
 
-  protected conn!: WebSocket
+  protected conn!: ReconnectingWebSocket
   protected connected!: Promise<void>
 
   protected abstract get log(): winston.Logger
@@ -34,8 +35,8 @@ export abstract class PriceFeed {
     this.log.debug("connecting", { baseurl: this.baseurl })
 
     this.connected = new Promise<void>((resolve) => {
-      const conn = new WebSocket(this.baseurl)
-      conn.on("open", () => {
+      const conn = new ReconnectingWebSocket(this.baseurl, [], { WebSocket })
+      conn.addEventListener("open", () => {
         this.log.debug("connected")
 
         this.conn = conn
@@ -47,15 +48,16 @@ export abstract class PriceFeed {
         resolve()
       })
 
-      conn.on("close", () => {
-        // TODO: auto-reconnect & re-subscribe
+      conn.addEventListener("close", () => {
+        console.log(`socket ${this.baseurl} closed`)
       })
 
-      conn.on("message", async (data) => {
-        // this.log.debug("raw price update", { data })
+      conn.addEventListener("error", (e) => {
+        console.log(`socket ${this.baseurl} error: ${e}`)
+      })
 
-        const price = this.parseMessage(data)
-
+      conn.addEventListener("message", (msg) => {
+        const price = this.parseMessage(msg.data)
         if (price) {
           this.onMessage(price)
         }
