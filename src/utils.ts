@@ -3,6 +3,20 @@ import EventEmitter from "events"
 
 import { solana, Wallet } from "solray"
 
+export function median(values: number[]): number {
+  if (values.length === 0) return 0
+
+  values.sort(function (a, b) {
+    return a - b
+  })
+
+  var half = Math.floor(values.length / 2)
+
+  if (values.length % 2) return values[half]
+
+  return Math.floor((values[half - 1] + values[half]) / 2.0)
+}
+
 export function getMedian(submissions: number[]): number {
   const values = submissions
     .filter((s: any) => s.value != 0)
