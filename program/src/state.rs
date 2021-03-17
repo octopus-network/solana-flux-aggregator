@@ -255,8 +255,6 @@ pub struct Requester {
     pub description: [u8; 32],
     /// is initialized
     pub is_initialized: bool,
-    /// TODO: do we need this withdrawable
-    pub withdrawable: u64,
 
     /// requester cannot start a new round until after `requester_restart_delay` rounds
     pub allow_start_round: u64,

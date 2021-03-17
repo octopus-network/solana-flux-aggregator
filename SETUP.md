@@ -23,6 +23,7 @@ DEPLOY_FILE=deploy.private.json
 # 9QYPHz91uGZMSueGBhtxmy17L4ynJoWXdTE7mU21kizc
 ADMIN_MNEMONIC="fix toward apology left between video girl novel seminar best sick gap"
 ORACLE_MNEMONIC="fix toward apology left between video girl novel seminar best sick gap"
+REQUESTER_MNEMONIC="fix toward apology left between video girl novel seminar best sick gap"
 ```
 
 Then copy the setup file:
@@ -53,6 +54,7 @@ object in `aggregators` in `deploy.private.json`, namely:
   "minSubmissions": 1,
   "maxSubmissions": 3,
   "restartDelay": 0,
+  "requesterRestartDelay": 0,
   "rewardAmount": 10000,
   "rewardTokenAccount": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1",
   "oracles": [

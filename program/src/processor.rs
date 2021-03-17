@@ -169,7 +169,7 @@ impl<'a> AddRequesterContext<'a> {
         msg!("loaded aggregator");
         aggregator.authorize(self.aggregator_owner)?;
 
-        let mut requester = Oracle::init_uninitialized(self.requester)?;
+        let mut requester = Requester::init_uninitialized(self.requester)?;
         msg!("loaded requester");
         requester.is_initialized = true;
         requester.description = self.description;
@@ -198,8 +198,7 @@ impl<'a> RemoveRequesterContext<'a> {
         }
 
         // Zero out the requester account memory. This allows reuse or reclaim.
-        // Note: will wipe out withdrawable balance on this requester. Too bad.
-        Oracle::default().save(self.requester)?;
+        Requester::default().save(self.requester)?;
 
         Ok(())
     }

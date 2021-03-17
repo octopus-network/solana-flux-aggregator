@@ -6,7 +6,7 @@ import { log } from "./log";
 import { Aggregator } from "./schema";
 
 // Allows to manage requesters
-export class RequestFeeder {
+export class RoundRequester {
 
   /**
    * Create a new Request manager class
@@ -22,7 +22,7 @@ export class RequestFeeder {
    * Find requester for a specific aggregator and request a new round
    *
    * ```typescript
-   * const feeder = new RequestFeeder(deploy, wallet)
+   * const feeder = new RoundRequester(deploy, wallet)
    * feeder.requestRound('btc:usd')
    * ```
    */

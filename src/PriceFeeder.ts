@@ -82,7 +82,7 @@ export class PriceFeeder {
     }
 
     if(!nFound) {
-      log.error('no oracle found')
+      log.error('no matching aggregator to act as oracle')
     }
   }
 }

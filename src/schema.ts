@@ -400,16 +400,14 @@ export class Oracle extends Serialization {
 }
 
 export class Requester extends Serialization {
-  public static size = 113 
+  public static size = 105 
   public allowStartRound!: BN
-  public withdrawable!: BN
 
   public static schema = {
     kind: "struct",
     fields: [
       ["description", [32], str32Mapper],
       ["isInitialized", "u8", boolMapper],
-      ["withdrawable", "u64"],
       ["allowStartRound", "u64"],
       ["aggregator", [32], pubkeyMapper],
       ["owner", [32], pubkeyMapper],

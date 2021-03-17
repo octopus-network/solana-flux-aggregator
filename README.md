@@ -74,10 +74,16 @@ info:     update {"description":"btc:usd","decimals":2,"roundID":"23","median":"
 
 # Request New Round
 
-Request a new round for a specific aggregator
+Request a new round for a specific aggregator independently of the current oracle's rounds and price changes. 
 
 ```
 yarn solink request-round <aggregator-id>
+```
+
+For example to request a new round for `btc:usd` aggregator we will use:
+
+```
+yarn solink request-round btc:usd
 ```
 
 # Devnet Oracles
