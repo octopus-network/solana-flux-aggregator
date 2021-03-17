@@ -32,6 +32,14 @@ pub enum Instruction {
 
     RemoveOracle,
 
+    AddRequester {
+        description: [u8; 32],
+    },
+
+    RemoveRequester,
+
+    RequestRound,
+
     Submit {
         round_id: u64,
         value: u64,

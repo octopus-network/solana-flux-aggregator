@@ -26,6 +26,8 @@ export class PriceFeeder {
       slot = slotInfo.slot
     })
 
+    let nFound = 0;
+
     for (let [name, aggregatorInfo] of Object.entries(
       this.deployInfo.aggregators
     )) {
@@ -39,6 +41,8 @@ export class PriceFeeder {
         log.debug("Is not an oracle", { name })
         continue
       }
+
+      nFound += 1;
 
       const priceFeed = coinbase(name)
       const submitter = new Submitter(
@@ -56,6 +60,10 @@ export class PriceFeeder {
       )
 
       submitter.start()
+    }
+
+    if(!nFound) {
+      log.error('no oracle found')
     }
   }
 }

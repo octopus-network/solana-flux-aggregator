@@ -7,6 +7,7 @@ import { conn, network } from "./context"
 import { AggregatorObserver } from "./AggregatorObserver"
 import { Aggregator, Answer } from "./schema"
 import { PriceFeeder } from "./PriceFeeder"
+import { RequestFeeder } from "./RequestFeeder"
 import { sleep, walletFromEnv } from "./utils"
 import { PublicKey, Wallet } from "solray"
 import { log } from "./log"
@@ -49,6 +50,14 @@ cli.command("oracle").action(async (name) => {
   let deploy = loadJSONFile<AggregatorDeployFile>(process.env.DEPLOY_FILE!)
   const feeder = new PriceFeeder(deploy, wallet)
   feeder.start()
+})
+
+cli.command("request-round <aggregator-id>").action(async (aggregatorId) => {
+  const wallet = await walletFromEnv("REQUESTER_MNEMONIC", conn)
+
+  const deploy = loadJSONFile<AggregatorDeployFile>(process.env.DEPLOY_FILE!)
+  const feeder = new RequestFeeder(deploy, wallet)
+  feeder.requestRound(aggregatorId)
 })
 
 cli.command("observe").action(async (name?: string) => {

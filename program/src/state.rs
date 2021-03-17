@@ -54,6 +54,9 @@ pub struct AggregatorConfig {
     /// oracle cannot start a new round until after `restart_relay` rounds
     pub restart_delay: u8,
 
+    /// requester cannot start a new round until after `requester_restart_delay` rounds
+    pub requester_restart_delay: u8,
+
     /// max number of submissions in a round
     pub max_submissions: u8,
 
@@ -245,6 +248,48 @@ impl IsInitialized for Oracle {
 }
 impl InitBorshState for Oracle {}
 
+/// Requester data.
+#[derive(Clone, Debug, BorshSerialize, BorshDeserialize, BorshSchema, Default, PartialEq)]
+pub struct Requester {
+    /// is usually the oracle name
+    pub description: [u8; 32],
+    /// is initialized
+    pub is_initialized: bool,
+    /// TODO: do we need this withdrawable
+    pub withdrawable: u64,
+
+    /// requester cannot start a new round until after `requester_restart_delay` rounds
+    pub allow_start_round: u64,
+
+    /// aggregator
+    pub aggregator: PublicKey,
+    /// owner
+    pub owner: PublicKey,
+}
+
+impl Requester {
+    pub fn check_aggregator(&self, account: &AccountInfo) -> ProgramResult {
+        if !self.aggregator.is_account(account) {
+            return Err(Error::AggregatorMismatch)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl Authority for Requester {
+    fn authority(&self) -> &PublicKey {
+        &self.owner
+    }
+}
+impl BorshState for Requester {}
+impl IsInitialized for Requester {
+    fn is_initialized(&self) -> bool {
+        self.is_initialized
+    }
+}
+impl InitBorshState for Requester {}
+
 mod tests {
     use crate::borsh_utils;
 
@@ -255,6 +300,16 @@ mod tests {
         println!(
             "Aggregator len: {}",
             borsh_utils::get_packed_len::<Aggregator>()
+        );
+
+        println!(
+            "AggregatorConfig len: {}",
+            borsh_utils::get_packed_len::<AggregatorConfig>()
+        );
+
+        println!(
+            "Requester len: {}",
+            borsh_utils::get_packed_len::<Requester>()
         );
 
         println!(

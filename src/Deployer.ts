@@ -15,6 +15,7 @@ import {
   AggregatorSetupConfig,
   loadAggregatorSetup,
   OracleConfig,
+  RequesterConfig,
 } from "./config"
 import FluxAggregator from "./FluxAggregator"
 import { AggregatorConfig, IAggregatorConfig } from "./schema"
@@ -23,6 +24,11 @@ import { log } from "./log"
 import { config } from "dotenv/types"
 
 interface OracleDeployInfo {
+  pubkey: PublicKey
+  owner: PublicKey
+}
+
+interface RequesterDeployInfo {
   pubkey: PublicKey
   owner: PublicKey
 }
@@ -42,6 +48,10 @@ interface AggregatorDeployInfo {
 
   oracles: {
     [key: string]: OracleDeployInfo
+  }
+
+  requesters: {
+    [key: string]: RequesterDeployInfo
   }
 }
 
@@ -119,13 +129,25 @@ export class Deployer {
       for (let oracleName of aggregatorSetup.oracles || []) {
         const oracleSetup = this.setup.oracles[oracleName]
         // TODO: check that key exists
-
+        // TODO: use requesters way?
         let oinfo = info.oracles[oracleName]
         if (!oinfo) {
           oinfo = await this.createOracle(info, oracleName, oracleSetup)
           info.oracles[oracleName] = oinfo
         }
         log.info(`Oracle added`, { name, oracleName })
+      }
+
+      // check and create requesters if don't exists
+      for (let requesterName of aggregatorSetup.requesters || []) {
+        const requesterSetup = this.setup.requesters[requesterName]
+        let oinfo = info.requesters && info.requesters[requesterName]
+        if (!oinfo) {
+          oinfo = await this.createRequester(info, requesterName, requesterSetup)
+          info.requesters = info.requesters || {}
+          info.requesters[requesterName] = oinfo
+        }
+        log.info(`Requester added`, { name, requesterName })
       }
     }
   }
@@ -182,6 +204,27 @@ export class Deployer {
     }
   }
 
+  async createRequester(
+    aggregatorInfo: AggregatorDeployInfo,
+    name: string,
+    setup: RequesterConfig
+  ): Promise<RequesterDeployInfo> {
+    const config = {
+      description: name,
+      aggregator: aggregatorInfo.pubkey,
+      aggregatorOwner: this.wallet.account,
+      requesterOwner: new PublicKey(setup.owner),
+    }
+
+    const account = await this.program.addRequester(config)
+
+    return {
+      pubkey: account.publicKey,
+      owner: config.requesterOwner,
+    }
+  }
+  
+
   async createAggregator(
     name: string,
     cfg: AggregatorSetupConfig
@@ -192,6 +235,7 @@ export class Deployer {
       minSubmissions: cfg.minSubmissions,
       maxSubmissions: cfg.maxSubmissions,
       restartDelay: cfg.restartDelay,
+      requesterRestartDelay: cfg.requesterRestartDelay,
       rewardTokenAccount: new PublicKey(cfg.rewardTokenAccount || 0),
       rewardAmount: cfg.rewardAmount,
     }
@@ -207,9 +251,10 @@ export class Deployer {
       owner: this.wallet.pubkey,
       config,
       // to be set by `createRewardFaucet`
-      faucet: undefined,
+      faucet: undefined as any,
       oracles: {},
-    } as any
+      requesters: {},
+    }
 
     // await this.createRewardFaucet(info)
 

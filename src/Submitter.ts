@@ -160,7 +160,7 @@ export class Submitter {
     // oracle to start
     if (this.oracle.canStartNewRound(round.id)) {
       let newRoundID = round.id.addn(1)
-      this.logger.info("Starting a new round", {
+      this.logger.info("Oracle Starting a new round", {
         round: newRoundID.toString(),
       })
       return this.submitCurrentValue(newRoundID)

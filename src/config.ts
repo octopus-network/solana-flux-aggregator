@@ -31,15 +31,21 @@ export interface OracleConfig {
   owner: string
 }
 
+export interface RequesterConfig {
+  owner: string
+}
+
 export interface AggregatorSetupConfig {
   decimals: number
   minSubmissions: number
   maxSubmissions: number
   restartDelay: number
+  requesterRestartDelay: number
   rewardAmount: number
   rewardTokenAccount?: string
 
   oracles?: string[]
+  requesters?: string[]
 }
 
 export interface AggregatorSetupFile {
@@ -50,6 +56,9 @@ export interface AggregatorSetupFile {
   }
   oracles: {
     [key: string]: OracleConfig
+  }
+  requesters: {
+    [key: string]: RequesterConfig
   }
 }
 

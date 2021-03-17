@@ -34,6 +34,9 @@ pub enum Error {
     #[error("Rewards overflow")] // 7
     RewardsOverflow,
 
+    #[error("Requester cannot start new round until cooldown")] // 8
+    RequesterNewRoundCooldown,
+
     #[error("No resolve answer")]
     NoResolvedAnswer,
 

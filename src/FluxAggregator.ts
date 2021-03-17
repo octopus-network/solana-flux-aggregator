@@ -47,6 +47,23 @@ interface RemoveOracleParams {
 
 interface RemoveOracleInstructionParams extends RemoveOracleParams {}
 
+interface AddRequesterParams {
+  aggregator: PublicKey
+  aggregatorOwner: Account
+
+  requesterOwner: PublicKey
+  description: string
+}
+
+interface RequestRoundParams {
+  accounts: {
+    aggregator: { write: PublicKey }
+    roundSubmissions: { write: PublicKey }
+    requester: { write: PublicKey }
+    requesterOwner: Account
+  }
+}
+
 interface SubmitParams {
   accounts: {
     aggregator: { write: PublicKey }
@@ -155,6 +172,45 @@ export default class FluxAggregator extends BaseProgram {
     )
 
     return oracle
+  }
+
+  public async addRequester(params: AddRequesterParams): Promise<Account> {
+    const requester = new Account()
+
+    const input = encoding.AddRequester.serialize({
+      description: params.description,
+    })
+
+    await this.sendTx(
+      [
+        await this.sys.createRentFreeAccountInstruction({
+          newPubicKey: requester.publicKey,
+          space: encoding.Requester.size,
+          programID: this.programID,
+        }),
+        this.instruction(input, [
+          SYSVAR_RENT_PUBKEY,
+          params.aggregator,
+          params.aggregatorOwner, // signed
+          requester.publicKey,
+          params.requesterOwner,
+        ]),
+      ],
+      [this.account, requester, params.aggregatorOwner]
+    )
+
+    return requester
+  }
+
+  public async requestRound(params: RequestRoundParams): Promise<void> {
+    const input = encoding.RequestRound.serialize(params)
+
+    let auths = [SYSVAR_CLOCK_PUBKEY, ...Object.values(params.accounts)]
+
+    await this.sendTx(
+      [this.instruction(input, auths)],
+      [this.account, params.accounts.requesterOwner]
+    )
   }
 
   // public async oracleInfo(pubkey: PublicKey) {

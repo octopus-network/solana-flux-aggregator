@@ -7,7 +7,6 @@ dist
 .pnp.js
 .env
 deploy.json
-program/Cargo.lock
 integration-example/Cargo.lock
 .DS_Store
 .vscode/launch.json
