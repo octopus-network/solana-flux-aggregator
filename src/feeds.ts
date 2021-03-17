@@ -6,6 +6,8 @@ import { eventsIter, median } from "./utils"
 import { log } from "./log"
 import winston from "winston"
 
+
+const SECONDS = 1000
 export const UPDATE = "UPDATE"
 
 export interface IPrice {
@@ -13,6 +15,7 @@ export interface IPrice {
   pair: string
   decimals: number
   value: number
+  timestamp?: number
 }
 
 export interface IPriceFeed {
@@ -283,6 +286,7 @@ export class AggregatedFeed {
           return
         }
 
+        price.timestamp = Date.now()
         this.prices[index] = price
 
         this.onPriceUpdate(price)
@@ -313,21 +317,31 @@ export class AggregatedFeed {
     }
   }
 
-  get median(): IPrice | undefined {
-    const prices = this.prices.filter((price) => price != undefined)
+  // filter out prices that are older than 10 seconds
+  recentPrices() : IPrice[] {
+    return this.prices.filter((p) => p &&
+                                     p.timestamp &&
+                                    (p.timestamp - Date.now()) < 10*SECONDS)
+  }
 
+  get median(): IPrice | undefined {
+    const prices = this.recentPrices()
     if (prices.length == 0) {
       return
     }
 
     const values = prices.map((price) => price.value)
 
-    return {
+    const result = {
       source: "median",
       pair: prices[0].pair,
       decimals: prices[0].decimals,
       value: median(values),
     }
+
+    // console.log({...result, values})
+
+    return result;
   }
 }
 
