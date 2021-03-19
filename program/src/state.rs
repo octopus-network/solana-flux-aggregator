@@ -51,6 +51,9 @@ pub struct AggregatorConfig {
     /// decimals for this feed
     pub decimals: u8,
 
+    /// number of slots (e.g. 10 is equivalent to ~5 seconds)
+    pub round_timeout: u32,
+
     /// oracle cannot start a new round until after `restart_relay` rounds
     pub restart_delay: u8,
 

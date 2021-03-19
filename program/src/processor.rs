@@ -376,6 +376,11 @@ impl<'a> SubmitContext<'a> {
             return Err(Error::OracleNewRoundCooldown)?;
         }
 
+        // oracle should not be able to start a new round if current round’s created_at has not yet reached the number of round_timeout required
+        if now < aggregator.round.created_at + (aggregator.config.round_timeout as u64)  {
+            return Err(Error::OracleRoundTimeout)?;
+        }
+
         aggregator.round = Round {
             id: self.round_id,
             created_at: now,
@@ -671,6 +676,7 @@ mod tests {
         aggregator_owner: TAccount,
         round_submissions: TAccount,
         answer_submissions: TAccount,
+        config: AggregatorConfig,
     }
 
     fn create_aggregator(program_id: &Pubkey) -> Result<TAggregator, ProgramError> {
@@ -692,19 +698,22 @@ mod tests {
             false,
         );
 
+        let config = &AggregatorConfig {
+            decimals: 8,
+            description: [0u8; 32],
+            min_submissions: 2,
+            max_submissions: 2,
+            round_timeout: 1,
+            restart_delay: 1,
+            requester_restart_delay: 0,
+            reward_amount: 10,
+            ..AggregatorConfig::default()
+        };
+
         process(
             &program_id,
             instruction::Instruction::Initialize {
-                config: AggregatorConfig {
-                    decimals: 8,
-                    description: [0u8; 32],
-                    min_submissions: 2,
-                    max_submissions: 2,
-                    restart_delay: 1,
-                    reward_amount: 10,
-
-                    ..AggregatorConfig::default()
-                },
+                config: config.clone(),
             },
             vec![
                 (&mut rent_sysvar).into(),
@@ -717,6 +726,7 @@ mod tests {
         )?;
 
         Ok(TAggregator {
+            config: config.clone(),
             aggregator,
             aggregator_owner,
             round_submissions,
@@ -930,6 +940,7 @@ mod tests {
                 .answer_submissions(&self.t_aggregator.answer_submissions.info())
         }
     }
+
     #[test]
     fn test_submit() -> ProgramResult {
         let program_id = Pubkey::new_unique();
@@ -1052,28 +1063,57 @@ mod tests {
         let round = &agr.round;
         assert_eq!(round.id, 2);
 
-        let agr = tt.submit(&mut oracle, &mut oracle_owner, time, 3, 200)?;
+        let agr = tt.submit(&mut oracle, &mut oracle_owner, time + 2, 3, 200)?;
         let round = &agr.round;
         assert_eq!(round.id, 3);
 
-        let agr = tt.submit(&mut oracle2, &mut oracle_owner2, time, 4, 200)?;
+        let agr = tt.submit(&mut oracle2, &mut oracle_owner2, time + 4, 4, 200)?;
         let round = &agr.round;
         assert_eq!(round.id, 4);
 
         // InvalidRoundID
         assert_eq!(
-            tt.submit(&mut oracle, &mut oracle_owner, time + 10, 10, 1000)
+            tt.submit(&mut oracle, &mut oracle_owner, time + 6, 10, 1000)
                 .map_err(Error::from),
             Err(Error::InvalidRoundID),
             "should only be able to start a round with current_round.id + 1"
         );
 
         assert_eq!(
-            tt.submit(&mut oracle3, &mut oracle_owner3, time + 10, 3, 1000)
+            tt.submit(&mut oracle3, &mut oracle_owner3, time + 8, 3, 1000)
                 .map_err(Error::from),
             Err(Error::InvalidRoundID),
             "should not be able to submit answer to previous rounds"
         );
+
+        // test: round timeout (for round_timeout = 1 and restart_delay = 1)
+        assert_eq!(tt.t_aggregator.config.round_timeout, 1);
+        assert_eq!(tt.t_aggregator.config.restart_delay, 1);
+        let time = 600;
+        let round_id = 5;
+        let agr = tt.submit(&mut oracle, &mut oracle_owner, time, round_id, 200)?;
+        let round = &agr.round;
+        assert_eq!(round.id, round_id);
+        assert_eq!(round.created_at, time);
+        assert_eq!(
+            tt.submit(&mut oracle, &mut oracle_owner, time + 1, round_id + 1, 200)
+                .map_err(Error::from),
+            Err(Error::OracleNewRoundCooldown),
+            "should wait for one round (restart delay)"
+        );
+        let agr = tt.submit(&mut oracle2, &mut oracle_owner2, time + 1, round_id + 1, 200)?;
+        let round = &agr.round;
+        assert_eq!(round.id, round_id + 1);
+        assert_eq!(
+            tt.submit(&mut oracle, &mut oracle_owner, time + 1, round_id + 2, 200)
+                .map_err(Error::from),
+            Err(Error::OracleRoundTimeout),
+            "should wait for round timeout (time + 2)"
+        );
+        let agr = tt.submit(&mut oracle, &mut oracle_owner, time + 2, round_id + 2, 200)?;
+        let round = &agr.round;
+        assert_eq!(round.id, round_id + 2); 
+        assert_eq!(round.created_at, time + 2); 
 
         Ok(())
     }

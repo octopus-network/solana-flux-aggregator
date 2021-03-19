@@ -119,6 +119,7 @@ class Submission {
 export interface IAggregatorConfig {
   decimals: number
   description: string
+  roundTimeout: number;
   restartDelay: number
   requesterRestartDelay: number
   rewardAmount: number
@@ -132,6 +133,7 @@ export class AggregatorConfig
   implements IAggregatorConfig {
   public decimals!: number
   public description!: string
+  public roundTimeout!: number
   public restartDelay!: number
   public requesterRestartDelay!: number;
   public rewardAmount!: number
@@ -139,13 +141,13 @@ export class AggregatorConfig
   public minSubmissions!: number
   public rewardTokenAccount!: PublicKey
 
-  // TODO: size was missing on purpose?
-  public static size = 77
+  public static size = 81
   public static schema = {
     kind: "struct",
     fields: [
       ["description", [32], str32Mapper],
       ["decimals", "u8"],
+      ["roundTimeout", "u32"],
       ["restartDelay", "u8"],
       ["requesterRestartDelay", "u8"],
       ["maxSubmissions", "u8"],
@@ -222,7 +224,7 @@ export class Answer extends Serialization {
 }
 
 export class Aggregator extends Serialization {
-  public static size = 230
+  public static size = 234
 
   public config!: AggregatorConfig
   public roundSubmissions!: PublicKey

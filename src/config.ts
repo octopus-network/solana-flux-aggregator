@@ -7,7 +7,7 @@ function loadJSON(file: string): any {
   return JSON.parse(fs.readFileSync(file, "utf8"))
 }
 
-const aggregatorConfigDefaults = {
+const aggregatorConfigDefaults: Partial<AggregatorSetupConfig>  = {
   decimals: 0,
   minSubmissions: 0,
   maxSubmissions: 1,
@@ -39,6 +39,7 @@ export interface AggregatorSetupConfig {
   decimals: number
   minSubmissions: number
   maxSubmissions: number
+  roundTimeout: number
   restartDelay: number
   requesterRestartDelay: number
   rewardAmount: number

@@ -37,6 +37,9 @@ pub enum Error {
     #[error("Requester cannot start new round until cooldown")] // 8
     RequesterNewRoundCooldown,
 
+    #[error("Round cannot start new round until round timeout")] // 9
+    OracleRoundTimeout,
+
     #[error("No resolve answer")]
     NoResolvedAnswer,
 

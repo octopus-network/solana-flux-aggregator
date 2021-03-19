@@ -53,6 +53,7 @@ object in `aggregators` in `deploy.private.json`, namely:
   "decimals": 2,
   "minSubmissions": 1,
   "maxSubmissions": 3,
+  "roundTimeout": 0,
   "restartDelay": 0,
   "requesterRestartDelay": 0,
   "rewardAmount": 10000,

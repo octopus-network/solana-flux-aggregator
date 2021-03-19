@@ -223,7 +223,6 @@ export class Deployer {
       owner: config.requesterOwner,
     }
   }
-  
 
   async createAggregator(
     name: string,
@@ -232,6 +231,7 @@ export class Deployer {
     const config = {
       description: name,
       decimals: cfg.decimals,
+      roundTimeout: cfg.roundTimeout,
       minSubmissions: cfg.minSubmissions,
       maxSubmissions: cfg.maxSubmissions,
       restartDelay: cfg.restartDelay,
