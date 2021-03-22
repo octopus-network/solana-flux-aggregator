@@ -181,7 +181,7 @@ export class Submissions extends Serialization {
       return s.updatedAt.isZero()
     })
 
-    return emptyIndex > 0 && emptyIndex < cfg.maxSubmissions
+    return emptyIndex >= 0 && emptyIndex < cfg.maxSubmissions
   }
 
   public hadSubmitted(pk: PublicKey): boolean {
