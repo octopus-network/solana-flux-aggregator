@@ -7,7 +7,7 @@ function loadJSON(file: string): any {
   return JSON.parse(fs.readFileSync(file, "utf8"))
 }
 
-const aggregatorConfigDefaults = {
+const aggregatorConfigDefaults: Partial<AggregatorSetupConfig>  = {
   decimals: 0,
   minSubmissions: 0,
   maxSubmissions: 1,
@@ -31,15 +31,22 @@ export interface OracleConfig {
   owner: string
 }
 
+export interface RequesterConfig {
+  owner: string
+}
+
 export interface AggregatorSetupConfig {
   decimals: number
   minSubmissions: number
   maxSubmissions: number
+  roundTimeout: number
   restartDelay: number
+  requesterRestartDelay: number
   rewardAmount: number
   rewardTokenAccount?: string
 
   oracles?: string[]
+  requesters?: string[]
 }
 
 export interface AggregatorSetupFile {
@@ -50,6 +57,9 @@ export interface AggregatorSetupFile {
   }
   oracles: {
     [key: string]: OracleConfig
+  }
+  requesters: {
+    [key: string]: RequesterConfig
   }
 }
 

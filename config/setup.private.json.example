@@ -4,7 +4,9 @@
       "decimals": 2,
       "minSubmissions": 1,
       "maxSubmissions": 3,
+      "roundTimeout": 0,
       "restartDelay": 0,
+      "requesterRestartDelay": 0,
       "rewardAmount": 10000,
       "rewardTokenAccount": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1",
       "oracles": [
@@ -15,7 +17,9 @@
       "decimals": 2,
       "minSubmissions": 1,
       "maxSubmissions": 3,
+      "roundTimeout": 0,
       "restartDelay": 0,
+      "requesterRestartDelay": 0,
       "rewardAmount": 10000,
       "rewardTokenAccount": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1",
       "oracles": [

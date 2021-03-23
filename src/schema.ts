@@ -119,7 +119,9 @@ class Submission {
 export interface IAggregatorConfig {
   decimals: number
   description: string
+  roundTimeout: number;
   restartDelay: number
+  requesterRestartDelay: number
   rewardAmount: number
   maxSubmissions: number
   minSubmissions: number
@@ -131,18 +133,23 @@ export class AggregatorConfig
   implements IAggregatorConfig {
   public decimals!: number
   public description!: string
+  public roundTimeout!: number
   public restartDelay!: number
+  public requesterRestartDelay!: number;
   public rewardAmount!: number
   public maxSubmissions!: number
   public minSubmissions!: number
   public rewardTokenAccount!: PublicKey
 
+  public static size = 81
   public static schema = {
     kind: "struct",
     fields: [
       ["description", [32], str32Mapper],
       ["decimals", "u8"],
+      ["roundTimeout", "u32"],
       ["restartDelay", "u8"],
+      ["requesterRestartDelay", "u8"],
       ["maxSubmissions", "u8"],
       ["minSubmissions", "u8"],
       ["rewardAmount", "u64"],
@@ -174,7 +181,7 @@ export class Submissions extends Serialization {
       return s.updatedAt.isZero()
     })
 
-    return emptyIndex > 0 && emptyIndex < cfg.maxSubmissions
+    return emptyIndex >= 0 && emptyIndex < cfg.maxSubmissions
   }
 
   public hadSubmitted(pk: PublicKey): boolean {
@@ -217,7 +224,7 @@ export class Answer extends Serialization {
 }
 
 export class Aggregator extends Serialization {
-  public static size = 229
+  public static size = 234
 
   public config!: AggregatorConfig
   public roundSubmissions!: PublicKey
@@ -280,6 +287,27 @@ export class RemoveOracle extends InstructionSerialization {
   }
 }
 
+export class AddRequester extends InstructionSerialization {
+  public static schema = {
+    kind: "struct",
+    fields: [["description", [32], str32Mapper]],
+  }
+}
+
+export class RemoveRequester extends InstructionSerialization {
+  public static schema = {
+    kind: "struct",
+    fields: [],
+  }
+}
+
+export class RequestRound extends InstructionSerialization {
+  public static schema = {
+    kind: "struct",
+    fields: [],
+  }
+}
+
 export class Withdraw extends InstructionSerialization {
   public static schema = {
     kind: "struct",
@@ -308,6 +336,9 @@ export class Instruction extends Serialization {
       [Configure.name, Configure],
       [AddOracle.name, AddOracle],
       [RemoveOracle.name, RemoveOracle],
+      [AddRequester.name, AddRequester],
+      [RemoveRequester.name, RemoveRequester],
+      [RequestRound.name, RequestRound],
       [Submit.name, Submit],
     ],
   }
@@ -370,6 +401,26 @@ export class Oracle extends Serialization {
   }
 }
 
+export class Requester extends Serialization {
+  public static size = 105 
+  public allowStartRound!: BN
+
+  public static schema = {
+    kind: "struct",
+    fields: [
+      ["description", [32], str32Mapper],
+      ["isInitialized", "u8", boolMapper],
+      ["allowStartRound", "u64"],
+      ["aggregator", [32], pubkeyMapper],
+      ["owner", [32], pubkeyMapper],
+    ],
+  }
+
+  public canStartNewRound(round: BN): boolean {
+    return this.allowStartRound.lte(round)
+  }
+}
+
 // if there is optional or variable length items, what is: borsh_utils::get_packed_len::<Submission>()?
 //
 // would panic given variable sized types
@@ -377,6 +428,7 @@ export class Oracle extends Serialization {
 export const schema = new Map([
   [Aggregator, Aggregator.schema],
   [Oracle, Oracle.schema],
+  [Requester, Requester.schema],
   [Round, Round.schema],
   [Answer, Answer.schema],
   [AggregatorConfig, AggregatorConfig.schema],
@@ -386,6 +438,11 @@ export const schema = new Map([
   [Instruction, Instruction.schema],
   [Initialize, Initialize.schema],
   [AddOracle, AddOracle.schema],
+
+  [AddRequester, AddRequester.schema],
+  [RemoveRequester, RemoveRequester.schema],
+  [RequestRound, RequestRound.schema],
+
   [Submit, Submit.schema],
 
 ] as any) as any

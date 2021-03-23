@@ -3,7 +3,7 @@
 use crate::{
     error::Error,
     instruction::{self, Instruction},
-    state::{Aggregator, AggregatorConfig, Authority, Oracle, Round, Submissions},
+    state::{Aggregator, AggregatorConfig, Authority, Oracle, Requester, Round, Submissions},
 };
 
 // use spl_token::state;
@@ -153,6 +153,105 @@ impl<'a> RemoveOracleContext<'a> {
     }
 }
 
+struct AddRequesterContext<'a> {
+    rent: Rent,
+    aggregator: &'a AccountInfo<'a>,
+    aggregator_owner: &'a AccountInfo<'a>, // signed
+    requester: &'a AccountInfo<'a>,
+    requester_owner: &'a AccountInfo<'a>,
+
+    description: [u8; 32],
+}
+
+impl<'a> AddRequesterContext<'a> {
+    fn process(&self) -> ProgramResult {
+        let aggregator = Aggregator::load_initialized(self.aggregator)?;
+        msg!("loaded aggregator");
+        aggregator.authorize(self.aggregator_owner)?;
+
+        let mut requester = Requester::init_uninitialized(self.requester)?;
+        msg!("loaded requester");
+        requester.is_initialized = true;
+        requester.description = self.description;
+        requester.owner = self.requester_owner.into();
+        requester.aggregator = self.aggregator.into();
+        requester.save_exempt(self.requester, &self.rent)?;
+
+        Ok(())
+    }
+}
+
+struct RemoveRequesterContext<'a> {
+    aggregator: &'a AccountInfo<'a>,
+    aggregator_owner: &'a AccountInfo<'a>, // signed
+    requester: &'a AccountInfo<'a>,
+}
+
+impl<'a> RemoveRequesterContext<'a> {
+    fn process(&self) -> ProgramResult {
+        let aggregator = Aggregator::load_initialized(self.aggregator)?;
+        aggregator.authorize(self.aggregator_owner)?;
+
+        let requester = Requester::load_initialized(self.requester)?;
+        if requester.aggregator.0 != self.aggregator.key.to_bytes() {
+            return Err(Error::AggregatorMismatch)?;
+        }
+
+        // Zero out the requester account memory. This allows reuse or reclaim.
+        Requester::default().save(self.requester)?;
+
+        Ok(())
+    }
+}
+
+struct RequestRoundContext<'a> {
+    clock: Clock,
+    aggregator: &'a AccountInfo<'a>,
+    round_submissions: &'a AccountInfo<'a>,
+    requester: &'a AccountInfo<'a>,
+    requester_owner: &'a AccountInfo<'a>, // signed
+}
+
+impl<'a> RequestRoundContext<'a> {
+    fn process(&self) -> ProgramResult {
+        let now = self.clock.slot;
+        let mut aggregator = Aggregator::load_initialized(self.aggregator)?;
+        let mut requester = Requester::load_initialized(self.requester)?;
+        requester.authorize(self.requester_owner)?;
+
+        if requester.aggregator.0 != self.aggregator.key.to_bytes() {
+            return Err(Error::AggregatorMismatch)?;
+        }
+
+        // TODO: do we need to pass RoundId from FluxAggregator.ts?
+        if aggregator.round.id < requester.allow_start_round {
+            return Err(Error::RequesterNewRoundCooldown)?;
+        }
+
+        // request a new round and update the aggregator
+        aggregator.round = Round {
+            id: aggregator.round.id + 1, // increment to next round
+            created_at: now,
+            updated_at: 0,
+        };
+
+        // zero the submissions of the current round
+        let submissions = Submissions {
+            is_initialized: true,
+            data: Default::default(),
+        };
+        submissions.save(self.round_submissions)?;
+
+        // requester can start new round after `requester_restart_delay` rounds
+        requester.allow_start_round = aggregator.round.id + (aggregator.config.requester_restart_delay as u64);
+
+        aggregator.save(self.aggregator)?;
+        requester.save(self.requester)?;
+
+        Ok(())
+    }
+}
+
 struct SubmitContext<'a> {
     clock: Clock,
     aggregator: &'a AccountInfo<'a>, // write
@@ -277,6 +376,11 @@ impl<'a> SubmitContext<'a> {
             return Err(Error::OracleNewRoundCooldown)?;
         }
 
+        // oracle should not be able to start a new round if current round’s created_at has not yet reached the number of round_timeout required
+        if now < aggregator.round.created_at + (aggregator.config.round_timeout as u64)  {
+            return Err(Error::OracleRoundTimeout)?;
+        }
+
         aggregator.round = Round {
             id: self.round_id,
             created_at: now,
@@ -387,7 +491,6 @@ impl Processor {
                 value,
             }
             .process(),
-
             Instruction::Withdraw { faucet_owner_seed } => WithdrawContext {
                 token_program: accounts.get(0)?,
                 aggregator: accounts.get(1)?,
@@ -429,7 +532,6 @@ fn process2(instruction: Instruction, accounts: Accounts) -> ProgramResult {
             aggregator_owner: accounts.get(2)?,
             oracle: accounts.get(3)?,
             oracle_owner: accounts.get(4)?,
-
             description,
         }
         .process(),
@@ -437,6 +539,37 @@ fn process2(instruction: Instruction, accounts: Accounts) -> ProgramResult {
             aggregator: accounts.get(0)?,
             aggregator_owner: accounts.get(1)?,
             oracle: accounts.get(2)?,
+        }
+        .process(),
+        instruction => process3(instruction, accounts),
+    }
+}
+
+#[inline(never)]
+fn process3(instruction: Instruction, accounts: Accounts) -> ProgramResult {
+    match instruction {
+        Instruction::RequestRound => RequestRoundContext {
+            clock: accounts.get_clock(0)?,
+            aggregator: accounts.get(1)?,
+            round_submissions: accounts.get(2)?,
+            requester: accounts.get(3)?,
+            requester_owner: accounts.get(4)?,
+        }
+        .process(),
+        Instruction::AddRequester { description } => AddRequesterContext {
+            rent: accounts.get_rent(0)?,
+            aggregator: accounts.get(1)?,
+            aggregator_owner: accounts.get(2)?,
+            requester: accounts.get(3)?,
+            requester_owner: accounts.get(4)?,
+
+            description,
+        }
+        .process(),
+        Instruction::RemoveRequester => RemoveRequesterContext {
+            aggregator: accounts.get(0)?,
+            aggregator_owner: accounts.get(1)?,
+            requester: accounts.get(2)?,
         }
         .process(),
         _ => Err(ProgramError::InvalidInstructionData),
@@ -543,6 +676,7 @@ mod tests {
         aggregator_owner: TAccount,
         round_submissions: TAccount,
         answer_submissions: TAccount,
+        config: AggregatorConfig,
     }
 
     fn create_aggregator(program_id: &Pubkey) -> Result<TAggregator, ProgramError> {
@@ -564,19 +698,22 @@ mod tests {
             false,
         );
 
+        let config = &AggregatorConfig {
+            decimals: 8,
+            description: [0u8; 32],
+            min_submissions: 2,
+            max_submissions: 2,
+            round_timeout: 1,
+            restart_delay: 1,
+            requester_restart_delay: 0,
+            reward_amount: 10,
+            ..AggregatorConfig::default()
+        };
+
         process(
             &program_id,
             instruction::Instruction::Initialize {
-                config: AggregatorConfig {
-                    decimals: 8,
-                    description: [0u8; 32],
-                    min_submissions: 2,
-                    max_submissions: 2,
-                    restart_delay: 1,
-                    reward_amount: 10,
-
-                    ..AggregatorConfig::default()
-                },
+                config: config.clone(),
             },
             vec![
                 (&mut rent_sysvar).into(),
@@ -589,6 +726,7 @@ mod tests {
         )?;
 
         Ok(TAggregator {
+            config: config.clone(),
             aggregator,
             aggregator_owner,
             round_submissions,
@@ -622,6 +760,34 @@ mod tests {
         )?;
 
         Ok((oracle, oracle_owner))
+    }
+
+    fn create_requester(
+        program_id: &Pubkey,
+        aggregator: &mut TAccount,
+        aggregator_owner: &mut TAccount,
+    ) -> Result<(TAccount, TAccount), ProgramError> {
+        let mut rent_sysvar = rent_sysvar();
+        let mut requester =
+            TAccount::new_rent_exempt(&program_id, borsh_utils::get_packed_len::<Requester>(), false);
+        let mut requester_owner = TAccount::new(&program_id, true);
+
+        process(
+            &program_id,
+            instruction::Instruction::AddRequester {
+                description: [0xab; 32],
+            },
+            vec![
+                (&mut rent_sysvar).into(),
+                aggregator.into(),
+                aggregator_owner.into(),
+                (&mut requester).into(),
+                (&mut requester_owner).into(),
+            ]
+            .as_slice(),
+        )?;
+
+        Ok((requester, requester_owner))
     }
 
     #[test]
@@ -681,6 +847,33 @@ mod tests {
         )?;
 
         // println!("{}", hex::encode(oracle.account.data));
+        Ok(())
+    }
+
+    #[test]
+    fn test_add_and_remove_requester() -> ProgramResult {
+        let program_id = Pubkey::new_unique();
+
+        let TAggregator {
+            mut aggregator,
+            mut aggregator_owner,
+            ..
+        } = create_aggregator(&program_id)?;
+        let (mut requester, _requester_owner) =
+            create_requester(&program_id, &mut aggregator, &mut aggregator_owner)?;
+
+        process(
+            &program_id,
+            instruction::Instruction::RemoveRequester {},
+            vec![
+                (&mut aggregator).into(),
+                (&mut aggregator_owner).into(),
+                (&mut requester).into(),
+            ]
+            .as_slice(),
+        )?;
+
+        println!("{}", hex::encode(aggregator.account.data));
         Ok(())
     }
 
@@ -747,6 +940,7 @@ mod tests {
                 .answer_submissions(&self.t_aggregator.answer_submissions.info())
         }
     }
+
     #[test]
     fn test_submit() -> ProgramResult {
         let program_id = Pubkey::new_unique();
@@ -869,28 +1063,57 @@ mod tests {
         let round = &agr.round;
         assert_eq!(round.id, 2);
 
-        let agr = tt.submit(&mut oracle, &mut oracle_owner, time, 3, 200)?;
+        let agr = tt.submit(&mut oracle, &mut oracle_owner, time + 2, 3, 200)?;
         let round = &agr.round;
         assert_eq!(round.id, 3);
 
-        let agr = tt.submit(&mut oracle2, &mut oracle_owner2, time, 4, 200)?;
+        let agr = tt.submit(&mut oracle2, &mut oracle_owner2, time + 4, 4, 200)?;
         let round = &agr.round;
         assert_eq!(round.id, 4);
 
         // InvalidRoundID
         assert_eq!(
-            tt.submit(&mut oracle, &mut oracle_owner, time + 10, 10, 1000)
+            tt.submit(&mut oracle, &mut oracle_owner, time + 6, 10, 1000)
                 .map_err(Error::from),
             Err(Error::InvalidRoundID),
             "should only be able to start a round with current_round.id + 1"
         );
 
         assert_eq!(
-            tt.submit(&mut oracle3, &mut oracle_owner3, time + 10, 3, 1000)
+            tt.submit(&mut oracle3, &mut oracle_owner3, time + 8, 3, 1000)
                 .map_err(Error::from),
             Err(Error::InvalidRoundID),
             "should not be able to submit answer to previous rounds"
         );
+
+        // test: round timeout (for round_timeout = 1 and restart_delay = 1)
+        assert_eq!(tt.t_aggregator.config.round_timeout, 1);
+        assert_eq!(tt.t_aggregator.config.restart_delay, 1);
+        let time = 600;
+        let round_id = 5;
+        let agr = tt.submit(&mut oracle, &mut oracle_owner, time, round_id, 200)?;
+        let round = &agr.round;
+        assert_eq!(round.id, round_id);
+        assert_eq!(round.created_at, time);
+        assert_eq!(
+            tt.submit(&mut oracle, &mut oracle_owner, time + 1, round_id + 1, 200)
+                .map_err(Error::from),
+            Err(Error::OracleNewRoundCooldown),
+            "should wait for one round (restart delay)"
+        );
+        let agr = tt.submit(&mut oracle2, &mut oracle_owner2, time + 1, round_id + 1, 200)?;
+        let round = &agr.round;
+        assert_eq!(round.id, round_id + 1);
+        assert_eq!(
+            tt.submit(&mut oracle, &mut oracle_owner, time + 1, round_id + 2, 200)
+                .map_err(Error::from),
+            Err(Error::OracleRoundTimeout),
+            "should wait for round timeout (time + 2)"
+        );
+        let agr = tt.submit(&mut oracle, &mut oracle_owner, time + 2, round_id + 2, 200)?;
+        let round = &agr.round;
+        assert_eq!(round.id, round_id + 2); 
+        assert_eq!(round.created_at, time + 2); 
 
         Ok(())
     }

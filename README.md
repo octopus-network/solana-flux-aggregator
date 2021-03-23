@@ -72,6 +72,20 @@ info:     update {"description":"btc:usd","decimals":2,"roundID":"22","median":"
 info:     update {"description":"btc:usd","decimals":2,"roundID":"23","median":"5740350","updatedAt":"37820565","createdAt":"37820565"}
 ```
 
+# Request New Round
+
+Request a new round for a specific aggregator independently of the current oracle's rounds and price changes. 
+
+```
+yarn solink request-round <aggregator-id>
+```
+
+For example to request a new round for `btc:usd` aggregator we will use:
+
+```
+yarn solink request-round btc:usd
+```
+
 # Devnet Oracles
 
 The sandbox environment could be modified by anyone, and is not suitable for

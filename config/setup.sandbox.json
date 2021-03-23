@@ -4,10 +4,15 @@
       "decimals": 2,
       "minSubmissions": 1,
       "maxSubmissions": 3,
-      "restartDelay": 0,
+      "roundTimeout": 0,
+      "restartDelay": 1,
+      "requesterRestartDelay": 1,
       "rewardAmount": 10000,
       "rewardTokenAccount": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1",
       "oracles": [
+        "tester"
+      ],
+      "requesters": [
         "tester"
       ]
     },
@@ -15,10 +20,15 @@
       "decimals": 2,
       "minSubmissions": 1,
       "maxSubmissions": 3,
+      "roundTimeout": 0,
       "restartDelay": 0,
+      "requesterRestartDelay": 0,
       "rewardAmount": 10000,
       "rewardTokenAccount": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1",
       "oracles": [
+        "tester"
+      ],
+      "requesters": [
         "tester"
       ]
     }
@@ -26,6 +36,11 @@
   "oracles": {
     "tester": {
       "owner": "FosLwbttPgkEDv36VJLU3wwXcBSSoUGkh7dyZPsXNtT4"
+    }
+  },
+  "requesters": {
+    "tester": {
+      "owner": "HE1DFdFG35zV4UpdL7XurxRVnb3zc1U1aQ6EMfajwMFD"
     }
   }
 }

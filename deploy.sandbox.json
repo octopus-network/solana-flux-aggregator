@@ -15,6 +15,7 @@
         "minSubmissions": 1,
         "maxSubmissions": 3,
         "restartDelay": 0,
+        "requesterRestartDelay": 0,
         "rewardTokenAccount": {
           "type": "PublicKey",
           "base58": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1"
@@ -49,6 +50,7 @@
         "minSubmissions": 1,
         "maxSubmissions": 3,
         "restartDelay": 0,
+        "requesterRestartDelay": 0,
         "rewardTokenAccount": {
           "type": "PublicKey",
           "base58": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1"
