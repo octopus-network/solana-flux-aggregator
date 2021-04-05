@@ -1,7 +1,7 @@
 import WebSocket from 'ws'
 import ReconnectingWebSocket from 'reconnecting-websocket'
 import EventEmitter from "events"
-import { eventsIter, median } from "./utils"
+import { eventsIter, median, notify } from "./utils"
 
 import { log } from "./log"
 import winston from "winston"
@@ -40,7 +40,7 @@ export abstract class PriceFeed {
     this.connected = new Promise<void>((resolve) => {
       const conn = new ReconnectingWebSocket(this.baseurl, [], { WebSocket })
       conn.addEventListener("open", () => {
-        this.log.debug("connected")
+        notify(`socket ${this.baseurl}: open`)
 
         this.conn = conn
 
@@ -52,11 +52,11 @@ export abstract class PriceFeed {
       })
 
       conn.addEventListener("close", () => {
-        console.log(`socket ${this.baseurl} closed`)
+        notify(`socket ${this.baseurl}: closed`)
       })
 
       conn.addEventListener("error", (e) => {
-        console.log(`socket ${this.baseurl} error: ${e}`)
+        notify(`socket ${this.baseurl}: error=${e}`)
       })
 
       conn.addEventListener("message", (msg) => {
