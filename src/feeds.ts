@@ -1,6 +1,8 @@
 import WebSocket from "ws"
+import fs from "fs"
+import path from "path"
 import EventEmitter from "events"
-import { eventsIter, median } from "./utils"
+import { eventsIter, median, sleep } from "./utils"
 
 import { log } from "./log"
 import winston from "winston"
@@ -254,6 +256,42 @@ export class CoinBase extends PriceFeed {
       })
     )
   }
+}
+
+/** FilePriceFeed read price data from json file */
+export class FilePriceFeed extends PriceFeed {
+  protected log = log.child({ class: FilePriceFeed.name })
+  protected baseurl = "no_needed"
+
+  async connect() {
+    this.startPollingFiles();//background task
+  }
+
+  async startPollingFiles() {
+    const cwd = process.cwd();
+
+    while (true) {
+      for (let pair of this.pairs) {
+        let prefix = pair.replace('/', '_').replace(':', '_');
+        let filename = path.join(cwd, `${prefix}.json`);
+        try {
+          fs.accessSync(filename, fs.constants.R_OK)
+          let price = JSON.parse(fs.readFileSync(filename, 'utf8')); //TODO validate
+          this.onMessage(price);
+        } catch (e) {
+          //no permission to read or file not exists, or file content err
+          this.log.error('Read price feed file err', e);
+          continue
+        }
+      }
+      await sleep(1000);
+    }
+  }
+
+  //unused for file price feed
+  parseMessage(data: any): IPrice | undefined { return undefined; }
+  //unused for file price feed
+  handleSubscribe(pair: string): Promise<void> { return Promise.resolve(); }
 }
 
 export class AggregatedFeed {

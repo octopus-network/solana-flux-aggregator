@@ -7,6 +7,7 @@ import {
   BitStamp,
   CoinBase,
   coinbase,
+  FilePriceFeed,
   FTX,
   PriceFeed,
 } from "./feeds"
@@ -23,7 +24,8 @@ export class PriceFeeder {
     private deployInfo: AggregatorDeployFile,
     private wallet: Wallet
   ) {
-    this.feeds = [new CoinBase(), new BitStamp(), new FTX()]
+    // this.feeds = [new CoinBase(), new BitStamp(), new FTX()]
+    this.feeds = [new FilePriceFeed()];
   }
 
   async start() {
