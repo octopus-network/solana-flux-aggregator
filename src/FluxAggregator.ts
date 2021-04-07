@@ -26,6 +26,12 @@ interface InitializeParams {
   owner: Account
 }
 
+interface ConfigureParams {
+  config: IAggregatorConfig
+  aggregator: PublicKey,
+  owner: Account
+}
+
 interface InitializeInstructionParams extends InitializeParams {
   aggregator: PublicKey
 }
@@ -144,6 +150,17 @@ export default class FluxAggregator extends BaseProgram {
     )
 
     return aggregator
+  }
+
+  public async configureAggregator(params: ConfigureParams) {
+    const input = encoding.Configure.serialize({
+      config: new AggregatorConfig(params.config),
+    })
+
+    await this.sendTx(
+      [this.instruction(input, [{ write: params.aggregator }, params.owner,])],
+      [this.account, params.owner,]
+    )
   }
 
   public async addOracle(params: AddOracleParams): Promise<Account> {

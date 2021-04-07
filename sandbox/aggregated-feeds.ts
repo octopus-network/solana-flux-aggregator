@@ -4,7 +4,7 @@ import { AggregatedFeed, BitStamp, CoinBase, FTX } from "../src/feeds"
 async function main() {
   const feeds = [new CoinBase(), new BitStamp(), new FTX()]
   for (let feed of feeds) {
-    feed.connect()
+    feed.init()
   }
 
   // const aggfeed = new AggregatedFeed(feeds, "btc:usd")

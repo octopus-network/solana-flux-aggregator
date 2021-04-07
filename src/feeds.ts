@@ -1,9 +1,13 @@
 import WebSocket from "ws"
+import fs from "fs"
+import path from "path"
 import EventEmitter from "events"
-import { eventsIter, median } from "./utils"
+import { eventsIter, median, sleep } from "./utils"
 
 import { log } from "./log"
 import winston from "winston"
+import { FeedSource } from "./config"
+import ReconnectingWebSocket from "reconnecting-websocket"
 
 export const UPDATE = "UPDATE"
 
@@ -21,21 +25,27 @@ export interface IPriceFeed {
 export abstract class PriceFeed {
   public emitter = new EventEmitter()
 
-  protected conn!: WebSocket
+  protected conn!: ReconnectingWebSocket
   protected connected!: Promise<void>
 
   protected abstract get log(): winston.Logger
   protected abstract get baseurl(): string
+  public abstract get source(): FeedSource;
 
   // subscribed pairs. should re-subscribe on reconnect
   public pairs: string[] = []
 
-  async connect() {
+  /** 
+   * init 
+   * - for websocket feed open connection (default)
+   * - for file feed start ticker to read file 
+   * */
+  async init() {
     this.log.debug("connecting", { baseurl: this.baseurl })
 
     this.connected = new Promise<void>((resolve) => {
-      const conn = new WebSocket(this.baseurl)
-      conn.on("open", () => {
+      const conn = new ReconnectingWebSocket(this.baseurl, [], { WebSocket })
+      conn.addEventListener("open", () => {
         this.log.debug("connected")
 
         this.conn = conn
@@ -47,17 +57,24 @@ export abstract class PriceFeed {
         resolve()
       })
 
-      conn.on("close", () => {
+      conn.addEventListener("close", () => {
+        this.log.warn('ws closed')
+      })
+      conn.addEventListener("error", (err) => {
+        this.log.warn('ws error', err)
         // TODO: auto-reconnect & re-subscribe
       })
 
-      conn.on("message", async (data) => {
+      conn.addEventListener("message", (msg) => {
         // this.log.debug("raw price update", { data })
 
-        const price = this.parseMessage(data)
-
-        if (price) {
-          this.onMessage(price)
+        try{
+          const price = this.parseMessage(msg.data)
+          if (price) {
+            this.onMessage(price)
+          }
+        }catch (err) {
+          this.log.warn(`on message err:`, msg, err)
         }
       })
     })
@@ -94,6 +111,7 @@ export abstract class PriceFeed {
 export class BitStamp extends PriceFeed {
   protected log = log.child({ class: BitStamp.name })
   protected baseurl = "wss://ws.bitstamp.net"
+  public source = FeedSource.BITSTAMP;
 
   parseMessage(data) {
     const payload = JSON.parse(data)
@@ -152,6 +170,7 @@ export class BitStamp extends PriceFeed {
 export class FTX extends PriceFeed {
   protected log = log.child({ class: FTX.name })
   protected baseurl = "wss://ftx.com/ws/"
+  public source = FeedSource.FTX;
 
   parseMessage(data) {
     const payload = JSON.parse(data)
@@ -203,6 +222,7 @@ export class FTX extends PriceFeed {
 export class CoinBase extends PriceFeed {
   protected log = log.child({ class: CoinBase.name })
   protected baseurl = "wss://ws-feed.pro.coinbase.com"
+  public source = FeedSource.COINBASE;
 
   parseMessage(data) {
     const payload = JSON.parse(data)
@@ -254,6 +274,45 @@ export class CoinBase extends PriceFeed {
       })
     )
   }
+}
+
+/** FilePriceFeed read price data from json file, for test or emergency feed */
+export class FilePriceFeed extends PriceFeed {
+  protected log = log.child({ class: FilePriceFeed.name })
+  protected baseurl = "unused"
+  public source = FeedSource.FILE;
+
+  constructor(public tickMillisecond: number, protected baseDir: string) {
+    super();
+  }
+
+  async init() {
+    this.startPollingFiles();//background task
+  }
+
+  async startPollingFiles() {
+    while (true) {
+      for (let pair of this.pairs) {
+        let prefix = pair.replace('/', '_').replace(':', '_');
+        let filename = path.join(this.baseDir, `${prefix}.json`);
+        try {
+          fs.accessSync(filename, fs.constants.R_OK)
+          let price = JSON.parse(fs.readFileSync(filename, 'utf8')); //TODO validate
+          this.onMessage(price);
+        } catch (e) {
+          //no permission to read or file not exists, or file content err
+          this.log.error('Read price feed file err', e);
+          continue
+        }
+      }
+      await sleep(this.tickMillisecond);
+    }
+  }
+
+  //unused for file price feed
+  parseMessage(data: any): IPrice | undefined { return undefined; }
+  //unused for file price feed
+  handleSubscribe(pair: string): Promise<void> { return Promise.resolve(); }
 }
 
 export class AggregatedFeed {

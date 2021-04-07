@@ -1,21 +1,29 @@
 import dotenv from "dotenv"
-dotenv.config()
+dotenv.config({
+  path: process.env.DOTENV_PATH || undefined
+})
 import { Command, option } from "commander"
 import { jsonReplacer, loadJSONFile } from "./json"
 import { AggregatorDeployFile, Deployer } from "./Deployer"
 import { conn, network } from "./context"
 import { AggregatorObserver } from "./AggregatorObserver"
-import { Aggregator, Answer } from "./schema"
+import { Aggregator, Answer, IAggregatorConfig } from "./schema"
 import { PriceFeeder } from "./PriceFeeder"
 import { RoundRequester } from "./RoundRequester"
 import { sleep, walletFromEnv } from "./utils"
 import { PublicKey, Wallet } from "solray"
 import { log } from "./log"
+import { loadAggregatorSetup, SolinkConfig } from "./config"
+import FluxAggregator from "./FluxAggregator";
+
+process.on('unhandledRejection', error => {
+  console.trace('unhandledRejection', error);
+});
 
 const cli = new Command()
 
 async function maybeRequestAirdrop(pubkey: PublicKey) {
-  if (network != "mainnet") {
+  if (network != "mainnet" && process.env.SKIP_AIRDROP != 'yes') {
     log.info("airdrop 10 SOL", { address: pubkey.toBase58() })
     await conn.requestAirdrop(pubkey, 10 * 1e9)
     await sleep(500)
@@ -48,7 +56,8 @@ cli.command("oracle").action(async (name) => {
   await maybeRequestAirdrop(wallet.pubkey)
 
   let deploy = loadJSONFile<AggregatorDeployFile>(process.env.DEPLOY_FILE!)
-  const feeder = new PriceFeeder(deploy, wallet)
+  let solinkConf = loadJSONFile<SolinkConfig>(process.env.SOLINK_CONFIG!);
+  const feeder = new PriceFeeder(deploy, solinkConf, wallet)
   feeder.start()
 })
 
@@ -92,6 +101,45 @@ cli.command("observe").action(async (name?: string) => {
 
     go()
   }
+})
+
+//read median of pair, eg: NETWORK=dev yarn run solink read-median HBVsLHp8mWGMGfrh1Gf5E8RAxww71mXBgoZa6Zvsk5cK
+cli.command("read-median <aggregator-id>").action(async (aggregatorId) => {
+  let acct = await conn.getAccountInfo(new PublicKey(aggregatorId));
+  let agg = Aggregator.deserialize<Aggregator>(acct?.data || Buffer.from(''));
+  log.info(`median: ${agg.config.description}(decimal: ${agg.config.decimals}) -> ${agg.answer.median.toNumber()}, (rewardAmount: ${agg.config.rewardAmount})`);
+})
+
+
+//  NETWORK=dev yarn run solink configure-agg
+cli.command('configure-agg <setup-file> <pair>').action(async (setupFile: string, pair: string) => {
+  let setupConf = loadAggregatorSetup(setupFile);
+  let deploy = loadJSONFile<AggregatorDeployFile>(process.env.DEPLOY_FILE!);
+  const wallet = await walletFromEnv("ADMIN_MNEMONIC", conn)
+  let agg = new FluxAggregator(wallet, deploy.programID);
+
+  let conf = setupConf.aggregators[pair];
+  if (!conf) {
+    log.error(`aggregatorConf for ${pair} not found`)
+    return
+  }
+  let arg: IAggregatorConfig = {
+    description: pair,
+    decimals: conf.decimals,
+    roundTimeout: conf.roundTimeout,
+    restartDelay: conf.restartDelay,
+    requesterRestartDelay: conf.restartDelay,
+    minSubmissions: conf.minSubmissions,
+    maxSubmissions: conf.maxSubmissions,
+    rewardAmount: conf.rewardAmount,
+    rewardTokenAccount: new PublicKey(conf.rewardTokenAccount as string)
+  }
+  log.info(`prog_id: ${deploy.programID}, aggregator: ${deploy.aggregators[pair].pubkey} config: ${JSON.stringify(arg, null, '  ')}`)
+  agg.configureAggregator({
+    config: arg,
+    aggregator: deploy.aggregators[pair].pubkey,
+    owner: wallet.account,
+  })
 })
 
 cli.parse(process.argv)
