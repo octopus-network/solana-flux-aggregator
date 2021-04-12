@@ -1,6 +1,6 @@
 # solana-flux-aggregator
 
-Solnana Flux Aggregator
+Solana Flux Aggregator
 
 ## Install Dependencies
 
