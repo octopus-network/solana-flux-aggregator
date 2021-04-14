@@ -94,4 +94,12 @@ cli.command("observe").action(async (name?: string) => {
   }
 })
 
+//read median of pair, eg: NETWORK=dev yarn run solink read-median HBVsLHp8mWGMGfrh1Gf5E8RAxww71mXBgoZa6Zvsk5cK
+cli.command("read-median <aggregator-id>").action(async (aggregatorId) => {
+  let acct = await conn.getAccountInfo(new PublicKey(aggregatorId));
+  let agg = Aggregator.deserialize<Aggregator>(acct?.data || Buffer.from(''));
+  log.info(`median: ${agg.config.description}(decimal: ${agg.config.decimals}) -> ${agg.answer.median.toNumber()}`);
+  // log.info("aggregator:", {agg});
+})
+
 cli.parse(process.argv)
