@@ -126,7 +126,7 @@ export class BitStamp extends PriceFeed {
 
     const channel = (payload.channel as string).replace("live_trades_", "")
 
-    // assume that the symbols for the pair are 3 letters
+    // assume that the base symbol for the pair is 3 letters
     const pair = channel.slice(0, 3) + ":" + channel.slice(3)
 
     const price: IPrice = {
@@ -256,6 +256,60 @@ export class CoinBase extends PriceFeed {
         type: "subscribe",
         product_ids: [targetPair],
         channels: ["ticker"],
+      })
+    )
+  }
+}
+
+export class Binance extends PriceFeed {
+  protected log = log.child({ class: Binance.name })
+  protected baseurl = "wss://stream.binance.com/ws"
+
+  parseMessage(data) {
+    const payload = JSON.parse(data)
+
+    // {
+    //   "e": "trade",     // Event type
+    //   "E": 123456789,   // Event time
+    //   "s": "BNBBTC",    // Symbol
+    //   "t": 12345,       // Trade ID
+    //   "p": "0.001",     // Price
+    //   "q": "100",       // Quantity
+    //   "b": 88,          // Buyer order ID
+    //   "a": 50,          // Seller order ID
+    //   "T": 123456785,   // Trade time
+    //   "m": true,        // Is the buyer the market maker?
+    //   "M": true         // Ignore
+    // }
+
+    if (payload.e != "trade") {
+      return
+    }
+
+    // assume that the base symbol for the pair is 3 letters
+    const pair = (payload.s.slice(0, 3) + ":" + payload.s.slice(3)).toLowerCase()
+
+    const price: IPrice = {
+      source: Binance.name,
+      pair,
+      decimals: 2,
+      value: Math.floor(payload.p * 100),
+    }
+
+    return price
+  }
+
+  async handleSubscribe(pair: string) {
+    // "btc:usd" => "btcusdt"
+    const [baseCurrency, quoteCurrency] = pair.split(':')
+    const targetPair = `${baseCurrency}${(quoteCurrency.toLowerCase() === 'usd' ? 'usdt' : quoteCurrency)}@trade`.toLowerCase()
+    this.conn.send(
+      JSON.stringify({
+        method: "SUBSCRIBE",
+        params: [
+          targetPair,
+        ],
+        id: 1
       })
     )
   }

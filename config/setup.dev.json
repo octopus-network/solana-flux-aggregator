@@ -25,6 +25,32 @@
         "blockworks",
         "bonafida"
       ]
+    },
+    "sol:usd": {
+      "decimals": 2,
+      "minSubmissions": 1,
+      "maxSubmissions": 3,
+      "restartDelay": 0,
+      "rewardAmount": 10000,
+      "rewardTokenAccount": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1",
+      "oracles": [
+        "solink",
+        "blockworks",
+        "bonafida"
+      ]
+    },
+    "srm:usd": {
+      "decimals": 2,
+      "minSubmissions": 1,
+      "maxSubmissions": 3,
+      "restartDelay": 0,
+      "rewardAmount": 10000,
+      "rewardTokenAccount": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1",
+      "oracles": [
+        "solink",
+        "blockworks",
+        "bonafida"
+      ]
     }
   },
   "oracles": {

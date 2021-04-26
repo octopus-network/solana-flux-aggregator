@@ -8,6 +8,7 @@ import {
   CoinBase,
   coinbase,
   FTX,
+  Binance,
   PriceFeed,
 } from "./feeds"
 import { Submitter, SubmitterConfig } from "./Submitter"
@@ -23,7 +24,7 @@ export class PriceFeeder {
     private deployInfo: AggregatorDeployFile,
     private wallet: Wallet
   ) {
-    this.feeds = [new CoinBase(), new BitStamp(), new FTX()]
+    this.feeds = [new CoinBase(), new BitStamp(), new FTX(), new Binance()]
   }
 
   async start() {
@@ -64,6 +65,10 @@ export class PriceFeeder {
         minValueChangeForNewRound = 5000
       } else if (name === "eth:usd") {
         minValueChangeForNewRound = 150
+      } else if (name === "sol:usd") {
+        minValueChangeForNewRound = 10
+      } else if (name === "srm:usd") {
+        minValueChangeForNewRound = 10
       }
 
       const submitter = new Submitter(
