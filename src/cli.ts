@@ -44,7 +44,7 @@ cli.command("setup <setup-file>").action(async (setupFile) => {
 
 cli.command("oracle").action(async (name) => {
   const wallet = await walletFromEnv("ORACLE_MNEMONIC", conn)
-  await maybeRequestAirdrop(wallet.pubkey)
+  // await maybeRequestAirdrop(wallet.pubkey)
 
   let deploy = loadJSONFile<AggregatorDeployFile>(process.env.DEPLOY_FILE!)
   const feeder = new PriceFeeder(deploy, wallet)
