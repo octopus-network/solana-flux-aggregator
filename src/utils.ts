@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { AccountInfo, Connection, PublicKey } from "@solana/web3.js"
 import EventEmitter from "events"
 
@@ -31,6 +32,12 @@ export function getMedian(submissions: number[]): number {
   } else {
     let i = len / 2
     return len % 2 == 0 ? (values[i] + values[i - 1]) / 2 : values[i]
+  }
+}
+
+export function notify(content) {
+  if (process.env.WEBHOOK_URL) {
+    axios.post(process.env.WEBHOOK_URL, {content});
   }
 }
 

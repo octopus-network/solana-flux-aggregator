@@ -15,11 +15,13 @@
   "dependencies": {
     "@ltd/j-toml": "^1.6.0",
     "@solana/web3.js": "^0.90.5",
+    "axios": "^0.21.1",
     "borsh": "https://github.com/defactojob/borsh-js#field-mapper",
     "buffer-layout": "^1.2.0",
     "commander": "^6.2.0",
     "dotenv": "^8.2.0",
-    "solray": "git+https://github.com/defactojob/solray",
+    "reconnecting-websocket": "^4.4.0",
+    "solray": "https://github.com/blockworks-foundation/solray.git",
     "winston": "^3.3.3",
     "ws": "^7.4.1"
   },

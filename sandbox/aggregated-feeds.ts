@@ -15,7 +15,6 @@ async function main() {
 
     setImmediate(async () => {
       for await (let _ of aggfeed.updates()) {
-        console.log(aggfeed.prices)
         console.log(aggfeed.median)
       }
     })

@@ -62,7 +62,13 @@ export class PriceFeeder {
 
       const feed = new AggregatedFeed(this.feeds, name)
       const priceFeed = feed.medians()
-      // const priceFeed = coinbase(name)
+
+      let minValueChangeForNewRound = 100
+      if (name === "btc:usd") {
+        minValueChangeForNewRound = 5000
+      } else if (name === "eth:usd") {
+        minValueChangeForNewRound = 150
+      }
 
       const submitter = new Submitter(
         this.deployInfo.programID,
@@ -73,7 +79,7 @@ export class PriceFeeder {
         {
           // TODO: errrrr... probably make configurable on chain. hardwire for
           // now, don't submit value unless btc changes at least a dollar
-          minValueChangeForNewRound: 100,
+          minValueChangeForNewRound,
         },
         () => slot
       )

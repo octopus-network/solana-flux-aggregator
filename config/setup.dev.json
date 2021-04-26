@@ -10,9 +10,7 @@
       "rewardAmount": 10000,
       "rewardTokenAccount": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1",
       "oracles": [
-        "solink",
-        "blockworks",
-        "bonafida"
+        "blockworks"
       ]
     },
     "eth:usd": {
@@ -25,21 +23,35 @@
       "rewardAmount": 10000,
       "rewardTokenAccount": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1",
       "oracles": [
-        "solink",
-        "blockworks",
-        "bonafida"
+        "blockworks"
+      ]
+    },
+    "sol:usd": {
+      "decimals": 2,
+      "minSubmissions": 1,
+      "maxSubmissions": 13,
+      "restartDelay": 0,
+      "rewardAmount": 10000,
+      "rewardTokenAccount": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1",
+      "oracles": [
+        "blockworks"
+      ]
+    },
+    "srm:usd": {
+      "decimals": 2,
+      "minSubmissions": 1,
+      "maxSubmissions": 13,
+      "restartDelay": 0,
+      "rewardAmount": 10000,
+      "rewardTokenAccount": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1",
+      "oracles": [
+        "blockworks"
       ]
     }
   },
   "oracles": {
-    "solink": {
-      "owner": "Draee2EHoVoPkRrMXnh17EcJMxuyirFSBsfMHuNBy2bq"
-    },
     "blockworks": {
-      "owner": "GW6bnJN6cMNzVnoVfV9hW6vx6XxTfP8k3HA1PgWCumxV"
-    },
-    "bonafida": {
-      "owner": "5tTHnk3YjZuPUKUKAXR9PoAPhbLRCyy7AthLLZUTKpUX"
+      "owner": "GXdZLSvnreqyUd92tXFShpF8DPvpqDBRkukAtraZ3rCf"
     }
   }
 }

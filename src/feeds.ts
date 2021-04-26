@@ -1,10 +1,13 @@
-import WebSocket from "ws"
+import WebSocket from 'ws'
+import ReconnectingWebSocket from 'reconnecting-websocket'
 import EventEmitter from "events"
-import { eventsIter, median } from "./utils"
+import { eventsIter, median, notify } from "./utils"
 
 import { log } from "./log"
 import winston from "winston"
 
+
+const SECONDS = 1000
 export const UPDATE = "UPDATE"
 
 export interface IPrice {
@@ -12,6 +15,7 @@ export interface IPrice {
   pair: string
   decimals: number
   value: number
+  timestamp?: number
 }
 
 export interface IPriceFeed {
@@ -21,7 +25,7 @@ export interface IPriceFeed {
 export abstract class PriceFeed {
   public emitter = new EventEmitter()
 
-  protected conn!: WebSocket
+  protected conn!: ReconnectingWebSocket
   protected connected!: Promise<void>
 
   protected abstract get log(): winston.Logger
@@ -34,9 +38,9 @@ export abstract class PriceFeed {
     this.log.debug("connecting", { baseurl: this.baseurl })
 
     this.connected = new Promise<void>((resolve) => {
-      const conn = new WebSocket(this.baseurl)
-      conn.on("open", () => {
-        this.log.debug("connected")
+      const conn = new ReconnectingWebSocket(this.baseurl, [], { WebSocket })
+      conn.addEventListener("open", () => {
+        notify(`socket ${this.baseurl}: open`)
 
         this.conn = conn
 
@@ -47,15 +51,16 @@ export abstract class PriceFeed {
         resolve()
       })
 
-      conn.on("close", () => {
-        // TODO: auto-reconnect & re-subscribe
+      conn.addEventListener("close", () => {
+        notify(`socket ${this.baseurl}: closed`)
       })
 
-      conn.on("message", async (data) => {
-        // this.log.debug("raw price update", { data })
+      conn.addEventListener("error", (e) => {
+        notify(`socket ${this.baseurl}: error=${e}`)
+      })
 
-        const price = this.parseMessage(data)
-
+      conn.addEventListener("message", (msg) => {
+        const price = this.parseMessage(msg.data)
         if (price) {
           this.onMessage(price)
         }
@@ -281,6 +286,7 @@ export class AggregatedFeed {
           return
         }
 
+        price.timestamp = Date.now()
         this.prices[index] = price
 
         this.onPriceUpdate(price)
@@ -311,21 +317,31 @@ export class AggregatedFeed {
     }
   }
 
-  get median(): IPrice | undefined {
-    const prices = this.prices.filter((price) => price != undefined)
+  // filter out prices that are older than 10 seconds
+  recentPrices() : IPrice[] {
+    return this.prices.filter((p) => p &&
+                                     p.timestamp &&
+                                    (p.timestamp - Date.now()) < 10*SECONDS)
+  }
 
+  get median(): IPrice | undefined {
+    const prices = this.recentPrices()
     if (prices.length == 0) {
       return
     }
 
     const values = prices.map((price) => price.value)
 
-    return {
+    const result = {
       source: "median",
       pair: prices[0].pair,
       decimals: prices[0].decimals,
       value: median(values),
     }
+
+    // console.log({...result, values})
+
+    return result;
   }
 }
 
