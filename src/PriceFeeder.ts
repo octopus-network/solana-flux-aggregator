@@ -66,9 +66,9 @@ export class PriceFeeder {
       } else if (name === "eth:usd") {
         minValueChangeForNewRound = 150
       } else if (name === "sol:usd") {
-        minValueChangeForNewRound = 10
+        minValueChangeForNewRound = 4
       } else if (name === "srm:usd") {
-        minValueChangeForNewRound = 10
+        minValueChangeForNewRound = 1
       }
 
       const submitter = new Submitter(
