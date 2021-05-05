@@ -5,7 +5,7 @@ import { eventsIter, median, notify } from "./utils"
 
 import { log } from "./log"
 import winston from "winston"
-
+import fs from "fs";
 
 const SECONDS = 1000
 export const UPDATE = "UPDATE"
@@ -441,6 +441,35 @@ export function coinbase(pair: string): IPriceFeed {
     log.debug(`price feed closed`, { pair, err: err.toString() })
     process.exit(1)
   })
+
+  return eventsIter(emitter, UPDATE)
+}
+
+export function file(pair: string, filepath: string): IPriceFeed {
+  const emitter = new EventEmitter()
+  
+  try {
+    fs.accessSync(filepath);
+  } catch {
+    fs.writeFileSync(filepath, '');
+    console.log('feed file created at ' + filepath)
+  }
+
+  console.log('started file feed for ' + pair)
+
+  fs.watch(filepath, (event) => {
+    if (event === 'change') {
+      const data = fs.readFileSync(filepath, 'utf8')
+      const price: IPrice = {
+        source: "file",
+        pair,
+        decimals: 2,
+        value: parseFloat(data)
+      }
+      console.log('price update: ', price)
+      emitter.emit(UPDATE, price)
+    }
+  });
 
   return eventsIter(emitter, UPDATE)
 }
