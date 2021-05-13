@@ -1,7 +1,7 @@
 import fs from "fs"
 import { Wallet } from "solray"
 import { AggregatorDeployFile } from "./Deployer"
-import { loadJSONFile } from "./json"
+import BN from "bn.js"
 import {
   AggregatedFeed,
   BitStamp,
@@ -10,20 +10,23 @@ import {
   FTX,
   PriceFeed,
 } from "./feeds"
-import { Submitter, SubmitterConfig } from "./Submitter"
+import { Submitter } from "./Submitter"
 import { log } from "./log"
 import { conn } from "./context"
+import { PublicKey } from "@solana/web3.js"
 
 // Look at all the available aggregators and submit to those that the wallet can
 // act as an oracle.
 export class PriceFeeder {
   private feeds: PriceFeed[]
+  private submitters: Submitter[];
 
   constructor(
     private deployInfo: AggregatorDeployFile,
     private wallet: Wallet
   ) {
     this.feeds = [new CoinBase(), new BitStamp(), new FTX()]
+    this.submitters = [];
   }
 
   async start() {
@@ -34,6 +37,14 @@ export class PriceFeeder {
 
     // find aggregators that this wallet can act as oracle
     this.startAccessibleAggregators()
+  }
+
+  startChainlinkSubmitRequest(aggregatorPK: PublicKey, roundID: BN) {
+    const submitter = this.submitters.find(i=> i.aggregatorPK.equals(aggregatorPK))
+    if(!submitter) {
+      throw new Error("Submitter not found for given aggregator")
+    }
+    return submitter.submitCurrentValueImpl(roundID)
   }
 
   private async startAccessibleAggregators() {
@@ -62,7 +73,6 @@ export class PriceFeeder {
 
       const feed = new AggregatedFeed(this.feeds, name)
       const priceFeed = feed.medians()
-      // const priceFeed = coinbase(name)
 
       const submitter = new Submitter(
         this.deployInfo.programID,
@@ -74,11 +84,17 @@ export class PriceFeeder {
           // TODO: errrrr... probably make configurable on chain. hardwire for
           // now, don't submit value unless btc changes at least a dollar
           minValueChangeForNewRound: 100,
+          pairSymbol: name,
+          chainlinkNodeURL: process.env.CHAINLINK_NODE_URL,
+          chainlinkNodeEIJobId: process.env.CHAINLINK_EI_JOBID,
+          chainlinkNodeEIAccessKey: process.env.CHAINLINK_EI_ACCESSKEY,
+          chainlinkNodeEISecret: process.env.CHAINLINK_EI_SECRET
         },
         () => slot
       )
 
       submitter.start()
+      this.submitters.push(submitter)
     }
 
     if(!nFound) {

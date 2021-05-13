@@ -10,13 +10,24 @@ import { createLogger, Logger } from "winston"
 
 import { log } from "./log"
 import { IPriceFeed } from "./feeds"
+import axios from "axios"
 
 // allow oracle to start a new round after this many slots. each slot is about 500ms
 const MAX_ROUND_STALENESS = 10
 
 export interface SubmitterConfig {
   // won't start a new round unless price changed this much
-  minValueChangeForNewRound: number
+  minValueChangeForNewRound: number,
+  // symbol for this aggregator (eg. btc:usd) 
+  pairSymbol: string,
+  // chainlink node url
+  chainlinkNodeURL?: string,
+  // chainlink external initiator jobId
+  chainlinkNodeEIJobId?: string,
+  // chainlink external initiator access key
+  chainlinkNodeEIAccessKey?: string,
+  // chainlink external initiator secret key
+  chainlinkNodeEISecret?: string,
 }
 
 export class Submitter {
@@ -191,10 +202,32 @@ export class Submitter {
     )
   }
 
+  private async createChainlinkSubmitRequest(roundID: BN) {
+    if(!this.cfg.chainlinkNodeURL) {
+      return;
+    }
+
+    try {
+      await axios.post(`${this.cfg.chainlinkNodeURL}/v2/specs/${this.cfg.chainlinkNodeEIJobId}/runs`, JSON.stringify({
+        round: roundID.toString(),
+        aggregator: this.aggregatorPK.toBase58(),
+        pairSymbol: this.cfg.pairSymbol,
+      }), {
+        headers: {
+          'Content-Type': 'application/json', 
+          'X-Chainlink-EA-AccessKey': this.cfg.chainlinkNodeEIAccessKey,
+          'X-Chainlink-EA-Secret': this.cfg.chainlinkNodeEISecret,
+        }
+      })
+    } catch(error) {
+      this.logger.error('response', error);
+    }
+  }
+
   private async submitCurrentValue(roundID: BN) {
+
     // guard zero value
-    const value = this.currentValue
-    if (value.isZero()) {
+    if (this.currentValue.isZero()) {
       this.logger.warn("current value is zero. skip submit")
       return
     }
@@ -203,6 +236,19 @@ export class Submitter {
       this.logger.debug("don't report to the same round twice")
       return
     }
+
+    if (this.cfg.chainlinkNodeURL) {
+      // prevent async race condition where submit could be called twice on the same round
+      this.reportedRound = roundID
+      return this.createChainlinkSubmitRequest(roundID);
+    }
+
+    return this.submitCurrentValueImpl(roundID)
+  }
+
+  async submitCurrentValueImpl(roundID: BN){
+
+    const value = this.currentValue
 
     this.logger.info("Submit value", {
       round: roundID.toString(),
@@ -220,7 +266,6 @@ export class Submitter {
           oracle: { write: this.oraclePK },
           oracle_owner: this.oracleOwnerWallet.account,
         },
-
         round_id: roundID,
         value,
       })
@@ -231,8 +276,12 @@ export class Submitter {
         withdrawable: this.oracle.withdrawable.toString(),
         rewardToken: this.aggregator.config.rewardTokenAccount.toString(),
       })
+
+      return {
+        roundID,
+        currentValue: value,
+      }
     } catch (err) {
-      console.log(err)
       this.logger.error("Submit error", {
         err: err.toString(),
       })

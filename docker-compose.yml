@@ -1,0 +1,24 @@
+version: "3"
+
+services:
+  chainlink:
+    image: smartcontract/chainlink:latest
+    restart: always
+    depends_on:
+      - postgres
+    env_file:
+      - .env.chainlink
+    volumes:
+      - ./chainlink:/chainlink
+    ports:
+      - 6688:6688
+    command: local n -p /chainlink/config/password -a /chainlink/config/api
+  postgres:
+    image: postgres:12
+    restart: always
+    ports:
+      - 5432:5432
+    env_file:
+      - .env.chainlink
+    volumes:
+      - ./chainlink:/chainlink

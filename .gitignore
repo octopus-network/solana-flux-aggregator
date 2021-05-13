@@ -14,3 +14,6 @@ config/setup.local.json
 config/setup.private.json
 deploy.local.json
 deploy.private.json
+yarn-error.log
+chainlink/*
+!chainlink/config
