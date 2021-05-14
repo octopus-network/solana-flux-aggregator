@@ -47,7 +47,9 @@ CHAINLINK_EI_SECRET=h1b0HHY7hiWllo4TctKEQu+KbXtwunIUNFDC/xFmDMDLvohzoEnaZT2nq+gh
 
 ### create chainlink bridge and job
 
-Access to the chainlink node UI at `http://localhost:6688/bridges/new`, login using the credential in [chainlink/config/api](./chainlink/config/api) and add a new bridge.
+We need to create a bridge telling the chainlink job which webhook to call.
+
+First we access to the chainlink node UI at `http://localhost:6688/bridges/new`, login using the credential in [chainlink/config/api](./chainlink/config/api) and add a new bridge.
 
 ```
 Name: solanafluxsubmitter
@@ -73,14 +75,17 @@ Then go to `jobs` and add a `New Job`
 }
 ```
 
-save the jobId in the `CHAINLINK_EI_JOBID` variable inside the `.env` file.
+save the JobID in the `CHAINLINK_EI_JOBID` variable inside the `.env` file.
+
+The webhook server host and port can be modify by changing the `CHAINLINK_EXTERNAL_API_HOST` and
+`CHAINLINK_EXTERNAL_API_PORT` variable inside the `.env` file.
 
 ### start the ChainlinkExternalAdapter
 
 The `ChainlinkExternalAdapter` will act both as `Internal requester` and `External adapter`.
 
 ```sh
-yarn chainlink:ea
+yarn solink chainlink-external
 ```
 
 The process will start a price feeder, request a new job to the `Internal requester`, wait for the `External adapter` web hook call and submit the result.

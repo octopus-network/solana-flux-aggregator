@@ -1,13 +1,9 @@
-import dotenv from "dotenv"
-dotenv.config()
 import fastify, { FastifyRequest } from "fastify";
-import { conn } from "./context";
 import { AggregatorDeployFile } from "./Deployer";
-import { loadJSONFile } from "./json";
 import { PriceFeeder } from "./PriceFeeder";
-import { walletFromEnv } from "./utils";
-import BN from "bn.js"
+import BN from "bn.js";
 import { PublicKey } from "@solana/web3.js";
+import { Wallet } from "solray";
 
 type UpdatePriceRequest = FastifyRequest<{
   Body: {
@@ -32,58 +28,57 @@ type UpdatePriceResponse = {
   };
 };
 
-const server = fastify({});
+export class ChainlinkExternalAdapter {
+  constructor(private wallet: Wallet, private deploy: AggregatorDeployFile) {}
 
-// run the server
-const start = async () => {
+  async start() {
 
-  // setup price feeder
-  const wallet = await walletFromEnv("ORACLE_MNEMONIC", conn)
-  let deploy = loadJSONFile<AggregatorDeployFile>(process.env.DEPLOY_FILE!)
-  const feeder = new PriceFeeder(deploy, wallet)
-  feeder.start()
+    const server = fastify()
 
-  // setup wehbook to handle chainlink job task request
-  server.post(
-    "/chainlink/updatePrice",
-    async (req: UpdatePriceRequest, res): Promise<UpdatePriceResponse> => {      
-      const { id, data } = req.body;
+    const feeder = new PriceFeeder(this.deploy, this.wallet)
 
-      if(!data) {
+    // setup wehbook to handle chainlink job task request
+    server.post(
+      "/chainlink/updatePrice",
+      async (req: UpdatePriceRequest, res): Promise<UpdatePriceResponse> => {
+        const { id, data } = req.body;
+
+        if (!data) {
+          return {
+            jobRunID: id,
+            data: {},
+          }
+        }
+
+        const result = await feeder.startChainlinkSubmitRequest(
+          new PublicKey(data.aggregator),
+          new BN(data.round)
+        )
+
+        if (!result) {
+          return {
+            jobRunID: id,
+            data: {},
+            status: "errored",
+            error: "Failed to submit price data",
+          }
+        }
+
         return {
           jobRunID: id,
-          data: {},
+          data: {
+            ...data,
+            currentValue: result.currentValue.toString(),
+          },
         }
       }
+    )    
 
-      const result = await feeder.startChainlinkSubmitRequest(
-        new PublicKey(data.aggregator), 
-        new BN(data.round)
-      );
-  
-      if(!result) {
-        return {
-          jobRunID: id,
-          data: {},
-          status: "errored",
-          error: "Failed to submit price data"
-        };
-      }
-  
-      return {
-        jobRunID: id,
-        data: {
-          ...data,
-          currentValue: result.currentValue.toString(),
-        },
-      };
-    }
-  );
+    feeder.start()
 
-  await server.listen(process.env.CHAINLINK_EXTERNAL_API_PORT || 7654);
-};
-
-start().catch((err) => {
-  server.log.error(err);
-  process.exit(1);
-})
+    return server.listen({
+      host: process.env.CHAINLINK_EXTERNAL_API_HOST || 'localhost',
+      port: parseInt(process.env.CHAINLINK_EXTERNAL_API_PORT || '7654')
+    })
+  }
+}

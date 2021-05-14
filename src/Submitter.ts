@@ -20,14 +20,16 @@ export interface SubmitterConfig {
   minValueChangeForNewRound: number,
   // symbol for this aggregator (eg. btc:usd) 
   pairSymbol: string,
-  // chainlink node url
-  chainlinkNodeURL?: string,
-  // chainlink external initiator jobId
-  chainlinkNodeEIJobId?: string,
-  // chainlink external initiator access key
-  chainlinkNodeEIAccessKey?: string,
-  // chainlink external initiator secret key
-  chainlinkNodeEISecret?: string,
+  chainlink?: {
+    // chainlink node url
+    nodeURL: string,
+    // chainlink external initiator jobId
+    nodeEIJobID: string,
+    // chainlink external initiator access key
+    nodeEIAccessKey: string,
+    // chainlink external initiator secret key
+    nodeEISecret: string,
+  }
 }
 
 export class Submitter {
@@ -203,20 +205,20 @@ export class Submitter {
   }
 
   private async createChainlinkSubmitRequest(roundID: BN) {
-    if(!this.cfg.chainlinkNodeURL) {
+    if(!this.cfg.chainlink) {
       return;
     }
 
     try {
-      await axios.post(`${this.cfg.chainlinkNodeURL}/v2/specs/${this.cfg.chainlinkNodeEIJobId}/runs`, JSON.stringify({
+      await axios.post(`${this.cfg.chainlink.nodeURL}/v2/specs/${this.cfg.chainlink.nodeEIJobID}/runs`, JSON.stringify({
         round: roundID.toString(),
         aggregator: this.aggregatorPK.toBase58(),
         pairSymbol: this.cfg.pairSymbol,
       }), {
         headers: {
           'Content-Type': 'application/json', 
-          'X-Chainlink-EA-AccessKey': this.cfg.chainlinkNodeEIAccessKey,
-          'X-Chainlink-EA-Secret': this.cfg.chainlinkNodeEISecret,
+          'X-Chainlink-EA-AccessKey': this.cfg.chainlink.nodeEIAccessKey,
+          'X-Chainlink-EA-Secret': this.cfg.chainlink.nodeEISecret,
         }
       })
     } catch(error) {
@@ -237,7 +239,7 @@ export class Submitter {
       return
     }
 
-    if (this.cfg.chainlinkNodeURL) {
+    if (this.cfg.chainlink) {
       // prevent async race condition where submit could be called twice on the same round
       this.reportedRound = roundID
       return this.createChainlinkSubmitRequest(roundID);

@@ -11,6 +11,7 @@ import { RoundRequester } from "./RoundRequester"
 import { sleep, walletFromEnv } from "./utils"
 import { PublicKey, Wallet } from "solray"
 import { log } from "./log"
+import { ChainlinkExternalAdapter } from "./ChainlinkExternalAdapter"
 
 const cli = new Command()
 
@@ -92,6 +93,15 @@ cli.command("observe").action(async (name?: string) => {
 
     go()
   }
+})
+
+cli.command("chainlink-external").action(async () => {
+  const wallet = await walletFromEnv("ORACLE_MNEMONIC", conn)
+  const deploy = loadJSONFile<AggregatorDeployFile>(process.env.DEPLOY_FILE!)
+  const externalAdapter = new ChainlinkExternalAdapter(wallet, deploy);
+
+  const serverInfo = await externalAdapter.start()  
+  log.info(`chainlink external adapter running on ${serverInfo}`)
 })
 
 cli.parse(process.argv)

@@ -73,6 +73,7 @@ export class PriceFeeder {
 
       const feed = new AggregatedFeed(this.feeds, name)
       const priceFeed = feed.medians()
+      const chainlinkMode = !!process.env.CHAINLINK_NODE_URL;
 
       const submitter = new Submitter(
         this.deployInfo.programID,
@@ -85,10 +86,12 @@ export class PriceFeeder {
           // now, don't submit value unless btc changes at least a dollar
           minValueChangeForNewRound: 100,
           pairSymbol: name,
-          chainlinkNodeURL: process.env.CHAINLINK_NODE_URL,
-          chainlinkNodeEIJobId: process.env.CHAINLINK_EI_JOBID,
-          chainlinkNodeEIAccessKey: process.env.CHAINLINK_EI_ACCESSKEY,
-          chainlinkNodeEISecret: process.env.CHAINLINK_EI_SECRET
+          chainlink: chainlinkMode ? {
+            nodeURL: process.env.CHAINLINK_NODE_URL!,
+            nodeEIJobID: process.env.CHAINLINK_EI_JOBID!,
+            nodeEIAccessKey: process.env.CHAINLINK_EI_ACCESSKEY!,
+            nodeEISecret: process.env.CHAINLINK_EI_SECRET!,
+          } : undefined
         },
         () => slot
       )

@@ -2,7 +2,7 @@ version: "3"
 
 services:
   chainlink:
-    image: smartcontract/chainlink:latest
+    image: smartcontract/chainlink:0.10.6
     restart: always
     depends_on:
       - postgres

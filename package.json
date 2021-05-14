@@ -7,7 +7,6 @@
   "scripts": {
     "solink": "ts-node src/cli.ts",
     "build:program": "solray build program",
-    "chainlink:ea": "ts-node src/ChainlinkExternalAdapter",
     "watch": "yarn ts-node-dev --respawn"
   },
   "keywords": [],
