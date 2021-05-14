@@ -32,5 +32,15 @@ pub fn read_median(
     Ok(aggregator.answer)
 }
 
+/// Read resolved median value from the aggregator answer submissions, and decimal
+pub fn read_price(aggregator_info: &AccountInfo,) -> Result<(Answer, u8), ProgramError> {
+    let aggregator = Aggregator::load_initialized(&aggregator_info)?;
+    if !aggregator.answer.is_initialized() {
+        return Err(Error::NoResolvedAnswer)?;
+    }
+
+    Ok((aggregator.answer, aggregator.config.decimals))
+}
+
 // Export current sdk types for downstream users building with a different
 pub use solana_program;

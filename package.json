@@ -2,10 +2,11 @@
   "name": "solink",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "src/index.ts",
   "testnetDefaultChannel": "v1.4.8",
   "scripts": {
     "solink": "ts-node src/cli.ts",
+    "solana:devnet": "solana config set --url https://devnet.solana.com",
     "build:program": "solray build program",
     "watch": "yarn ts-node-dev --respawn"
   },
@@ -19,6 +20,7 @@
     "buffer-layout": "^1.2.0",
     "commander": "^6.2.0",
     "dotenv": "^8.2.0",
+    "reconnecting-websocket": "^4.4.0",
     "solray": "git+https://github.com/defactojob/solray",
     "winston": "^3.3.3",
     "ws": "^7.4.1"

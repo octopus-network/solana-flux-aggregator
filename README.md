@@ -129,3 +129,15 @@ info:     airdrop 10 SOL {"address":"8CGZz277PT6yA7nU6HEdpbwQsNYLvyJhP1guoUNxt9m
 Save the mnemonic in your `.env` file, and give the address to me. I'll add
 you to the oracle list so you can submit.
 
+## Using file based price feed
+
+```bash
+#first, backup you `.env`
+cp .env.example .env
+
+# the command find configs from '.env', then 'DEPLOY_FILE' and 'SOLINK_CONFIG' inside '.env'
+ts-node src/cli.ts oracle
+
+# then, you can modify price from `config/btc_usd.json` (or other pair)
+```
+

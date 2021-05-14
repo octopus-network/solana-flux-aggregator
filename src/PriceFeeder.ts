@@ -7,12 +7,14 @@ import {
   BitStamp,
   CoinBase,
   coinbase,
+  FilePriceFeed,
   FTX,
   PriceFeed,
 } from "./feeds"
 import { Submitter, SubmitterConfig } from "./Submitter"
 import { log } from "./log"
 import { conn } from "./context"
+import { SolinkConfig } from "./config"
 
 // Look at all the available aggregators and submit to those that the wallet can
 // act as an oracle.
@@ -21,15 +23,23 @@ export class PriceFeeder {
 
   constructor(
     private deployInfo: AggregatorDeployFile,
+    private solinkConf: SolinkConfig,
     private wallet: Wallet
   ) {
-    this.feeds = [new CoinBase(), new BitStamp(), new FTX()]
+    this.feeds = [new CoinBase(), new BitStamp(), new FTX(), new FilePriceFeed(5000, this.solinkConf.priceFileDir || process.cwd())]
   }
 
   async start() {
+    // remove unused feed
+    let distinctSources = [...new Set(
+      Object.keys(this.solinkConf.submitter)
+        .map(key => this.solinkConf.submitter[key].source || [])
+        .reduce((a, b) => a.concat(b), []))]
+    this.feeds = this.feeds.filter(src => distinctSources.includes(src.source));
+
     // connect to the price feeds
     for (const feed of this.feeds) {
-      feed.connect()
+      feed.init()
     }
 
     // find aggregators that this wallet can act as oracle
@@ -43,6 +53,8 @@ export class PriceFeeder {
     })
 
     let nFound = 0;
+
+    const defaultSubmitterConf = this.solinkConf.submitter.default;
 
     for (let [name, aggregatorInfo] of Object.entries(
       this.deployInfo.aggregators
@@ -60,9 +72,18 @@ export class PriceFeeder {
 
       nFound += 1;
 
-      const feed = new AggregatedFeed(this.feeds, name)
+      let submitterConf = this.solinkConf.submitter[name];
+      if (!submitterConf || !submitterConf.source || submitterConf.source.length == 0) {
+        submitterConf = defaultSubmitterConf || { feeds: [] };
+      }
+      let pairFeeds = this.feeds.filter(f => submitterConf.source?.includes(f.source));
+      if (!pairFeeds || pairFeeds.length == 0) {
+        log.warn(`no feeds configured for ${name}, skipped`)
+        continue
+      }
+      log.info(`feeds for ${name}: ${pairFeeds.map(f => f.source).join(',')}`)
+      const feed = new AggregatedFeed(pairFeeds, name)
       const priceFeed = feed.medians()
-      // const priceFeed = coinbase(name)
 
       const submitter = new Submitter(
         this.deployInfo.programID,
@@ -71,9 +92,7 @@ export class PriceFeeder {
         this.wallet,
         priceFeed,
         {
-          // TODO: errrrr... probably make configurable on chain. hardwire for
-          // now, don't submit value unless btc changes at least a dollar
-          minValueChangeForNewRound: 100,
+          minValueChangeForNewRound: submitterConf.minValueChangeForNewRound || 100,
         },
         () => slot
       )
@@ -81,7 +100,7 @@ export class PriceFeeder {
       submitter.start()
     }
 
-    if(!nFound) {
+    if (!nFound) {
       log.error('no matching aggregator to act as oracle')
     }
   }

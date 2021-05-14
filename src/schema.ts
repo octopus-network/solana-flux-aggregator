@@ -437,6 +437,7 @@ export const schema = new Map([
 
   [Instruction, Instruction.schema],
   [Initialize, Initialize.schema],
+  [Configure, Configure.schema],
   [AddOracle, AddOracle.schema],
 
   [AddRequester, AddRequester.schema],

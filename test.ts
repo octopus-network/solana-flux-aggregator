@@ -67,8 +67,8 @@ class TestHarness {
       return this.state.faucetPK
     }
 
-    const faucetOwner = await ProgramAccount.forSeed(
-      Buffer.from("solink"),
+    const faucetOwner = await ProgramAccount.forSeeds(
+      [Buffer.from("solink")],
       aggregatorProgramID
     )
 
@@ -130,7 +130,7 @@ async function main() {
   // await t.setupFaucet(deployer.state.programID)
 
   const deploy = loadJSONFile<AggregatorDeployFile>(deployFile)
-  const feeder = new PriceFeeder(deploy, oracleWallet)
+  const feeder = new PriceFeeder(deploy, {} as any, oracleWallet)
   feeder.start()
 
   // TODO: try to to harvest rewards
