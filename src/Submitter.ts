@@ -259,7 +259,6 @@ export class Submitter {
 
     try {
       // prevent async race condition where submit could be called twice on the same round
-      this.reportedRound = roundID
       await this.program.submit({
         accounts: {
           aggregator: { write: this.aggregatorPK },
@@ -271,6 +270,7 @@ export class Submitter {
         round_id: roundID,
         value,
       })
+      this.reportedRound = roundID;
 
       this.reloadStates()
 

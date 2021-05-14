@@ -4,6 +4,7 @@ import { PriceFeeder } from "./PriceFeeder";
 import BN from "bn.js";
 import { PublicKey } from "@solana/web3.js";
 import { Wallet } from "solray";
+import { SolinkConfig } from "./config";
 
 type UpdatePriceRequest = FastifyRequest<{
   Body: {
@@ -29,13 +30,17 @@ type UpdatePriceResponse = {
 };
 
 export class ChainlinkExternalAdapter {
-  constructor(private wallet: Wallet, private deploy: AggregatorDeployFile) {}
+  constructor(
+    private deployInfo: AggregatorDeployFile,
+    private solinkConf: SolinkConfig,
+    private wallet: Wallet
+  ) {}
 
   async start() {
 
     const server = fastify()
 
-    const feeder = new PriceFeeder(this.deploy, this.wallet)
+    const feeder = new PriceFeeder(this.deployInfo, this.solinkConf, this.wallet)
 
     // setup wehbook to handle chainlink job task request
     server.post(

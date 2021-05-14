@@ -67,3 +67,26 @@ export interface AggregatorSetupFile {
 // export interface DeployManifest {
 //   programID:
 // }
+
+
+export function loadSolinkConfig(file: string): SolinkConfig {
+  let obj: SolinkConfig = loadJSON(file);
+  return obj;
+}
+
+export interface SolinkConfig {
+  priceFileDir?: string //directory where price files layout, if not provided process.cwd() used
+  submitter: {
+    [key: string]: SolinkSubmitterConfig, //key: pair name (eg: btc:usd)
+    default: SolinkSubmitterConfig, //if no SubmitterConfig provided for pair, default is used
+  }
+}
+
+interface SolinkSubmitterConfig {
+  source?: FeedSource[],
+  minValueChangeForNewRound: number,
+}
+
+export enum FeedSource {
+  COINBASE = 'coinbase', FTX = 'ftx', BITSTAMP = 'bitstamp', FILE = 'file'
+}

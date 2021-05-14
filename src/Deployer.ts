@@ -165,7 +165,7 @@ export class Deployer {
 
     const seed = Buffer.from(aggregatorInfo.config.description)
 
-    const faucetOwner = await ProgramAccount.forSeed(seed, this.state.programID)
+    const faucetOwner = await ProgramAccount.forSeeds([seed], this.state.programID)
 
     const spltoken = new SPLToken(this.wallet)
 

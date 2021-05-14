@@ -4,7 +4,7 @@ import { format } from "winston"
 logger.add(
   new logger.transports.Console({
     // format: logger.format.cli(),
-    format: format.combine(format.cli(), format.simple()),
+    format: format.combine(format.timestamp(), format.cli(), format.simple()),
     level: process.env.LOG_LEVEL?.toLocaleLowerCase() || "info",
   })
 )
