@@ -3,12 +3,13 @@ FROM node:14-alpine AS deps
 WORKDIR /app
 
 COPY package.json yarn.lock tsconfig.json ./
+COPY ./src ./src
+COPY ./config ./config
+COPY deploy.private.json solink.private.json ./
 
 RUN apk add --no-cache git
 RUN yarn install
 RUN yarn global add typescript
-
-COPY ./src ./src
 
 RUN tsc --outDir dist
 

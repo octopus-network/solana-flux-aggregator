@@ -1,6 +1,6 @@
 {
     "_description": "configure witch feeds to use for pair, and other param",
-    "priceFileDir": "./config",
+    "priceFileDir": "./config/prices",
     "submitter": {
         "btc:usd": {
           "source": ["file"],

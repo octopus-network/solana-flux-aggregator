@@ -10,7 +10,7 @@ First we need to run chainlink node inside a docker container.
 docker-compose up
 ```
 
-Then to enable the chainlink mode you must set the `CHAINLINK_NODE_URL` variable inside the `.env` file to point to the chainlink node address, in case of docker default is `http://localhost:6688`.
+Then to enable the chainlink mode you must set the `CHAINLINK_NODE_URL` variable inside the `.env` file to point to the chainlink node address, in case of this internal docker is `http://chainlink:6688`.
 
 ### create external initiator
 
@@ -35,8 +35,7 @@ chainlink admin login
 the first parameter `solana-flux-aggregator` is the name, the second is the webhook url that will be call to execute a chainlink job.
 
 ```sh
-# on mac we use docket host address
-chainlink initiators create solana-flux-aggregator http://host.docker.internal:7654/chainlink/updatePrice
+chainlink initiators create solana-flux-aggregator http://external-ad:7654/chainlink/updatePrice
 ```sh
 ```
 
@@ -56,7 +55,7 @@ First we access to the chainlink node UI at `http://localhost:6688/bridges/new`,
 
 ```
 Name: solanafluxsubmitter
-URL: http://host.docker.internal:7654/chainlink/updatePrice
+URL: http://external-ad:7654/chainlink/updatePrice
 ```
 
 Then go to `jobs` and add a `New Job`

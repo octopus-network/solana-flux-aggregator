@@ -22,3 +22,11 @@ services:
       - .env.chainlink
     volumes:
       - ./chainlink:/chainlink
+  external-ad:
+    build: .
+    restart: always
+    ports:
+      - 7654:7654
+    command: yarn solink chainlink-external
+    env_file:
+      - .env
