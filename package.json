@@ -20,6 +20,7 @@
     "buffer-layout": "^1.2.0",
     "commander": "^6.2.0",
     "dotenv": "^8.2.0",
+    "pako": "^2.0.3",
     "reconnecting-websocket": "^4.4.0",
     "solray": "https://github.com/blockworks-foundation/solray.git",
     "winston": "^3.3.3",

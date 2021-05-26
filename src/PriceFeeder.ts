@@ -9,6 +9,7 @@ import {
   coinbase,
   FTX,
   Binance,
+  OKEx,
   PriceFeed,
 } from "./feeds"
 import { Submitter, SubmitterConfig } from "./Submitter"
@@ -24,7 +25,7 @@ export class PriceFeeder {
     private deployInfo: AggregatorDeployFile,
     private wallet: Wallet
   ) {
-    this.feeds = [new CoinBase(), new BitStamp(), new FTX(), new Binance()]
+    this.feeds = [new CoinBase(), new BitStamp(), new FTX(), new Binance(), new OKEx()]
   }
 
   async start() {
