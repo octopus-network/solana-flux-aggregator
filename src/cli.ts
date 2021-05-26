@@ -42,7 +42,10 @@ cli.command("setup <setup-file>").action(async (setupFile) => {
   await deployer.runAll()
 })
 
-cli.command("oracle").action(async (name) => {
+cli.command("oracle [price]").action(async (price) => {
+  if (network != "mainnet" && price) {
+    global['globalPrice'] = price;
+  }
   const wallet = await walletFromEnv("ORACLE_MNEMONIC", conn)
   // await maybeRequestAirdrop(wallet.pubkey)
 

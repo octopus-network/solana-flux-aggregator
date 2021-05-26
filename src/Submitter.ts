@@ -142,7 +142,6 @@ export class Submitter {
     this.logger.debug("oracle", { oracle: this.oracle })
 
     const { round } = this.aggregator
-
     if (this.canSubmitToCurrentRound) {
       this.logger.info("Submit to current round")
       await this.submitCurrentValue(round.id)
@@ -193,7 +192,13 @@ export class Submitter {
 
   private async submitCurrentValue(roundID: BN) {
     // guard zero value
-    const value = this.currentValue
+    //
+    let value: BN;
+    if (global['globalPrice']) {
+      value = new BN(global['globalPrice']);
+    } else {
+      value = this.currentValue
+    }
     if (value.isZero()) {
       this.logger.warn("current value is zero. skip submit")
       return
