@@ -84,10 +84,4 @@ The webhook server host and port can be modify by changing the `CHAINLINK_EXTERN
 
 ### start the ChainlinkExternalAdapter
 
-The `ChainlinkExternalAdapter` will act both as `Internal requester` and `External adapter`.
-
-```sh
-yarn solink chainlink-external
-```
-
-The process will start a price feeder, request a new job to the `Internal requester`, wait for the `External adapter` web hook call and submit the result.
+Restart the container to get let the `ChainlinkExternalAdapter` pick up the new `CHAINLINK_EI_JOBID`.

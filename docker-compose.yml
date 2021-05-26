@@ -16,17 +16,16 @@ services:
   postgres:
     image: postgres:12
     restart: always
-    ports:
-      - 5432:5432
     env_file:
       - .env.chainlink
     volumes:
       - ./chainlink:/chainlink
   external-ad:
     build: .
+    depends_on:
+      - chainlink
+      - postgres
     restart: always
-    ports:
-      - 7654:7654
     command: yarn solink chainlink-external
     env_file:
       - .env

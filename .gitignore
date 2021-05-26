@@ -6,6 +6,7 @@ dist
 .yarnrc.yml
 .pnp.js
 .env
+.env.prod
 deploy.json
 integration-example/Cargo.lock
 .DS_Store
