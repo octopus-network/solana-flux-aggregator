@@ -2,8 +2,8 @@ import dotenv from "dotenv"
 dotenv.config({
   path: process.env.DOTENV_PATH || undefined
 })
-import { Command, option } from "commander"
-import { jsonReplacer, loadJSONFile } from "./json"
+import { Command } from "commander"
+import { loadJSONFile } from "./json"
 import { AggregatorDeployFile, Deployer } from "./Deployer"
 import { conn, network } from "./context"
 import { AggregatorObserver } from "./AggregatorObserver"
@@ -13,6 +13,7 @@ import { RoundRequester } from "./RoundRequester"
 import { sleep, walletFromEnv } from "./utils"
 import { PublicKey, Wallet } from "solray"
 import { log } from "./log"
+import { ChainlinkExternalAdapter } from "./ChainlinkExternalAdapter"
 import { loadAggregatorSetup, SolinkConfig } from "./config"
 import FluxAggregator from "./FluxAggregator";
 
@@ -55,8 +56,8 @@ cli.command("oracle").action(async (name) => {
   const wallet = await walletFromEnv("ORACLE_MNEMONIC", conn)
   await maybeRequestAirdrop(wallet.pubkey)
 
-  let deploy = loadJSONFile<AggregatorDeployFile>(process.env.DEPLOY_FILE!)
-  let solinkConf = loadJSONFile<SolinkConfig>(process.env.SOLINK_CONFIG!);
+  const deploy = loadJSONFile<AggregatorDeployFile>(process.env.DEPLOY_FILE!)
+  const solinkConf = loadJSONFile<SolinkConfig>(process.env.SOLINK_CONFIG!);
   const feeder = new PriceFeeder(deploy, solinkConf, wallet)
   feeder.start()
 })
@@ -103,13 +104,22 @@ cli.command("observe").action(async (name?: string) => {
   }
 })
 
+cli.command("chainlink-external").action(async () => {
+  const wallet = await walletFromEnv("ORACLE_MNEMONIC", conn)
+  const deploy = loadJSONFile<AggregatorDeployFile>(process.env.DEPLOY_FILE!)
+  const solinkConf = loadJSONFile<SolinkConfig>(process.env.SOLINK_CONFIG!);
+  const externalAdapter = new ChainlinkExternalAdapter(deploy, solinkConf, wallet);
+
+  const serverInfo = await externalAdapter.start()  
+  log.info(`chainlink external adapter running on ${serverInfo}`)
+})
+
 //read median of pair, eg: NETWORK=dev yarn run solink read-median HBVsLHp8mWGMGfrh1Gf5E8RAxww71mXBgoZa6Zvsk5cK
 cli.command("read-median <aggregator-id>").action(async (aggregatorId) => {
   let acct = await conn.getAccountInfo(new PublicKey(aggregatorId));
   let agg = Aggregator.deserialize<Aggregator>(acct?.data || Buffer.from(''));
   log.info(`median: ${agg.config.description}(decimal: ${agg.config.decimals}) -> ${agg.answer.median.toNumber()}, (rewardAmount: ${agg.config.rewardAmount})`);
 })
-
 
 //  NETWORK=dev yarn run solink configure-agg
 cli.command('configure-agg <setup-file> <pair>').action(async (setupFile: string, pair: string) => {

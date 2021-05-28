@@ -86,6 +86,18 @@ For example to request a new round for `btc:usd` aggregator we will use:
 yarn solink request-round btc:usd
 ```
 
+# Using Chainlink Node
+
+By default the `yarn solink oracle` will submit price changes directly. 
+
+You can use a chainlink node to delegate the tasks to submit price on the blockchain by running:
+
+```
+yarn solink chainlink-external
+```
+
+For more details on how to set up a chainlink node, you can find a guide in [here](./SETUP_CHAINLINK.md).
+
 # Devnet Oracles
 
 The sandbox environment could be modified by anyone, and is not suitable for
@@ -97,8 +109,8 @@ Observe the devnet prices by running:
 NETWORK=dev DEPLOY_FILE=deploy.dev.json yarn solink observe
 ```
 
-* `btc:usd` => 8tawJxhUbVJV7Aiss8DBkYoN4ZA1vpNVwjNmUdgpMw7J
-* `eth:usd` => 4X5QRNHs3saF35fhL7FJtPR58PeqoFmzgq82EiHqa9a9
+* `btc:usd` => HBVsLHp8mWGMGfrh1Gf5E8RAxww71mXBgoZa6Zvsk5cK
+* `eth:usd` => CifT9HWU1W3VyzdWqaKGcarBLdZGKbbP9h65c7vwxF5d
 
 ## Using Your Own RPC
 

@@ -1,0 +1,31 @@
+version: "3"
+
+services:
+  chainlink:
+    image: smartcontract/chainlink:0.10.6
+    restart: always
+    depends_on:
+      - postgres
+    env_file:
+      - .env.chainlink
+    volumes:
+      - ./chainlink:/chainlink
+    ports:
+      - 6688:6688
+    command: local n -p /chainlink/config/password -a /chainlink/config/api
+  postgres:
+    image: postgres:12
+    restart: always
+    env_file:
+      - .env.chainlink
+    volumes:
+      - ./chainlink:/chainlink
+  external-ad:
+    build: .
+    depends_on:
+      - chainlink
+      - postgres
+    restart: always
+    command: yarn solink chainlink-external
+    env_file:
+      - .env
