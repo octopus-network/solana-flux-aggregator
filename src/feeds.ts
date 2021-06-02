@@ -8,6 +8,7 @@ import { log } from "./log"
 import winston from "winston"
 import { FeedSource } from "./config"
 import ReconnectingWebSocket from "reconnecting-websocket"
+import { ErrorNotifier } from "./ErrorNotifier"
 
 export const UPDATE = "UPDATE"
 
@@ -58,23 +59,22 @@ export abstract class PriceFeed {
       })
 
       conn.addEventListener("close", () => {
-        this.log.warn('ws closed')
+        this.log.warn(this.source, 'ws closed')
       })
       conn.addEventListener("error", (err) => {
-        this.log.warn('ws error', err)
+        this.log.warn(this.source, 'ws error', err)
         // TODO: auto-reconnect & re-subscribe
       })
 
       conn.addEventListener("message", (msg) => {
         // this.log.debug("raw price update", { data })
-
         try{
           const price = this.parseMessage(msg.data)
           if (price) {
             this.onMessage(price)
           }
         }catch (err) {
-          this.log.warn(`on message err:`, msg, err)
+          this.log.warn(this.source, `on message err:`, msg, err)
         }
       })
     })
@@ -318,10 +318,17 @@ export class FilePriceFeed extends PriceFeed {
 export class AggregatedFeed {
   public emitter = new EventEmitter()
   public prices: IPrice[] = []
+  public lastUpdate = new Map<string, number>()
+  public lastUpdateTimeout = 60000; // 1m
 
   // assume that the feeds are already connected
-  constructor(public feeds: PriceFeed[], public pair: string) {
+  constructor(
+    public feeds: PriceFeed[], 
+    public pair: string, 
+    private errorNotifier?: ErrorNotifier
+  ) {
     this.subscribe()
+    this.startStaleChecker()
   }
 
   private subscribe() {
@@ -330,6 +337,7 @@ export class AggregatedFeed {
     let i = 0
     for (let feed of this.feeds) {
       feed.subscribe(pair)
+      this.lastUpdate.set(`${feed.source}-${pair}`, Date.now())
 
       const index = i
       i++
@@ -341,7 +349,7 @@ export class AggregatedFeed {
         }
 
         this.prices[index] = price
-
+        this.lastUpdate.set(`${feed.source}-${pair}`, Date.now())
         this.onPriceUpdate(price)
       })
     }
@@ -353,6 +361,20 @@ export class AggregatedFeed {
     //   median: this.median,
     // })
     this.emitter.emit(UPDATE, this)
+  }
+
+  private startStaleChecker() {
+    if(!this.errorNotifier) {
+      return
+    }
+    setInterval(() => {
+      const now = Date.now()
+      for (const [key, value] of this.lastUpdate.entries()) {
+        if(now - value > this.lastUpdateTimeout) {
+          this.errorNotifier?.notifyCritical('AggregatedFeed', `No price data since ${new Date(value).toISOString()} for ${key}`)
+        }
+      }
+    }, this.lastUpdateTimeout / 2)
   }
 
   async *medians() {
@@ -377,7 +399,7 @@ export class AggregatedFeed {
       return
     }
 
-    const values = prices.map((price) => price.value)
+    const values = prices.filter(price => price.value > 0).map((price) => price.value)
 
     return {
       source: "median",

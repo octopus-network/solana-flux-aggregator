@@ -16,20 +16,23 @@ import { log } from "./log"
 import { conn } from "./context"
 import { PublicKey } from "@solana/web3.js"
 import { SolinkConfig } from "./config"
+import { ErrorNotifier } from "./ErrorNotifier"
 
 // Look at all the available aggregators and submit to those that the wallet can
 // act as an oracle.
 export class PriceFeeder {
   private feeds: PriceFeed[]
   private submitters: Submitter[];
+  private errorNotifier: ErrorNotifier;
 
   constructor(
     private deployInfo: AggregatorDeployFile,
     private solinkConf: SolinkConfig,
     private wallet: Wallet
   ) {
-    this.submitters = [];
+    this.submitters = []
     this.feeds = [new CoinBase(), new BitStamp(), new FTX(), new FilePriceFeed(5000, this.solinkConf.priceFileDir || process.cwd())]
+    this.errorNotifier = new ErrorNotifier()
   }
 
   async start() {
@@ -52,6 +55,7 @@ export class PriceFeeder {
   startChainlinkSubmitRequest(aggregatorPK: PublicKey, roundID: BN) {
     const submitter = this.submitters.find(i=> i.aggregatorPK.equals(aggregatorPK))
     if(!submitter) {
+      this.errorNotifier.notifyCritical('PriceFeeder', `Submitter not found for ${aggregatorPK}`)
       throw new Error("Submitter not found for given aggregator")
     }
     return submitter.submitCurrentValueImpl(roundID)
@@ -93,7 +97,7 @@ export class PriceFeeder {
         continue
       }
       log.info(`feeds for ${name}: ${pairFeeds.map(f => f.source).join(',')}`)
-      const feed = new AggregatedFeed(pairFeeds, name)
+      const feed = new AggregatedFeed(pairFeeds, name, this.errorNotifier)
       const priceFeed = feed.medians()
       const chainlinkMode = !!process.env.CHAINLINK_NODE_URL;
 
@@ -102,6 +106,7 @@ export class PriceFeeder {
         aggregatorInfo.pubkey,
         oracleInfo.pubkey,
         this.wallet,
+        this.errorNotifier,
         priceFeed,
         {
           minValueChangeForNewRound: submitterConf.minValueChangeForNewRound || 100,

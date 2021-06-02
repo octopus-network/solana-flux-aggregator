@@ -11,6 +11,7 @@ import { createLogger, Logger } from "winston"
 import { log } from "./log"
 import { IPriceFeed } from "./feeds"
 import axios from "axios"
+import { ErrorNotifier } from "./ErrorNotifier"
 
 // allow oracle to start a new round after this many slots. each slot is about 500ms
 const MAX_ROUND_STALENESS = 10
@@ -41,13 +42,15 @@ export class Submitter {
   public logger!: Logger
   public currentValue: BN
   public reportedRound: BN
+  public lastSubmit = new Map<string, number>()
+  public lastSubmitTimeout = 60000 * 5; // 5m
 
   constructor(
     programID: PublicKey,
     public aggregatorPK: PublicKey,
     public oraclePK: PublicKey,
     private oracleOwnerWallet: Wallet,
-
+    private errorNotifier: ErrorNotifier,
     private priceFeed: IPriceFeed,
     private cfg: SubmitterConfig,
     private getSlot: () => number
@@ -66,6 +69,8 @@ export class Submitter {
     this.logger = log.child({
       aggregator: this.aggregator.config.description,
     })
+
+    this.startStaleChecker();
 
     await this.observePriceFeed()
   }
@@ -123,7 +128,7 @@ export class Submitter {
     })
   }
 
-  private async observePriceFeed() {
+  private async observePriceFeed() {    
     for await (let price of this.priceFeed) {
       if (price.decimals != this.aggregator.config.decimals) {
         throw new Error(
@@ -149,9 +154,21 @@ export class Submitter {
     }
   }
 
+  private startStaleChecker() {
+    if(!this.errorNotifier) {
+      return
+    }
+    setInterval(() => {
+      const now = Date.now()
+      for (const [key, value] of this.lastSubmit.entries()) {
+        if(now - value > this.lastSubmitTimeout) {
+          this.errorNotifier?.notifyCritical('Submitter', `No submit since ${new Date(value).toISOString()} for ${this.aggregator.config.description}`)
+        }
+      }
+    }, this.lastSubmitTimeout / 2)
+  }
+
   private async trySubmit() {
-    // TODO: make it possible to be triggered by chainlink task
-    // TODO: If from chainlink node, update state before running
     this.logger.debug("oracle", { oracle: this.oracle })
 
     const { round } = this.aggregator
@@ -259,7 +276,7 @@ export class Submitter {
 
     try {
       // prevent async race condition where submit could be called twice on the same round
-      await this.program.submit({
+      const txId =  await this.program.submit({
         accounts: {
           aggregator: { write: this.aggregatorPK },
           roundSubmissions: { write: this.aggregator.roundSubmissions },
@@ -272,12 +289,21 @@ export class Submitter {
       })
       this.reportedRound = roundID;
 
+      const res = await conn.confirmTransaction(txId);
+
+      if(res.value.err) {
+        this.errorNotifier.notifyCritical('Submitter',  `Failed to confirm transaction ${txId}`, res.value.err)
+        throw res.value.err
+      }
+
       this.reloadStates()
 
       this.logger.info("Submit OK", {
         withdrawable: this.oracle.withdrawable.toString(),
         rewardToken: this.aggregator.config.rewardTokenAccount.toString(),
       })
+
+      this.lastSubmit.set(this.aggregatorPK.toBase58(), Date.now())
 
       return {
         roundID,

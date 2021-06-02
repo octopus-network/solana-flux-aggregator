@@ -266,12 +266,12 @@ export default class FluxAggregator extends BaseProgram {
   //   )
   // }
 
-  public async submit(params: SubmitParams): Promise<void> {
+  public async submit(params: SubmitParams): Promise<string> {
     const input = encoding.Submit.serialize(params)
 
     let auths = [SYSVAR_CLOCK_PUBKEY, ...Object.values(params.accounts)]
 
-    await this.sendTx(
+    return await this.sendTx(
       [this.instruction(input, auths)],
       [this.account, params.accounts.oracle_owner]
     )
