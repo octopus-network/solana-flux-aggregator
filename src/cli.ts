@@ -10,6 +10,8 @@ import { PriceFeeder } from "./PriceFeeder"
 import { sleep, walletFromEnv } from "./utils"
 import { PublicKey, Wallet } from "solray"
 import { log } from "./log"
+import { Submitter } from "./Submitter"
+import { file } from "./feeds"
 
 const cli = new Command()
 
@@ -84,6 +86,53 @@ cli.command("observe").action(async (name?: string) => {
 
     go()
   }
+})
+
+
+cli.command("oracle-file <pair> <path>").action(async (pair, path) => {
+
+  console.log(pair);
+  console.log(path);
+
+  let deployInfo = loadJSONFile<AggregatorDeployFile>(process.env.DEPLOY_FILE!)
+  
+  // validate pair arg here
+  if (!(pair in deployInfo.aggregators)) {
+    throw 'Invalid pair ' + pair;
+  }
+
+  let slot = await conn.getSlot()
+  conn.onSlotChange((slotInfo) => {
+    slot = slotInfo.slot
+  })
+  
+  const wallet = await walletFromEnv("ORACLE_MNEMONIC", conn)
+  // await maybeRequestAirdrop(wallet.pubkey)
+  
+  let aggregatorInfo = deployInfo.aggregators[pair];
+  
+  const oracleInfo = Object.values(aggregatorInfo.oracles).find(
+    (oracleInfo) => {
+      return oracleInfo.owner.equals(wallet.pubkey)
+    }
+  )
+  
+  let minValueChangeForNewRound = 0
+  
+  const submitter = new Submitter(
+    deployInfo.programID,
+    aggregatorInfo.pubkey,
+    oracleInfo!.pubkey,
+    wallet,
+    file(pair, path),
+    {
+      minValueChangeForNewRound,
+    },
+    () => slot
+  )
+
+  submitter.start();
+
 })
 
 cli.parse(process.argv)

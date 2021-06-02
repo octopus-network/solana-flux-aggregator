@@ -54,6 +54,23 @@ not use this key for production!
 NOTE 2: You might get error messages if somebody else is also running the
 oracle.
 
+### Manual price feed
+Alternatively, you can submit prices to the oracle manually by instructing the oracle to watch for changes to a local file.
+This can be useful for testing specific behaviour (such as triggering liquidations).
+
+Run the oracle: 
+```
+yarn solink oracle-file {pair} {filepath}
+```
+
+{pair} must be one of the aggregator pairs in deploy.sandbox.json
+
+Then you can update prices by running
+```
+echo {price} > {filepath}
+```
+
+
 # Observe The Aggregators
 
 With the oracle running, you can subscribe to price changes. In another
