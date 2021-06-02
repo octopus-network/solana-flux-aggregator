@@ -16,6 +16,25 @@ import { Submitter, SubmitterConfig } from "./Submitter"
 import { log } from "./log"
 import { conn } from "./context"
 
+const priceFeedMapping = {
+  'btc:usd': {
+    minValueChangeForNewRound: 5000,
+    useFeeds: [0,1,2,3]
+  },
+  'eth:usd': {
+    minValueChangeForNewRound: 150,
+    useFeeds: [0,1,2,3]
+  },
+  'sol:usd': {
+    minValueChangeForNewRound: 4,
+    useFeeds: [2,3,4]
+  },
+  'srm:usd': {
+    minValueChangeForNewRound: 1,
+    useFeeds: [2,3,4]
+  },
+}
+
 // Look at all the available aggregators and submit to those that the wallet can
 // act as an oracle.
 export class PriceFeeder {
@@ -33,7 +52,6 @@ export class PriceFeeder {
     for (const feed of this.feeds) {
       feed.connect()
     }
-
     // find aggregators that this wallet can act as oracle
     this.startAccessibleAggregators()
   }
@@ -58,19 +76,11 @@ export class PriceFeeder {
         continue
       }
 
-      const feed = new AggregatedFeed(this.feeds, name)
+      const useFeeds = (priceFeedMapping[name]) ? priceFeedMapping[name].useFeeds.map(x => this.feeds[x]) : this.feeds;
+      const feed = new AggregatedFeed(useFeeds, name)
       const priceFeed = feed.medians()
 
-      let minValueChangeForNewRound = 100
-      if (name === "btc:usd") {
-        minValueChangeForNewRound = 5000
-      } else if (name === "eth:usd") {
-        minValueChangeForNewRound = 150
-      } else if (name === "sol:usd") {
-        minValueChangeForNewRound = 4
-      } else if (name === "srm:usd") {
-        minValueChangeForNewRound = 1
-      }
+      const minValueChangeForNewRound = priceFeedMapping[name].minValueChangeForNewRound || 100
 
       const submitter = new Submitter(
         this.deployInfo.programID,

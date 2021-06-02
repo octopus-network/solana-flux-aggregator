@@ -286,12 +286,12 @@ export class Binance extends PriceFeed {
     if (payload.e != "trade") {
       return
     }
-    // "btcusdt" => "btc:usd"
+    // "btcbusd" => "btc:usd"
     // assume that the base symbol for the pair is 3 letters
-    const baseCurrency = payload.s.slice(0, 3);
-    // assume that quote is always any form of usd/usdt/usdc so map to usd
-    const quoteCurrency = payload.s.slice(3, 3);
-    const pair = `${baseCurrency.toLowerCase()}:${quoteCurrency.toLowerCase()}`;
+    const baseCurrency = payload.s.slice(0, 3).toLowerCase();
+    const quoteCurrency = payload.s.slice(3).toLowerCase();
+    const pair = `${baseCurrency}:${quoteCurrency == 'busd' ? 'usd' : quoteCurrency}`;
+
 
     const price: IPrice = {
       source: Binance.name,
@@ -304,9 +304,9 @@ export class Binance extends PriceFeed {
   }
 
   async handleSubscribe(pair: string) {
-    // "btc:usd" => "btcusdt"
+    // "btc:usd" => "btcbusd"
     const [baseCurrency, quoteCurrency] = pair.split(':')
-    const targetPair = `${baseCurrency}${(quoteCurrency.toLowerCase() === 'usd' ? 'usdt' : quoteCurrency)}@trade`.toLowerCase()
+    const targetPair = `${baseCurrency}${(quoteCurrency.toLowerCase() === 'usd' ? 'busd' : quoteCurrency)}@trade`.toLowerCase()
     this.conn.send(
       JSON.stringify({
         method: "SUBSCRIBE",
