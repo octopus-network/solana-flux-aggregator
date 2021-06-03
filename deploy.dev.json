@@ -1,6 +1,6 @@
 {
   "aggregators": {
-    "btc:usd": {
+    "btc:usdt": {
       "pubkey": {
         "type": "PublicKey",
         "base58": "6Xvk6VC423bbhwnCfMyPfE4C1vytoqsVMUY1Lbqeh6pf"
@@ -10,7 +10,7 @@
         "base58": "GXdZLSvnreqyUd92tXFShpF8DPvpqDBRkukAtraZ3rCf"
       },
       "config": {
-        "description": "btc:usd",
+        "description": "btc:usdt",
         "decimals": 2,
         "minSubmissions": 1,
         "maxSubmissions": 13,
@@ -34,7 +34,7 @@
         }
       }
     },
-    "eth:usd": {
+    "eth:usdt": {
       "pubkey": {
         "type": "PublicKey",
         "base58": "4CoKvk3NUXYiHKGbQvihadw6TC8LTN1qjfadPcsaURbW"
@@ -44,7 +44,7 @@
         "base58": "GXdZLSvnreqyUd92tXFShpF8DPvpqDBRkukAtraZ3rCf"
       },
       "config": {
-        "description": "eth:usd",
+        "description": "eth:usdt",
         "decimals": 2,
         "minSubmissions": 1,
         "maxSubmissions": 13,
@@ -68,17 +68,17 @@
         }
       }
     },
-    "sol:usd": {
+    "btc:usd": {
       "pubkey": {
         "type": "PublicKey",
-        "base58": "Ej5FrNjhXaePK7cVMZtSooatzXMeunNsjxrnubefEyNC"
+        "base58": "FuEnReoxhqW8Li6EMLoaaUWbWAEjTfSRuBARo5GrGCqN"
       },
       "owner": {
         "type": "PublicKey",
         "base58": "GXdZLSvnreqyUd92tXFShpF8DPvpqDBRkukAtraZ3rCf"
       },
       "config": {
-        "description": "sol:usd",
+        "description": "btc:usd",
         "decimals": 2,
         "minSubmissions": 1,
         "maxSubmissions": 13,
@@ -93,7 +93,75 @@
         "blockworks": {
           "pubkey": {
             "type": "PublicKey",
-            "base58": "4fuTrajqBHGGM1ig4b57DD9JxcN5Q2MmoDVnMtnucjS7"
+            "base58": "AhD1vCnNBgECpoBrfsqP83KSZsd4TtrWvP3FgebUDoRu"
+          },
+          "owner": {
+            "type": "PublicKey",
+            "base58": "GXdZLSvnreqyUd92tXFShpF8DPvpqDBRkukAtraZ3rCf"
+          }
+        }
+      }
+    },
+    "eth:usd": {
+      "pubkey": {
+        "type": "PublicKey",
+        "base58": "GzfYWGM1oeVrha9zvM1awnTJEUAuinpnVRUyYQYELzqg"
+      },
+      "owner": {
+        "type": "PublicKey",
+        "base58": "GXdZLSvnreqyUd92tXFShpF8DPvpqDBRkukAtraZ3rCf"
+      },
+      "config": {
+        "description": "eth:usd",
+        "decimals": 2,
+        "minSubmissions": 1,
+        "maxSubmissions": 13,
+        "restartDelay": 0,
+        "rewardTokenAccount": {
+          "type": "PublicKey",
+          "base58": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1"
+        },
+        "rewardAmount": 10000
+      },
+      "oracles": {
+        "blockworks": {
+          "pubkey": {
+            "type": "PublicKey",
+            "base58": "HhBmYDPRzJDCbtsTcaB2j6sbpcNDK41CUciev94eroUE"
+          },
+          "owner": {
+            "type": "PublicKey",
+            "base58": "GXdZLSvnreqyUd92tXFShpF8DPvpqDBRkukAtraZ3rCf"
+          }
+        }
+      }
+    },
+    "sol:usd": {
+      "pubkey": {
+        "type": "PublicKey",
+        "base58": "AshULbjkGvse8YW2ojjeqHdMbFGigLy2xxiGVhsLqX5T"
+      },
+      "owner": {
+        "type": "PublicKey",
+        "base58": "GXdZLSvnreqyUd92tXFShpF8DPvpqDBRkukAtraZ3rCf"
+      },
+      "config": {
+        "description": "sol:usd",
+        "decimals": 4,
+        "minSubmissions": 1,
+        "maxSubmissions": 13,
+        "restartDelay": 0,
+        "rewardTokenAccount": {
+          "type": "PublicKey",
+          "base58": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1"
+        },
+        "rewardAmount": 10000
+      },
+      "oracles": {
+        "blockworks": {
+          "pubkey": {
+            "type": "PublicKey",
+            "base58": "2K38TaiEJEiPZY3TGKjuLMoHgZgXxX7YX2wRD2WvfUDM"
           },
           "owner": {
             "type": "PublicKey",
@@ -105,7 +173,7 @@
     "srm:usd": {
       "pubkey": {
         "type": "PublicKey",
-        "base58": "GR9tYpi8CM8u8sdRaJZoP32KoWBphyoWV3xoNt4XwmRV"
+        "base58": "B3nWGxqNQzJeRfpYSXU8qJaTQxspZmqAt91FRAhfoFQL"
       },
       "owner": {
         "type": "PublicKey",
@@ -113,7 +181,7 @@
       },
       "config": {
         "description": "srm:usd",
-        "decimals": 2,
+        "decimals": 4,
         "minSubmissions": 1,
         "maxSubmissions": 13,
         "restartDelay": 0,
@@ -127,7 +195,7 @@
         "blockworks": {
           "pubkey": {
             "type": "PublicKey",
-            "base58": "8tn58rnF1QzPqQea4xegck556s45DUGBJvWLNdsLpT69"
+            "base58": "CsyV4JuPjdYRusw4sa7Ba8Ab8yR7vjyp4wAPuC2neejS"
           },
           "owner": {
             "type": "PublicKey",
