@@ -36,7 +36,6 @@ the first parameter `solana-flux-aggregator` is the name, the second is the webh
 
 ```sh
 chainlink initiators create solana-flux-aggregator http://external-ad:7654/chainlink/updatePrice
-```sh
 ```
 
 the create command will give us the `external initiator` credentials that need to be replaced it inside the `.env` file.
