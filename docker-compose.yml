@@ -11,7 +11,7 @@ services:
     volumes:
       - ./chainlink:/chainlink
     ports:
-      - 6688:6688
+      - 127.0.0.1:6688:6688
     command: local n -p /chainlink/config/password -a /chainlink/config/api
   postgres:
     image: postgres:12

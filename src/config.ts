@@ -1,13 +1,12 @@
 import toml from "@ltd/j-toml"
 
 import fs from "fs"
-import { Oracle } from "./schema"
 
 function loadJSON(file: string): any {
   return JSON.parse(fs.readFileSync(file, "utf8"))
 }
 
-const aggregatorConfigDefaults: Partial<AggregatorSetupConfig>  = {
+const aggregatorConfigDefaults: Partial<AggregatorSetupConfig> = {
   decimals: 0,
   minSubmissions: 0,
   maxSubmissions: 1,
@@ -63,30 +62,29 @@ export interface AggregatorSetupFile {
   }
 }
 
-// //
-// export interface DeployManifest {
-//   programID:
-// }
-
-
 export function loadSolinkConfig(file: string): SolinkConfig {
-  let obj: SolinkConfig = loadJSON(file);
-  return obj;
+  let obj: SolinkConfig = loadJSON(file)
+  return obj
 }
 
 export interface SolinkConfig {
   priceFileDir?: string //directory where price files layout, if not provided process.cwd() used
   submitter: {
-    [key: string]: SolinkSubmitterConfig, //key: pair name (eg: btc:usd)
-    default: SolinkSubmitterConfig, //if no SubmitterConfig provided for pair, default is used
+    [key: string]: SolinkSubmitterConfig //key: pair name (eg: btc:usd)
+    default: SolinkSubmitterConfig //if no SubmitterConfig provided for pair, default is used
   }
 }
 
 interface SolinkSubmitterConfig {
-  source?: FeedSource[],
-  minValueChangeForNewRound: number,
+  source?: FeedSource[]
+  minValueChangeForNewRound: number
 }
 
 export enum FeedSource {
-  COINBASE = 'coinbase', FTX = 'ftx', BITSTAMP = 'bitstamp', FILE = 'file'
+  COINBASE = "coinbase",
+  FTX = "ftx",
+  BITSTAMP = "bitstamp",
+  BINANCE = "binance",
+  OKEX = "okex",
+  FILE = "file",
 }

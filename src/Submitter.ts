@@ -1,6 +1,6 @@
 import { PublicKey, Wallet } from "solray"
 import { conn } from "./context"
-
+import throttle from 'lodash/throttle';
 import { Aggregator, Submissions, Oracle } from "./schema"
 import BN from "bn.js"
 import { getAccounts, getMultipleAccounts, sleep } from "./utils"
@@ -64,15 +64,16 @@ export class Submitter {
   // TODO: harvest rewards if > n
 
   public async start() {
-    await this.observeAggregatorState()
+    await this.reloadStatesImpl()
 
     this.logger = log.child({
       aggregator: this.aggregator.config.description,
     })
 
-    this.startStaleChecker();
-
+    await this.observeAggregatorState()
     await this.observePriceFeed()
+
+    // this.startStaleChecker()
   }
 
   public async withdrawRewards() {
@@ -88,7 +89,12 @@ export class Submitter {
     // })
   }
 
-  private async reloadStates() {
+
+  private async reloadStates()  {
+    return throttle(this.reloadStatesImpl, 100)
+  }
+
+  private async reloadStatesImpl() {
     if (!this.aggregator) {
       this.aggregator = await Aggregator.load(this.aggregatorPK)
     }
@@ -113,8 +119,6 @@ export class Submitter {
   }
 
   private async observeAggregatorState() {
-    await this.reloadStates()
-
     conn.onAccountChange(this.aggregatorPK, async (info) => {
       this.aggregator = Aggregator.deserialize(info.data)
 
@@ -174,7 +178,7 @@ export class Submitter {
     const { round } = this.aggregator
 
     if (this.canSubmitToCurrentRound) {
-      this.logger.info("Submit to current round")
+      this.logger.info("Submit to current round", { round: round.id.toString() })
       await this.submitCurrentValue(round.id)
       return
     }
@@ -211,7 +215,7 @@ export class Submitter {
     this.logger.info("Another oracle started a new round", {
       round: this.aggregator.round.id.toString(),
     })
-    await this.trySubmit()
+    // await this.trySubmit()
   }
 
   get canSubmitToCurrentRound(): boolean {
@@ -288,17 +292,23 @@ export class Submitter {
         value,
       })
       this.reportedRound = roundID;
+      // reload accounts states to refresh current round
+      this.reloadStates()
 
+      // check if this round submission is confirmed, if not, resubmit this round
       const res = await conn.confirmTransaction(txId);
 
       if(res.value.err) {
-        this.errorNotifier.notifyCritical('Submitter',  `Failed to confirm transaction ${txId}`, res.value.err)
+        this.errorNotifier.notifyCritical('Submitter', 
+        `Failed to confirm transaction ${txId} for ${this.aggregator.config.description} in round ${roundID}`, res.value.err)
         throw res.value.err
       }
 
       this.reloadStates()
 
       this.logger.info("Submit OK", {
+        round: roundID.toString(),
+        value: value.toString(),
         withdrawable: this.oracle.withdrawable.toString(),
         rewardToken: this.aggregator.config.rewardTokenAccount.toString(),
       })
@@ -311,8 +321,12 @@ export class Submitter {
       }
     } catch (err) {
       this.logger.error("Submit error", {
+        round: roundID.toString(),
+        value: value.toString(),
         err: err.toString(),
       })
+      this.errorNotifier.notifyCritical('Submitter', 
+      `Submit error for ${this.aggregator.config.description} in round ${roundID}`, err)
     }
   }
 }

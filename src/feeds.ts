@@ -3,7 +3,7 @@ import fs from "fs"
 import path from "path"
 import EventEmitter from "events"
 import { eventsIter, median, sleep } from "./utils"
-
+import pako from 'pako'
 import { log } from "./log"
 import winston from "winston"
 import { FeedSource } from "./config"
@@ -59,22 +59,22 @@ export abstract class PriceFeed {
       })
 
       conn.addEventListener("close", () => {
-        this.log.warn(this.source, 'ws closed')
+        this.log.warn('ws closed', {source: this.source})
       })
+
       conn.addEventListener("error", (err) => {
-        this.log.warn(this.source, 'ws error', err)
-        // TODO: auto-reconnect & re-subscribe
+        this.log.warn('ws error', {source: this.source, err})
       })
 
       conn.addEventListener("message", (msg) => {
-        // this.log.debug("raw price update", { data })
+        this.log.debug("raw price update", { msg })
         try{
           const price = this.parseMessage(msg.data)
           if (price) {
             this.onMessage(price)
           }
-        }catch (err) {
-          this.log.warn(this.source, `on message err:`, msg, err)
+        } catch (err) {
+          this.log.warn(`on message err:`, {source: this.source, msg, err})
         }
       })
     })
@@ -276,6 +276,130 @@ export class CoinBase extends PriceFeed {
   }
 }
 
+export class Binance extends PriceFeed {
+  protected log = log.child({ class: Binance.name })
+  protected baseurl = "wss://stream.binance.com/ws"
+  public source = FeedSource.BINANCE;
+
+  parseMessage(data) {
+    const payload = JSON.parse(data)
+
+    // {
+    //   "e": "trade",     // Event type
+    //   "E": 123456789,   // Event time
+    //   "s": "BNBBTC",    // Symbol
+    //   "t": 12345,       // Trade ID
+    //   "p": "0.001",     // Price
+    //   "q": "100",       // Quantity
+    //   "b": 88,          // Buyer order ID
+    //   "a": 50,          // Seller order ID
+    //   "T": 123456785,   // Trade time
+    //   "m": true,        // Is the buyer the market maker?
+    //   "M": true         // Ignore
+    // }
+
+    if (payload.e != "trade") {
+      return
+    }
+    // "btcbusd" => "btc:usd"
+    // assume that the base symbol for the pair is 3 letters
+    const baseCurrency = payload.s.slice(0, 3).toLowerCase();
+    const quoteCurrency = payload.s.slice(3).toLowerCase();
+    const pair = `${baseCurrency}:${quoteCurrency == 'busd' ? 'usd' : quoteCurrency}`;
+
+
+    const price: IPrice = {
+      source: Binance.name,
+      pair,
+      decimals: 2,
+      value: Math.floor(payload.p * 100),
+    }
+
+    return price
+  }
+
+  async handleSubscribe(pair: string) {
+    // "btc:usd" => "btcbusd"
+    const [baseCurrency, quoteCurrency] = pair.split(':')
+    const targetPair = `${baseCurrency}${(quoteCurrency.toLowerCase() === 'usd' ? 'busd' : quoteCurrency)}@trade`.toLowerCase()
+    this.conn.send(
+      JSON.stringify({
+        method: "SUBSCRIBE",
+        params: [
+          targetPair,
+        ],
+        id: 1
+      })
+    )
+  }
+}
+
+export class OKEx extends PriceFeed {
+  protected log = log.child({ class: OKEx.name })
+  protected baseurl = "wss://real.okex.com:8443/ws/v3"
+  public source = FeedSource.OKEX;
+
+  parseMessage(data) {
+    console.log('data OKEx', data)
+    const message = pako.inflate(data, { raw: true, to: 'string' });
+    const payload = JSON.parse(message);
+
+    // {
+    //   "table":"spot/ticker",
+    //   "data": [
+    //     {
+    //       "last":"2819.04",
+    //       "open_24h":"2447.02",
+    //       "best_bid":"2818.82",
+    //       "high_24h":"2909.68",
+    //       "low_24h":"2380.95",
+    //       "open_utc0":"2704.92",
+    //       "open_utc8":"2610.12",
+    //       "base_volume_24h":"215048.740665",
+    //       "quote_volume_24h":"578231392.9501",
+    //       "best_ask":"2818.83",
+    //       "instrument_id":"ETH-USDT",
+    //       "timestamp":"2021-05-26T11:46:11.826Z",
+    //       "best_bid_size":"0.104506",
+    //       "best_ask_size":"21.524559",
+    //       "last_qty":"0.210619"
+    //     }
+    //   ]
+    // }
+
+    if (payload.table != "spot/ticker") {
+      return
+    }
+
+    // "BTC-USDT" => "btc:usd"
+    const [baseCurrency, quoteCurrency] = (payload.data[0].instrument_id as string).toLowerCase().split('-');
+    // assume that quote is always any form of usd/usdt/usdc so map to usd
+    const pair = `${baseCurrency}:${quoteCurrency.slice(0, 3)}`;
+    const price: IPrice = {
+      source: OKEx.name,
+      pair,
+      decimals: 2,
+      value: Math.floor(payload.data[0].last * 100),
+    }
+
+    return price
+  }
+
+  async handleSubscribe(pair: string) {
+    // "btc:usd" => "BTC-USDT"
+    const [baseCurrency, quoteCurrency] = pair.split(':')
+    const targetPair = `spot/ticker:${baseCurrency.toUpperCase()}-${(quoteCurrency.toLowerCase() === 'usd' ? 'USDT' : quoteCurrency)}`
+    this.conn.send(
+      JSON.stringify({
+        "op": "subscribe",
+        "args": [
+          targetPair,
+        ]
+      })
+    )
+  }
+}
+
 /** FilePriceFeed read price data from json file, for test or emergency feed */
 export class FilePriceFeed extends PriceFeed {
   protected log = log.child({ class: FilePriceFeed.name })
@@ -408,50 +532,4 @@ export class AggregatedFeed {
       value: median(values),
     }
   }
-}
-
-// TODO remove
-export function coinbase(pair: string): IPriceFeed {
-  // TODO: can subscribe to many pairs with one connection
-  const emitter = new EventEmitter()
-
-  const ws = new WebSocket("wss://ws-feed.pro.coinbase.com")
-
-  // "btc:usd" => "BTC-USD"
-  pair = pair.replace(":", "-").toUpperCase()
-  ws.on("open", () => {
-    log.debug(`price feed connected`, { pair })
-    ws.send(
-      JSON.stringify({
-        type: "subscribe",
-        product_ids: [pair],
-        channels: ["ticker"],
-      })
-    )
-  })
-
-  ws.on("message", async (data) => {
-    const json = JSON.parse(data)
-    log.debug("price update", json)
-
-    if (!json || !json.price) {
-      return
-    }
-    const price: IPrice = {
-      source: "coinbase",
-      pair,
-      decimals: 2,
-      value: Math.floor(json.price * 100),
-    }
-    emitter.emit(UPDATE, price)
-    // console.log("current price:", json.price)
-  })
-
-  ws.on("close", (err) => {
-    // TODO: automatic reconnect
-    log.debug(`price feed closed`, { pair, err: err.toString() })
-    process.exit(1)
-  })
-
-  return eventsIter(emitter, UPDATE)
 }

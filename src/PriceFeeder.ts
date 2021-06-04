@@ -6,7 +6,8 @@ import {
   AggregatedFeed,
   BitStamp,
   CoinBase,
-  coinbase,
+  OKEx,
+  Binance,
   FilePriceFeed,
   FTX,
   PriceFeed,
@@ -31,7 +32,14 @@ export class PriceFeeder {
     private wallet: Wallet
   ) {
     this.submitters = []
-    this.feeds = [new CoinBase(), new BitStamp(), new FTX(), new FilePriceFeed(5000, this.solinkConf.priceFileDir || process.cwd())]
+    this.feeds = [
+      new CoinBase(), 
+      new BitStamp(), 
+      new FTX(), 
+      new OKEx(), 
+      new Binance(), 
+      new FilePriceFeed(5000, this.solinkConf.priceFileDir || process.cwd())
+    ]
     this.errorNotifier = new ErrorNotifier()
   }
 
@@ -84,7 +92,7 @@ export class PriceFeeder {
         log.debug("Is not an oracle", { name })
         continue
       }
-
+      
       nFound += 1;
 
       let submitterConf = this.solinkConf.submitter[name];
@@ -100,6 +108,10 @@ export class PriceFeeder {
       const feed = new AggregatedFeed(pairFeeds, name, this.errorNotifier)
       const priceFeed = feed.medians()
       const chainlinkMode = !!process.env.CHAINLINK_NODE_URL;
+
+      if(chainlinkMode && !process.env.CHAINLINK_EI_JOBID) {
+        throw new Error('You need so set a ChainLink JobId')
+      }
 
       const submitter = new Submitter(
         this.deployInfo.programID,

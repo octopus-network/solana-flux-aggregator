@@ -5,7 +5,7 @@ WORKDIR /app
 COPY package.json yarn.lock tsconfig.json ./
 COPY ./src ./src
 COPY ./config ./config
-COPY deploy.private.json solink.private.json ./
+COPY deploy.private.json ./
 
 RUN apk add --no-cache git
 RUN yarn install
