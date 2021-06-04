@@ -15,7 +15,7 @@ config/setup.local.json
 config/setup.private.json
 deploy.local.json
 deploy.private.json
-solink.private.json
+telegram.bot.json
 yarn-error.log
 chainlink/*
 !chainlink/config

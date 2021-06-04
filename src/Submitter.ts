@@ -251,7 +251,7 @@ export class Submitter {
     }
 
     if (this.isRoundReported(roundID)) {
-      this.logger.debug("don't report to the same round twice")
+      this.logger.info("don't report to the same round twice")
       return
     }
 

@@ -20,7 +20,7 @@ export class TelegramNotifier extends BaseNotifier {
     this.bot = new TelegramBot(token, { polling: true });
 
     this.state = stateFromJSON<TelegramNotifierState>(
-      path.join(__dirname, '../../build/telegram_chat_ids.json'),
+      path.join(__dirname, '../../config/telegram.bot.json'),
       {
         chatIds: [],
       },
