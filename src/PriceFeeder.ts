@@ -99,7 +99,7 @@ export class PriceFeeder {
       }
 
       const useFeeds = (priceFeedMapping[name]) ? priceFeedMapping[name].useFeeds.map(x => this.feeds[x]) : this.feeds;
-      const feed = new AggregatedFeed(useFeeds, priceFeedMapping[name].pairNames, name)
+      const feed = new AggregatedFeed(useFeeds, priceFeedMapping[name].pairNames, aggregatorInfo.config.decimals, name)
       const priceFeed = feed.medians()
 
       const minValueChangeForNewRound = priceFeedMapping[name].minValueChangeForNewRound || 100

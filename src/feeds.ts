@@ -366,13 +366,14 @@ export class AggregatedFeed {
   public prices: IPrice[] = []
 
   // assume that the feeds are already connected
-  constructor(public feeds: PriceFeed[], public pairMappings: string[],  public pair: string) {
+  constructor(public feeds: PriceFeed[], public pairMappings: string[], public decimals: number,  public pair: string) {
     this.subscribe()
   }
 
   private subscribe() {
     const pair = this.pair
     const pairMappings = this.pairMappings;
+    const decimals = this.decimals;
 
     let j = 0
 
@@ -387,6 +388,7 @@ export class AggregatedFeed {
            return
          }
          price.timestamp = Date.now()
+         price.decimals = decimals;
          this.prices[index] = price
          this.onPriceUpdate(price)
        })
@@ -492,7 +494,7 @@ export function coinbase(pair: string): IPriceFeed {
 
 export function file(pair: string, filepath: string): IPriceFeed {
   const emitter = new EventEmitter()
-  
+
   try {
     fs.accessSync(filepath);
   } catch {

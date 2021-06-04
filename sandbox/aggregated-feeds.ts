@@ -11,7 +11,7 @@ async function main() {
   // const aggfeed2 = new AggregatedFeed(feeds, "eth:usd")
 
   for (let pair of ["btc:usd", "eth:usd"]) {
-    const aggfeed = new AggregatedFeed(feeds, pair)
+    const aggfeed = new AggregatedFeed(feeds, [], 2, pair)
 
     setImmediate(async () => {
       for await (let _ of aggfeed.updates()) {
