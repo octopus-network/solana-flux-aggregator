@@ -1,0 +1,35 @@
+{
+  "aggregators": {
+    "btc:usd": {
+      "decimals": 2,
+      "minSubmissions": 1,
+      "maxSubmissions": 13,
+      "roundTimeout": 0,
+      "restartDelay": 0,
+      "requesterRestartDelay": 0,
+      "rewardAmount": 10000,
+      "rewardTokenAccount": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1",
+      "oracles": [
+        "blockworks"
+      ]
+    },
+    "eth:usd": {
+      "decimals": 2,
+      "minSubmissions": 1,
+      "maxSubmissions": 13,
+      "roundTimeout": 0,
+      "restartDelay": 0,
+      "requesterRestartDelay": 0,
+      "rewardAmount": 10000,
+      "rewardTokenAccount": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1",
+      "oracles": [
+        "blockworks"
+      ]
+    }
+  },
+  "oracles": {
+    "blockworks": {
+      "owner": "GW6bnJN6cMNzVnoVfV9hW6vx6XxTfP8k3HA1PgWCumxV"
+    }
+  }
+}

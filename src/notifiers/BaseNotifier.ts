@@ -1,11 +1,17 @@
+export enum NotifyLevel {
+  soft = 'Soft',
+  critical = 'Critical',
+  info = 'Info'
+}
+
 export class BaseNotifier {
   constructor() {}
 
-  notifySoft(event: string, message: string) {
-    console.warn(`[${event}]: ${message}`);
-  }
-
-  notifyCritical(event: string, message: string, error: unknown) {
-    console.error(`[${event}]: ${message}`, error);
+  notify(level: NotifyLevel, event: string, message: string, meta: {[key: string]: string}, error: unknown) {
+    if(level === NotifyLevel.critical) {
+      console.error(`[${event}]: ${message}`, meta, error);
+    } else {
+      console.warn(`[${event}]: ${message}`, meta, error);
+    }
   }
 }

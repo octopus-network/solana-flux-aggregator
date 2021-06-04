@@ -1,27 +1,27 @@
-import { BaseNotifier } from "./notifiers/BaseNotifier";
+import { BaseNotifier, NotifyLevel } from "./notifiers/BaseNotifier";
 import { TelegramNotifier } from "./notifiers/TelegramNotifier";
 
 export class ErrorNotifier {
   private notifiers: BaseNotifier[] = [];
 
-  constructor() {
+  constructor(private oraclePK: string) {
     this.notifiers = [new BaseNotifier()];
     if (process.env.TELEGRAM_NOTIFIER_TOKEN) {
       this.notifiers.push(
-        new TelegramNotifier(process.env.TELEGRAM_NOTIFIER_TOKEN)
+        new TelegramNotifier(process.env.TELEGRAM_NOTIFIER_TOKEN, oraclePK)
       );
     }
   }
 
-  notifySoft(event: string, message: string) {
+  notifySoft(event: string, message: string, meta?: {[key: string]: string}, error?: unknown) {
     this.notifiers.forEach((notify) => {
-      notify.notifySoft(event, message);
+      notify.notify(NotifyLevel.soft, event, message, meta || {}, error);
     });
   }
 
-  notifyCritical(event: string, message: string, error?: unknown) {
+  notifyCritical(event: string, message: string, meta?: {[key: string]: string}, error?: unknown) {
     this.notifiers.forEach((notify) => {
-      notify.notifyCritical(event, message, error);
+      notify.notify(NotifyLevel.critical, event, message, meta || {}, error);
     });
   }
 }

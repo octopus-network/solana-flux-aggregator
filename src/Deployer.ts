@@ -3,7 +3,6 @@ import fs from "fs"
 import path from "path"
 
 import {
-  Account,
   BPFLoader,
   ProgramAccount,
   PublicKey,
@@ -21,7 +20,6 @@ import FluxAggregator from "./FluxAggregator"
 import { AggregatorConfig, IAggregatorConfig } from "./schema"
 import { jsonReplacer, jsonReviver } from "./json"
 import { log } from "./log"
-import { config } from "dotenv/types"
 
 interface OracleDeployInfo {
   pubkey: PublicKey

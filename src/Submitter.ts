@@ -3,11 +3,9 @@ import { conn } from "./context"
 import throttle from 'lodash/throttle';
 import { Aggregator, Submissions, Oracle } from "./schema"
 import BN from "bn.js"
-import { getAccounts, getMultipleAccounts, sleep } from "./utils"
+import { getAccounts, parseTransactionError, retryOperation } from "./utils"
 import FluxAggregator from "./FluxAggregator"
-
-import { createLogger, Logger } from "winston"
-
+import {  Logger } from "winston"
 import { log } from "./log"
 import { IPriceFeed } from "./feeds"
 import axios from "axios"
@@ -56,12 +54,9 @@ export class Submitter {
     private getSlot: () => number
   ) {
     this.program = new FluxAggregator(this.oracleOwnerWallet, programID)
-
     this.currentValue = new BN(0)
     this.reportedRound = new BN(0)
   }
-
-  // TODO: harvest rewards if > n
 
   public async start() {
     await this.reloadStatesImpl()
@@ -76,6 +71,7 @@ export class Submitter {
     // this.startStaleChecker()
   }
 
+  // TODO: harvest rewards if > n
   public async withdrawRewards() {
     // if (this.oracle.withdrawable.isZero()) {
     //   return
@@ -88,7 +84,6 @@ export class Submitter {
     //   }
     // })
   }
-
 
   private async reloadStates()  {
     return throttle(this.reloadStatesImpl, 100)
@@ -215,14 +210,14 @@ export class Submitter {
     this.logger.info("Another oracle started a new round", {
       round: this.aggregator.round.id.toString(),
     })
-    // await this.trySubmit()
+    await this.trySubmit()
   }
 
   get canSubmitToCurrentRound(): boolean {
     return this.roundSubmissions.canSubmit(
-      this.oraclePK,
-      this.aggregator.config
-    )
+        this.oraclePK,
+        this.aggregator.config
+      )
   }
 
   private async createChainlinkSubmitRequest(roundID: BN) {
@@ -260,9 +255,11 @@ export class Submitter {
       return
     }
 
+    // Set reporting round to avoid report twice
+    this.reportedRound = roundID
+
     if (this.cfg.chainlink) {
       // prevent async race condition where submit could be called twice on the same round
-      this.reportedRound = roundID
       return this.createChainlinkSubmitRequest(roundID);
     }
 
@@ -278,55 +275,76 @@ export class Submitter {
       value: value.toString(),
     })
 
+    let txId = '';
     try {
-      // prevent async race condition where submit could be called twice on the same round
-      const txId =  await this.program.submit({
-        accounts: {
-          aggregator: { write: this.aggregatorPK },
-          roundSubmissions: { write: this.aggregator.roundSubmissions },
-          answerSubmissions: { write: this.aggregator.answerSubmissions },
-          oracle: { write: this.oraclePK },
-          oracle_owner: this.oracleOwnerWallet.account,
-        },
-        round_id: roundID,
-        value,
-      })
-      this.reportedRound = roundID;
-      // reload accounts states to refresh current round
-      this.reloadStates()
+      return await retryOperation(async (retryCount) => {        
+        try {
+          txId =  await this.program.submit({
+            accounts: {
+              aggregator: { write: this.aggregatorPK },
+              roundSubmissions: { write: this.aggregator.roundSubmissions },
+              answerSubmissions: { write: this.aggregator.answerSubmissions },
+              oracle: { write: this.oraclePK },
+              oracle_owner: this.oracleOwnerWallet.account,
+            },
+            round_id: roundID,
+            value,
+          })
 
-      // check if this round submission is confirmed, if not, resubmit this round
-      const res = await conn.confirmTransaction(txId);
+          // check if this round submission is confirmed, if not, resubmit this round
+          const res = await conn.confirmTransaction(txId);
+          if(res.value.err) {
+            throw res.value.err;
+          }
 
-      if(res.value.err) {
-        this.errorNotifier.notifyCritical('Submitter', 
-        `Failed to confirm transaction ${txId} for ${this.aggregator.config.description} in round ${roundID}`, res.value.err)
-        throw res.value.err
-      }
+          this.reloadStates()
 
-      this.reloadStates()
+          this.logger.info("Submit OK", {
+            round: roundID.toString(),
+            value: value.toString(),
+            withdrawable: this.oracle.withdrawable.toString(),
+            rewardToken: this.aggregator.config.rewardTokenAccount.toString(),
+          })
 
-      this.logger.info("Submit OK", {
-        round: roundID.toString(),
-        value: value.toString(),
-        withdrawable: this.oracle.withdrawable.toString(),
-        rewardToken: this.aggregator.config.rewardTokenAccount.toString(),
-      })
+          this.lastSubmit.set(this.aggregatorPK.toBase58(), Date.now())
 
-      this.lastSubmit.set(this.aggregatorPK.toBase58(), Date.now())
-
-      return {
-        roundID,
-        currentValue: value,
-      }
+          return {
+            roundID,
+            currentValue: value,
+          }
+        } catch (err) {
+          this.logger.error(`Submit ${retryCount} error`, {
+            round: roundID.toString(),
+            value: value.toString(),
+            err: err.toString(),
+          })
+          // Check error and see if need to retry or we can ignore this error
+          switch (parseTransactionError(err)) {
+            case '6':
+              this.errorNotifier.notifySoft('Submitter', `Each oracle may only submit once per round`, {
+                round: roundID.toString(),
+                aggregator: this.aggregator.config.description,
+                oracle: this.oraclePK.toString(),
+                txId,
+              }, err);
+              break;
+            default:
+              throw err;
+          }
+        }
+      }, 15000, 4)
     } catch (err) {
       this.logger.error("Submit error", {
         round: roundID.toString(),
         value: value.toString(),
         err: err.toString(),
       })
-      this.errorNotifier.notifyCritical('Submitter', 
-      `Submit error for ${this.aggregator.config.description} in round ${roundID}`, err)
+      this.errorNotifier.notifyCritical('Submitter', `Oracle fail to submit a round`, {
+        round: roundID.toString(),
+        aggregator: this.aggregator.config.description,
+        oracle: this.oraclePK.toString(),
+        txId,
+      }, err);
     }
   }
 }

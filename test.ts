@@ -4,7 +4,6 @@ dotenv.config()
 
 import { AppContext, conn, network } from "./src/context"
 import { AggregatorDeployFile, Deployer } from "./src/Deployer"
-import { coinbase } from "./src/feeds"
 import { jsonReplacer, jsonReviver, loadJSONFile } from "./src/json"
 import { log } from "./src/log"
 import { PriceFeeder } from "./src/PriceFeeder"

@@ -174,3 +174,23 @@ const getMultipleAccountsCore = async (
 
   throw new Error("Unable to get account")
 }
+
+export const retryOperation = (operation: (retry: number) => Promise<unknown>, delay: number, retries: number) => new Promise((resolve, reject) => {
+  return operation(retries)
+    .then(resolve)
+    .catch((reason) => {
+      if (retries > 0) {
+        return sleep(delay)
+          .then(retryOperation.bind(retries - 1, operation, delay, retries - 1))
+          .then(resolve)
+          .catch(reject);
+      }
+      return reject(reason);
+    });
+});
+
+export const parseTransactionError = (error: unknown) => {
+  const errorMsg = `${error}`;
+  const errorCode = errorMsg.split('custom program error: 0x')
+  return errorCode.length > 1 ? errorCode.pop() : ''
+}

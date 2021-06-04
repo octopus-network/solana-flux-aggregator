@@ -1,7 +1,7 @@
 import TelegramBot from "node-telegram-bot-api";
 import { jsonReplacer, jsonReviver } from "../json";
 import { stateFromJSON } from "../state";
-import { BaseNotifier } from "./BaseNotifier";
+import { BaseNotifier, NotifyLevel } from "./BaseNotifier";
 import path from "path"
 
 interface TelegramNotifierState {
@@ -15,7 +15,7 @@ export class TelegramNotifier extends BaseNotifier {
   };
 
 
-  constructor(token: string) {
+  constructor(token: string, private oraclePK: string) {
     super();
     this.bot = new TelegramBot(token, { polling: true });
 
@@ -32,26 +32,50 @@ export class TelegramNotifier extends BaseNotifier {
 
     this.bot.on("message", (msg) => {
       const chatId = msg.chat.id;
-      if(!this.state.chatIds.includes(chatId)) {
-        this.state.chatIds.push(chatId);
+      const msgText = msg.text;
+      console.log('msg.text', msg.text);
+      
+      switch (msgText) {
+        case '/start':
+        case '/help':
+            this.bot.sendMessage(
+              chatId,
+              ` Commands:
+/sub : subscribe to all oracles 
+/unsub : unsubscribe from all oracles notifications
+/help : show this message
+/list : list my oracles subscriptions
+/whoisthere : list all active oracles
+      `
+            );
+            break;
+        case '/whoisthere':
+          this.bot.sendMessage(
+            chatId,
+            `
+      Oracle: ${oraclePK}
+            `);
+        break;
+        case '/sub':
+          if(!this.state.chatIds.includes(chatId)) {
+            this.state.chatIds.push(chatId);
+          }
+          break;
+        case '/unsub':
+          this.state.chatIds = this.state.chatIds.filter(i => i!==chatId);
+          break;
+        default:
+          this.bot.sendMessage(chatId, "Command invalid");
+          break;
       }
-      this.bot.sendMessage(chatId, "All good! You will be notified for any Oracle's accident");
-    });
-
-  }
-
-  notifySoft(event: string, message: string) {
-    const data = `[${event}]: ${message}`;
-
-    this.state.chatIds.forEach((chatId) => {
-      this.bot.sendMessage(chatId, data);
     });
   }
 
-  notifyCritical(event: string, message: string, error: unknown) {
+  notifyCritical(level: NotifyLevel, event: string, message: string, meta: {[key: string]: string}, error: unknown) {
     this.sendMessage(`
-*${event}*
+*${level} error in ${event}*
 ${message}
+${Object.entries(meta).map(([key, value]) => `- ${key}: ${value}`).join('\n')}
 Details: ${error || 'none'}
     `)
   }

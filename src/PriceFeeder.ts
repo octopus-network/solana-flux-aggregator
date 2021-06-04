@@ -1,4 +1,3 @@
-import fs from "fs"
 import { Wallet } from "solray"
 import { AggregatorDeployFile } from "./Deployer"
 import BN from "bn.js"
@@ -24,7 +23,6 @@ import { ErrorNotifier } from "./ErrorNotifier"
 export class PriceFeeder {
   private feeds: PriceFeed[]
   private submitters: Submitter[];
-  private errorNotifier: ErrorNotifier;
 
   constructor(
     private deployInfo: AggregatorDeployFile,
@@ -40,7 +38,6 @@ export class PriceFeeder {
       new Binance(), 
       new FilePriceFeed(5000, this.solinkConf.priceFileDir || process.cwd())
     ]
-    this.errorNotifier = new ErrorNotifier()
   }
 
   async start() {
@@ -63,7 +60,6 @@ export class PriceFeeder {
   startChainlinkSubmitRequest(aggregatorPK: PublicKey, roundID: BN) {
     const submitter = this.submitters.find(i=> i.aggregatorPK.equals(aggregatorPK))
     if(!submitter) {
-      this.errorNotifier.notifyCritical('PriceFeeder', `Submitter not found for ${aggregatorPK}`)
       throw new Error("Submitter not found for given aggregator")
     }
     return submitter.submitCurrentValueImpl(roundID)
@@ -78,6 +74,7 @@ export class PriceFeeder {
     let nFound = 0;
 
     const defaultSubmitterConf = this.solinkConf.submitter.default;
+    const errorNotifier = new ErrorNotifier(this.wallet.pubkey.toString())
 
     for (let [name, aggregatorInfo] of Object.entries(
       this.deployInfo.aggregators
@@ -105,7 +102,7 @@ export class PriceFeeder {
         continue
       }
       log.info(`feeds for ${name}: ${pairFeeds.map(f => f.source).join(',')}`)
-      const feed = new AggregatedFeed(pairFeeds, name, this.errorNotifier)
+      const feed = new AggregatedFeed(pairFeeds, name, errorNotifier)
       const priceFeed = feed.medians()
       const chainlinkMode = !!process.env.CHAINLINK_NODE_URL;
 
@@ -118,7 +115,7 @@ export class PriceFeeder {
         aggregatorInfo.pubkey,
         oracleInfo.pubkey,
         this.wallet,
-        this.errorNotifier,
+        errorNotifier,
         priceFeed,
         {
           minValueChangeForNewRound: submitterConf.minValueChangeForNewRound || 100,
