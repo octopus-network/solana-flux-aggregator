@@ -44,13 +44,13 @@ const priceFeedMapping = {
     pairNames: ['ETH-USD', 'live_trades_ethusd', 'ETH/USD', 'ETHBUSD', 'ETH-USDC']
   },
   'sol:usd': {
-    minValueChangeForNewRound: 4,
+    minValueChangeForNewRound: 400,
     useFeeds: [2,3,4],
     pairNames: ['SOL/USD', 'SOLBUSD', 'SOL-USDT']
     // uses USDT for OKEx
   },
   'srm:usd': {
-    minValueChangeForNewRound: 1,
+    minValueChangeForNewRound: 50,
     useFeeds: [2,3,4],
     pairNames: ['SRM/USD', 'SRMBUSD', 'SRM-USDT']
     // uses USDT for OKEx

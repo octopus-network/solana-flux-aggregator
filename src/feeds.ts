@@ -25,7 +25,6 @@ export interface IPriceFeed {
 
 export abstract class PriceFeed {
   public emitter = new EventEmitter()
-
   protected conn!: ReconnectingWebSocket
   protected connected!: Promise<void>
 
@@ -91,6 +90,10 @@ export abstract class PriceFeed {
     this.emitter.emit(UPDATE, price)
   }
 
+  /**
+   * Every implementation must return IPrice with the correct amount of decimal transformation done on the incoming price
+   * @param data
+   */
   abstract parseMessage(data: any): IPrice | undefined
   // abstract parseMessage(pair: string)
   // abstract parseMessage(pair: string)
@@ -131,8 +134,8 @@ export class CoinBase extends PriceFeed {
     const price: IPrice = {
       source: CoinBase.name,
       pair,
-      decimals: 2,
-      value: Math.floor(payload.price * 100),
+      decimals: 0,
+      value: payload.price,
     }
 
     return price
@@ -182,8 +185,8 @@ export class BitStamp extends PriceFeed {
     const price: IPrice = {
       source: BitStamp.name,
       pair,
-      decimals: 2,
-      value: Math.floor(payload.data.price * 100),
+      decimals: 0,
+      value: payload.data.price,
     }
 
     return price
@@ -231,8 +234,8 @@ export class FTX extends PriceFeed {
     const price: IPrice = {
       source: FTX.name,
       pair,
-      decimals: 2,
-      value: Math.floor(payload.data.last * 100),
+      decimals: 0,
+      value: payload.data.last,
     }
 
     return price
@@ -276,12 +279,11 @@ export class Binance extends PriceFeed {
 
     const pair = payload.s;
 
-
     const price: IPrice = {
       source: Binance.name,
       pair,
-      decimals: 2,
-      value: Math.floor(payload.p * 100),
+      decimals: 0,
+      value: payload.p,
     }
 
     return price
@@ -341,8 +343,8 @@ export class OKEx extends PriceFeed {
     const price: IPrice = {
       source: OKEx.name,
       pair,
-      decimals: 2,
-      value: Math.floor(payload.data[0].last * 100),
+      decimals: 0,
+      value: payload.data[0].last,
     }
 
     return price
@@ -378,20 +380,21 @@ export class AggregatedFeed {
     let j = 0
 
     for (let i = 0; i < this.feeds.length; i++) {
-       const feed = this.feeds[i];
-       feed.subscribe(pairMappings[i]);
-       const index = j;
-       j++;
-       // store the price updates in the ith position of `this.prices`
-       feed.emitter.on(UPDATE, (price: IPrice) => {
-         if (price.pair != pairMappings[i]) {
-           return
-         }
-         price.timestamp = Date.now()
-         price.decimals = decimals;
-         this.prices[index] = price
-         this.onPriceUpdate(price)
-       })
+      const feed = this.feeds[i];
+      feed.subscribe(pairMappings[i]);
+      const index = j;
+      j++;
+      // store the price updates in the ith position of `this.prices`
+      feed.emitter.on(UPDATE, (price: IPrice) => {
+        if (price.pair != pairMappings[i]) {
+          return
+        }
+        price.timestamp = Date.now()
+        price.value = Math.floor(Math.pow(10, decimals - price.decimals) * price.value)
+        price.decimals = decimals;
+        this.prices[index] = price
+        this.onPriceUpdate(price)
+      })
     }
   }
 
@@ -421,8 +424,8 @@ export class AggregatedFeed {
   // filter out prices that are older than 10 seconds
   recentPrices() : IPrice[] {
     return this.prices.filter((p) => p &&
-                                     p.timestamp &&
-                                    (p.timestamp - Date.now()) < 10*SECONDS)
+      p.timestamp &&
+      (p.timestamp - Date.now()) < 10*SECONDS)
   }
 
   get median(): IPrice | undefined {
