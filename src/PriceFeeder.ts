@@ -16,22 +16,44 @@ import { Submitter, SubmitterConfig } from "./Submitter"
 import { log } from "./log"
 import { conn } from "./context"
 
+// 0 => Coinbase, BTC-USD
+// 1 => BitStamp, live_trades_btcusd
+// 2 => FTX, BTC/USD
+// 3 => Binance, BTCBUSD
+// 4 => OKEx, BTC-USDC
+
 const priceFeedMapping = {
+  'btc:usdt': {
+    minValueChangeForNewRound: 5000,
+    useFeeds: [0,2,3,4],
+    pairNames: ['BTC-USDT', 'BTC/USDT', 'BTCUSDT', 'BTC-USDT']
+  },
   'btc:usd': {
     minValueChangeForNewRound: 5000,
-    useFeeds: [0,1,2,3]
+    useFeeds: [0,1,2,3,4],
+    pairNames: ['BTC-USD', 'live_trades_btcusd', 'BTC/USD', 'BTCBUSD', 'BTC-USDC']
+  },
+  'eth:usdt': {
+    minValueChangeForNewRound: 150,
+    useFeeds: [0,2,3,4],
+    pairNames: ['ETH-USDT', 'ETH/USDT', 'ETHUSDT', 'ETH-USDT']
   },
   'eth:usd': {
     minValueChangeForNewRound: 150,
-    useFeeds: [0,1,2,3]
+    useFeeds: [0,1,2,3,4],
+    pairNames: ['ETH-USD', 'live_trades_ethusd', 'ETH/USD', 'ETHBUSD', 'ETH-USDC']
   },
   'sol:usd': {
     minValueChangeForNewRound: 4,
-    useFeeds: [2,3,4]
+    useFeeds: [2,3,4],
+    pairNames: ['SOL/USD', 'SOLBUSD', 'SOL-USDT']
+    // uses USDT for OKEx
   },
   'srm:usd': {
     minValueChangeForNewRound: 1,
-    useFeeds: [2,3,4]
+    useFeeds: [2,3,4],
+    pairNames: ['SRM/USD', 'SRMBUSD', 'SRM-USDT']
+    // uses USDT for OKEx
   },
 }
 
@@ -77,7 +99,7 @@ export class PriceFeeder {
       }
 
       const useFeeds = (priceFeedMapping[name]) ? priceFeedMapping[name].useFeeds.map(x => this.feeds[x]) : this.feeds;
-      const feed = new AggregatedFeed(useFeeds, name)
+      const feed = new AggregatedFeed(useFeeds, priceFeedMapping[name].pairNames, aggregatorInfo.config.decimals, name)
       const priceFeed = feed.medians()
 
       const minValueChangeForNewRound = priceFeedMapping[name].minValueChangeForNewRound || 100

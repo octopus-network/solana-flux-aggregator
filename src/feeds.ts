@@ -97,6 +97,58 @@ export abstract class PriceFeed {
   abstract handleSubscribe(pair: string): Promise<void>
 }
 
+export class CoinBase extends PriceFeed {
+  protected log = log.child({ class: CoinBase.name })
+  protected baseurl = "wss://ws-feed.pro.coinbase.com"
+
+  parseMessage(data) {
+    const payload = JSON.parse(data)
+
+    // {
+    //   "type": "ticker",
+    //   "sequence": 22772426228,
+    //   "product_id": "BTC-USD",
+    //   "price": "53784.59",
+    //   "open_24h": "58795.78",
+    //   "volume_24h": "35749.39437842",
+    //   "low_24h": "53221",
+    //   "high_24h": "58799.66",
+    //   "volume_30d": "733685.27275521",
+    //   "best_bid": "53784.58",
+    //   "best_ask": "53784.59",
+    //   "side": "buy",
+    //   "time": "2021-03-16T06:26:06.791440Z",
+    //   "trade_id": 145698988,
+    //   "last_size": "0.00474597"
+    // }
+
+    if (payload.type != "ticker") {
+      return
+    }
+
+    const pair = payload.product_id as string
+
+    const price: IPrice = {
+      source: CoinBase.name,
+      pair,
+      decimals: 2,
+      value: Math.floor(payload.price * 100),
+    }
+
+    return price
+  }
+
+  async handleSubscribe(pair: string) {
+    this.conn.send(
+      JSON.stringify({
+        type: "subscribe",
+        product_ids: [pair],
+        channels: ["ticker"],
+      })
+    )
+  }
+}
+
 export class BitStamp extends PriceFeed {
   protected log = log.child({ class: BitStamp.name })
   protected baseurl = "wss://ws.bitstamp.net"
@@ -125,10 +177,7 @@ export class BitStamp extends PriceFeed {
       return
     }
 
-    const channel = (payload.channel as string).replace("live_trades_", "")
-
-    // assume that the base symbol for the pair is 3 letters
-    const pair = channel.slice(0, 3) + ":" + channel.slice(3)
+    const pair = payload.channel as string
 
     const price: IPrice = {
       source: BitStamp.name,
@@ -141,14 +190,11 @@ export class BitStamp extends PriceFeed {
   }
 
   async handleSubscribe(pair: string) {
-    // "btc:usd" => "BTCUSD"
-    const targetPair = pair.replace(":", "").toUpperCase()
-
     this.conn.send(
       JSON.stringify({
         event: "bts:subscribe",
         data: {
-          channel: `live_trades_${targetPair.replace("/", "").toLowerCase()}`,
+          channel: pair,
         },
       })
     )
@@ -180,7 +226,7 @@ export class FTX extends PriceFeed {
       return
     }
 
-    const pair = (payload.market as string).replace("/", ":").toLowerCase()
+    const pair = payload.market as string
 
     const price: IPrice = {
       source: FTX.name,
@@ -193,70 +239,11 @@ export class FTX extends PriceFeed {
   }
 
   async handleSubscribe(pair: string) {
-    // "btc:usd" => "BTC-USD"
-    const targetPair = pair.replace(":", "/").toUpperCase()
-
     this.conn.send(
       JSON.stringify({
         op: "subscribe",
         channel: "ticker",
-        market: targetPair,
-      })
-    )
-  }
-}
-
-export class CoinBase extends PriceFeed {
-  protected log = log.child({ class: CoinBase.name })
-  protected baseurl = "wss://ws-feed.pro.coinbase.com"
-
-  parseMessage(data) {
-    const payload = JSON.parse(data)
-
-    // {
-    //   "type": "ticker",
-    //   "sequence": 22772426228,
-    //   "product_id": "BTC-USD",
-    //   "price": "53784.59",
-    //   "open_24h": "58795.78",
-    //   "volume_24h": "35749.39437842",
-    //   "low_24h": "53221",
-    //   "high_24h": "58799.66",
-    //   "volume_30d": "733685.27275521",
-    //   "best_bid": "53784.58",
-    //   "best_ask": "53784.59",
-    //   "side": "buy",
-    //   "time": "2021-03-16T06:26:06.791440Z",
-    //   "trade_id": 145698988,
-    //   "last_size": "0.00474597"
-    // }
-
-    if (payload.type != "ticker") {
-      return
-    }
-
-    // "BTC-USD" => "btc:usd"
-    const pair = (payload.product_id as string).replace("-", ":").toLowerCase()
-
-    const price: IPrice = {
-      source: CoinBase.name,
-      pair,
-      decimals: 2,
-      value: Math.floor(payload.price * 100),
-    }
-
-    return price
-  }
-
-  async handleSubscribe(pair: string) {
-    // "btc:usd" => "BTC-USD"
-    const targetPair = pair.replace(":", "-").toUpperCase()
-
-    this.conn.send(
-      JSON.stringify({
-        type: "subscribe",
-        product_ids: [targetPair],
-        channels: ["ticker"],
+        market: pair,
       })
     )
   }
@@ -286,11 +273,8 @@ export class Binance extends PriceFeed {
     if (payload.e != "trade") {
       return
     }
-    // "btcbusd" => "btc:usd"
-    // assume that the base symbol for the pair is 3 letters
-    const baseCurrency = payload.s.slice(0, 3).toLowerCase();
-    const quoteCurrency = payload.s.slice(3).toLowerCase();
-    const pair = `${baseCurrency}:${quoteCurrency == 'busd' ? 'usd' : quoteCurrency}`;
+
+    const pair = payload.s;
 
 
     const price: IPrice = {
@@ -304,9 +288,7 @@ export class Binance extends PriceFeed {
   }
 
   async handleSubscribe(pair: string) {
-    // "btc:usd" => "btcbusd"
-    const [baseCurrency, quoteCurrency] = pair.split(':')
-    const targetPair = `${baseCurrency}${(quoteCurrency.toLowerCase() === 'usd' ? 'busd' : quoteCurrency)}@trade`.toLowerCase()
+    const targetPair = `${pair}@trade`.toLowerCase()
     this.conn.send(
       JSON.stringify({
         method: "SUBSCRIBE",
@@ -354,10 +336,8 @@ export class OKEx extends PriceFeed {
       return
     }
 
-    // "BTC-USDT" => "btc:usd"
-    const [baseCurrency, quoteCurrency] = (payload.data[0].instrument_id as string).toLowerCase().split('-');
-    // assume that quote is always any form of usd/usdt/usdc so map to usd
-    const pair = `${baseCurrency}:${quoteCurrency.slice(0, 3)}`;
+    const pair = payload.data[0].instrument_id as string;
+
     const price: IPrice = {
       source: OKEx.name,
       pair,
@@ -369,9 +349,7 @@ export class OKEx extends PriceFeed {
   }
 
   async handleSubscribe(pair: string) {
-    // "btc:usd" => "BTC-USDT"
-    const [baseCurrency, quoteCurrency] = pair.split(':')
-    const targetPair = `spot/ticker:${baseCurrency.toUpperCase()}-${(quoteCurrency.toLowerCase() === 'usd' ? 'USDT' : quoteCurrency)}`
+    const targetPair = `spot/ticker:${pair}`
     this.conn.send(
       JSON.stringify({
         "op": "subscribe",
@@ -388,31 +366,32 @@ export class AggregatedFeed {
   public prices: IPrice[] = []
 
   // assume that the feeds are already connected
-  constructor(public feeds: PriceFeed[], public pair: string) {
+  constructor(public feeds: PriceFeed[], public pairMappings: string[], public decimals: number,  public pair: string) {
     this.subscribe()
   }
 
   private subscribe() {
     const pair = this.pair
+    const pairMappings = this.pairMappings;
+    const decimals = this.decimals;
 
-    let i = 0
-    for (let feed of this.feeds) {
-      feed.subscribe(pair)
+    let j = 0
 
-      const index = i
-      i++
-
-      // store the price updates in the ith position of `this.prices`
-      feed.emitter.on(UPDATE, (price: IPrice) => {
-        if (price.pair != pair) {
-          return
-        }
-
-        price.timestamp = Date.now()
-        this.prices[index] = price
-
-        this.onPriceUpdate(price)
-      })
+    for (let i = 0; i < this.feeds.length; i++) {
+       const feed = this.feeds[i];
+       feed.subscribe(pairMappings[i]);
+       const index = j;
+       j++;
+       // store the price updates in the ith position of `this.prices`
+       feed.emitter.on(UPDATE, (price: IPrice) => {
+         if (price.pair != pairMappings[i]) {
+           return
+         }
+         price.timestamp = Date.now()
+         price.decimals = decimals;
+         this.prices[index] = price
+         this.onPriceUpdate(price)
+       })
     }
   }
 
@@ -515,7 +494,7 @@ export function coinbase(pair: string): IPriceFeed {
 
 export function file(pair: string, filepath: string): IPriceFeed {
   const emitter = new EventEmitter()
-  
+
   try {
     fs.accessSync(filepath);
   } catch {

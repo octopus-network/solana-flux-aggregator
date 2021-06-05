@@ -22,7 +22,7 @@
         "blockworks"
       ]
     },
-    "sol:usd": {
+    "btc:usdt": {
       "decimals": 2,
       "minSubmissions": 1,
       "maxSubmissions": 13,
@@ -33,8 +33,30 @@
         "blockworks"
       ]
     },
-    "srm:usd": {
+    "eth:usdt": {
       "decimals": 2,
+      "minSubmissions": 1,
+      "maxSubmissions": 13,
+      "restartDelay": 0,
+      "rewardAmount": 10000,
+      "rewardTokenAccount": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1",
+      "oracles": [
+        "blockworks"
+      ]
+    },
+    "sol:usd": {
+      "decimals": 4,
+      "minSubmissions": 1,
+      "maxSubmissions": 13,
+      "restartDelay": 0,
+      "rewardAmount": 10000,
+      "rewardTokenAccount": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1",
+      "oracles": [
+        "blockworks"
+      ]
+    },
+    "srm:usd": {
+      "decimals": 4,
       "minSubmissions": 1,
       "maxSubmissions": 13,
       "restartDelay": 0,
