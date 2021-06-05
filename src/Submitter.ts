@@ -132,7 +132,12 @@ export class Submitter {
 
       // should reload the state before trying to submit
       await this.reloadStates()
-      await this.trySubmit()
+      try {
+        await this.trySubmit()
+      } catch (e) {
+        console.error(e)
+        process.exit(1)
+      }
     }
   }
 
