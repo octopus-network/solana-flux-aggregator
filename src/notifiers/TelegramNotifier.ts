@@ -41,15 +41,21 @@ export class TelegramNotifier extends BaseNotifier {
             this.bot.sendMessage(
               chatId,
               ` Commands:
-/sub : subscribe to all oracles 
-/unsub : unsubscribe from all oracles notifications
 /help : show this message
-/list : list my oracles subscriptions
-/whoisthere : list all active oracles
+/sub : subscribe to oracles notifications
+/unsub : unsubscribe from this oracle notifications
+/info : get oracle info
       `
             );
             break;
-        case '/whoisthere':
+        case '/info':
+          this.bot.sendMessage(
+            chatId,
+            `
+      Oracle: ${oraclePK}
+            `);
+        break;
+        case '/state':
           this.bot.sendMessage(
             chatId,
             `
@@ -59,10 +65,14 @@ export class TelegramNotifier extends BaseNotifier {
         case '/sub':
           if(!this.state.chatIds.includes(chatId)) {
             this.state.chatIds.push(chatId);
+            this.bot.sendMessage(chatId, "Successfully subscribed to this oracle");
+          } else {
+            this.bot.sendMessage(chatId, "You already subscribed");
           }
           break;
         case '/unsub':
           this.state.chatIds = this.state.chatIds.filter(i => i!==chatId);
+          this.bot.sendMessage(chatId, "Successfully unsubscribed to this oracle");
           break;
         default:
           this.bot.sendMessage(chatId, "Command invalid");

@@ -495,7 +495,10 @@ export class AggregatedFeed {
       const now = Date.now()
       for (const [key, value] of this.lastUpdate.entries()) {
         if(now - value > this.lastUpdateTimeout) {
-          this.errorNotifier?.notifyCritical('AggregatedFeed', `No price data since ${new Date(value).toISOString()} for ${key}`)
+          this.errorNotifier?.notifyCritical('AggregatedFeed', `No price data from websocket`, {
+            feed: key,
+            lastUpdate: new Date(value).toISOString()
+          })
         }
       }
     }, this.lastUpdateTimeout / 2)

@@ -107,6 +107,8 @@ export class Submitter {
     this.oracle = Oracle.deserialize(oracle.data)
     this.answerSubmissions = Submissions.deserialize(answerSubmissions.data)
     this.roundSubmissions = Submissions.deserialize(roundSubmissions.data)
+
+    this.errorNotifier.setMetaData(this.oracle);
   }
 
   private isRoundReported(roundID: BN): boolean {
@@ -146,7 +148,7 @@ export class Submitter {
         })
         continue
       }
-
+      
       // should reload the state before trying to submit
       await this.reloadStates()
       await this.trySubmit()
@@ -173,7 +175,6 @@ export class Submitter {
     const { round } = this.aggregator
 
     if (this.canSubmitToCurrentRound) {
-      this.logger.info("Submit to current round", { round: round.id.toString() })
       await this.submitCurrentValue(round.id)
       return
     }
@@ -251,16 +252,18 @@ export class Submitter {
     }
 
     if (this.isRoundReported(roundID)) {
-      this.logger.info("don't report to the same round twice")
+      this.logger.debug("don't report to the same round twice")
       return
     }
 
     // Set reporting round to avoid report twice
     this.reportedRound = roundID
 
+    this.logger.info("Submit to current round", { round: roundID.toString() })
+
     if (this.cfg.chainlink) {
       // prevent async race condition where submit could be called twice on the same round
-      return this.createChainlinkSubmitRequest(roundID);
+      return this.createChainlinkSubmitRequest(roundID)
     }
 
     return this.submitCurrentValueImpl(roundID)
@@ -270,7 +273,7 @@ export class Submitter {
 
     const value = this.currentValue
 
-    this.logger.info("Submit value", {
+    this.logger.info("Submitting value", {
       round: roundID.toString(),
       value: value.toString(),
     })
@@ -304,6 +307,7 @@ export class Submitter {
             value: value.toString(),
             withdrawable: this.oracle.withdrawable.toString(),
             rewardToken: this.aggregator.config.rewardTokenAccount.toString(),
+            retryCount,
           })
 
           this.lastSubmit.set(this.aggregatorPK.toBase58(), Date.now())
@@ -313,10 +317,11 @@ export class Submitter {
             currentValue: value,
           }
         } catch (err) {
-          this.logger.error(`Submit ${retryCount} error`, {
+          this.logger.error(`Submit error`, {
             round: roundID.toString(),
             value: value.toString(),
             err: err.toString(),
+            retryCount
           })
           // Check error and see if need to retry or we can ignore this error
           switch (parseTransactionError(err)) {

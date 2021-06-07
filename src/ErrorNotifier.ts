@@ -3,6 +3,7 @@ import { TelegramNotifier } from "./notifiers/TelegramNotifier";
 
 export class ErrorNotifier {
   private notifiers: BaseNotifier[] = [];
+  private metaData: {[key: string]: any} = {};
 
   constructor(private oraclePK: string) {
     this.notifiers = [new BaseNotifier()];
@@ -24,4 +25,9 @@ export class ErrorNotifier {
       notify.notify(NotifyLevel.critical, event, message, meta || {}, error);
     });
   }
+
+  setMetaData(data: any) {
+    this.metaData = data;
+  }
+
 }

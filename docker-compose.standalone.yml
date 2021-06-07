@@ -1,0 +1,8 @@
+version: "3"
+
+services:
+    build: .
+    restart: always
+    command: yarn solink oracle
+    env_file:
+      - .env

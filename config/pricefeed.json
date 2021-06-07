@@ -12,7 +12,7 @@
     },
     "sol:usd": {
       "source": ["ftx"],
-      "minValueChangeForNewRound": 10
+      "minValueChangeForNewRound": 100
     },
     "usd:usd": {
       "source": ["file"],
