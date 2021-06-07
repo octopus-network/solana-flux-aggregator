@@ -24,22 +24,22 @@ import { conn } from "./context"
 
 const priceFeedMapping = {
   'btc:usdt': {
-    minValueChangeForNewRound: 5000,
+    minValueChangeForNewRound: 3500,
     useFeeds: [0,2,3,4],
     pairNames: ['BTC-USDT', 'BTC/USDT', 'BTCUSDT', 'BTC-USDT']
   },
   'btc:usd': {
-    minValueChangeForNewRound: 5000,
+    minValueChangeForNewRound: 3500,
     useFeeds: [0,1,2,3,4],
     pairNames: ['BTC-USD', 'live_trades_btcusd', 'BTC/USD', 'BTCBUSD', 'BTC-USDC']
   },
   'eth:usdt': {
-    minValueChangeForNewRound: 150,
+    minValueChangeForNewRound: 250,
     useFeeds: [0,2,3,4],
     pairNames: ['ETH-USDT', 'ETH/USDT', 'ETHUSDT', 'ETH-USDT']
   },
   'eth:usd': {
-    minValueChangeForNewRound: 150,
+    minValueChangeForNewRound: 250,
     useFeeds: [0,1,2,3,4],
     pairNames: ['ETH-USD', 'live_trades_ethusd', 'ETH/USD', 'ETHBUSD', 'ETH-USDC']
   },
