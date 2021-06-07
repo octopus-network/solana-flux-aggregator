@@ -116,7 +116,7 @@ impl<'a> AddOracleContext<'a> {
         let aggregator = Aggregator::load_initialized(self.aggregator)?;
         msg!("loaded aggregator");
         aggregator.authorize(self.aggregator_owner)?;
-
+        
         let mut oracle = Oracle::init_uninitialized(self.oracle)?;
         msg!("loaded oracle");
         oracle.is_initialized = true;
@@ -267,6 +267,7 @@ struct SubmitContext<'a> {
 
 impl<'a> SubmitContext<'a> {
     fn process(&self) -> ProgramResult {
+        let now = self.clock.slot;
         let mut aggregator = Aggregator::load_initialized(self.aggregator)?;
         let mut oracle = Oracle::load_initialized(self.oracle)?;
         oracle.authorize(self.oracle_owner)?;
@@ -293,6 +294,7 @@ impl<'a> SubmitContext<'a> {
             .withdrawable
             .checked_add(aggregator.config.reward_amount)
             .ok_or(Error::RewardsOverflow)?;
+        oracle.updated_at = now;
 
         aggregator.save(self.aggregator)?;
         oracle.save(self.oracle)?;

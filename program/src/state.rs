@@ -218,10 +218,10 @@ pub struct Oracle {
     pub is_initialized: bool,
     /// withdrawable
     pub withdrawable: u64,
-
     /// oracle cannot start a new round until after `restart_relay` rounds
     pub allow_start_round: u64,
-
+    /// last submit time
+    pub updated_at: u64,
     /// aggregator
     pub aggregator: PublicKey,
     /// owner
@@ -311,6 +311,11 @@ mod tests {
         println!(
             "Requester len: {}",
             borsh_utils::get_packed_len::<Requester>()
+        );
+
+        println!(
+            "Oracle len: {}",
+            borsh_utils::get_packed_len::<Oracle>()
         );
 
         println!(

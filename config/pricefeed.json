@@ -3,16 +3,16 @@
   "priceFileDir": "./config/prices",
   "submitter": {
     "btc:usd": {
-      "source": ["coinbase", "ftx"],
+      "source": ["coinbase", "ftx", "okex"],
       "minValueChangeForNewRound": 5000
     },
     "eth:usd": {
-      "source": ["coinbase", "ftx"],
-      "minValueChangeForNewRound": 1000
+      "source": ["coinbase", "ftx", "binance"],
+      "minValueChangeForNewRound": 100
     },
     "sol:usd": {
-      "source": ["ftx"],
-      "minValueChangeForNewRound": 100
+      "source": ["ftx", "binance"],
+      "minValueChangeForNewRound": 10
     },
     "usd:usd": {
       "source": ["file"],

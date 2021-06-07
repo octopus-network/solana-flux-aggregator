@@ -9,9 +9,9 @@ export class BaseNotifier {
 
   notify(level: NotifyLevel, event: string, message: string, meta: {[key: string]: string}, error: unknown) {
     if(level === NotifyLevel.critical) {
-      console.error(`[${event}]: ${message}`, meta, error);
+      console.error(`[${event}]: ${message}`, meta, error)
     } else {
-      console.warn(`[${event}]: ${message}`, meta, error);
+      console.warn(`[${event}]: ${message}`, meta, error)
     }
   }
 }

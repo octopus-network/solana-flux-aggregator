@@ -1,7 +1,9 @@
 version: "3"
 
 services:
-    build: .
+  flux-standalone:
+    build: 
+      context: .
     restart: always
     command: yarn solink oracle
     env_file:

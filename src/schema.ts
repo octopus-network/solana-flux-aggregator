@@ -380,21 +380,25 @@ function boolToInt(t: boolean) {
 }
 
 export class Oracle extends Serialization {
-  public static size = 113
-  public allowStartRound!: BN
+  public static size = 121
+  public description!: string
+  public isInitialized!: boolean
   public withdrawable!: BN
+  public allowStartRound!: BN
+  public updatedAt!: BN
 
   public static schema = {
-    kind: "struct",
+    kind: 'struct',
     fields: [
-      ["description", [32], str32Mapper],
-      ["isInitialized", "u8", boolMapper],
-      ["withdrawable", "u64"],
-      ["allowStartRound", "u64"],
-      ["aggregator", [32], pubkeyMapper],
-      ["owner", [32], pubkeyMapper],
-    ],
-  }
+      ['description', [32], str32Mapper],
+      ['isInitialized', 'u8', boolMapper],
+      ['withdrawable', 'u64'],
+      ['allowStartRound', 'u64'],
+      ['updatedAt', 'u64'],
+      ['aggregator', [32], pubkeyMapper],
+      ['owner', [32], pubkeyMapper]
+    ]
+  };
 
   public canStartNewRound(round: BN): boolean {
     return this.allowStartRound.lte(round)

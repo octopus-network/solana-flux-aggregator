@@ -1,23 +1,22 @@
-import TelegramBot from "node-telegram-bot-api";
-import { jsonReplacer, jsonReviver } from "../json";
-import { stateFromJSON } from "../state";
-import { BaseNotifier, NotifyLevel } from "./BaseNotifier";
+import TelegramBot from "node-telegram-bot-api"
+import { jsonReplacer, jsonReviver } from "../json"
+import { stateFromJSON } from "../state"
+import { BaseNotifier, NotifyLevel } from "./BaseNotifier"
 import path from "path"
 
 interface TelegramNotifierState {
-  chatIds: number[];
+  chatIds: number[]
 }
 
 export class TelegramNotifier extends BaseNotifier {
-  private bot: TelegramBot;
+  private bot: TelegramBot
   private state: TelegramNotifierState = {
     chatIds: [],
-  };
-
+  }
 
   constructor(token: string, private oraclePK: string) {
-    super();
-    this.bot = new TelegramBot(token, { polling: true });
+    super()
+    this.bot = new TelegramBot(token, { polling: true })
 
     this.state = stateFromJSON<TelegramNotifierState>(
       path.join(__dirname, '../../config/telegram.bot.json'),
@@ -31,9 +30,9 @@ export class TelegramNotifier extends BaseNotifier {
     )
 
     this.bot.on("message", (msg) => {
-      const chatId = msg.chat.id;
-      const msgText = msg.text;
-      console.log('msg.text', msg.text);
+      const chatId = msg.chat.id
+      const msgText = msg.text
+      console.log('msg.text', msg.text)
       
       switch (msgText) {
         case '/start':
@@ -46,39 +45,39 @@ export class TelegramNotifier extends BaseNotifier {
 /unsub : unsubscribe from this oracle notifications
 /info : get oracle info
       `
-            );
-            break;
+            )
+            break
         case '/info':
           this.bot.sendMessage(
             chatId,
             `
       Oracle: ${oraclePK}
-            `);
-        break;
+            `)
+        break
         case '/state':
           this.bot.sendMessage(
             chatId,
             `
       Oracle: ${oraclePK}
-            `);
-        break;
+            `)
+        break
         case '/sub':
           if(!this.state.chatIds.includes(chatId)) {
-            this.state.chatIds.push(chatId);
-            this.bot.sendMessage(chatId, "Successfully subscribed to this oracle");
+            this.state.chatIds.push(chatId)
+            this.bot.sendMessage(chatId, "Successfully subscribed to this oracle")
           } else {
-            this.bot.sendMessage(chatId, "You already subscribed");
+            this.bot.sendMessage(chatId, "You already subscribed")
           }
-          break;
+          break
         case '/unsub':
-          this.state.chatIds = this.state.chatIds.filter(i => i!==chatId);
-          this.bot.sendMessage(chatId, "Successfully unsubscribed to this oracle");
-          break;
+          this.state.chatIds = this.state.chatIds.filter(i => i!==chatId)
+          this.bot.sendMessage(chatId, "Successfully unsubscribed to this oracle")
+          break
         default:
-          this.bot.sendMessage(chatId, "Command invalid");
-          break;
+          this.bot.sendMessage(chatId, "Command invalid")
+          break
       }
-    });
+    })
   }
 
   notifyCritical(level: NotifyLevel, event: string, message: string, meta: {[key: string]: string}, error: unknown) {
@@ -92,7 +91,7 @@ Details: ${error || 'none'}
 
   private sendMessage(markdown: string) {
     this.state.chatIds.forEach((chatId) => {
-      this.bot.sendMessage(chatId, markdown, {parse_mode: 'Markdown'});
-    });
+      this.bot.sendMessage(chatId, markdown, {parse_mode: 'Markdown'})
+    })
   }
 }

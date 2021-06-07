@@ -107,8 +107,6 @@ export class Submitter {
     this.oracle = Oracle.deserialize(oracle.data)
     this.answerSubmissions = Submissions.deserialize(answerSubmissions.data)
     this.roundSubmissions = Submissions.deserialize(roundSubmissions.data)
-
-    this.errorNotifier.setMetaData(this.oracle);
   }
 
   private isRoundReported(roundID: BN): boolean {

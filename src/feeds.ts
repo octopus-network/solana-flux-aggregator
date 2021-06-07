@@ -333,14 +333,12 @@ export class Binance extends PriceFeed {
     )
   }
 }
-
 export class OKEx extends PriceFeed {
   protected log = log.child({ class: OKEx.name })
   protected baseurl = "wss://real.okex.com:8443/ws/v3"
   public source = FeedSource.OKEX;
 
   parseMessage(data) {
-    console.log('data OKEx', data)
     const message = pako.inflate(data, { raw: true, to: 'string' });
     const payload = JSON.parse(message);
 
