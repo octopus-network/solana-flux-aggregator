@@ -226,6 +226,8 @@ pub struct Oracle {
     pub aggregator: PublicKey,
     /// owner
     pub owner: PublicKey,
+    /// Submission
+    pub submission: Submission,
 }
 
 impl Oracle {

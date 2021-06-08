@@ -380,12 +380,13 @@ function boolToInt(t: boolean) {
 }
 
 export class Oracle extends Serialization {
-  public static size = 121
+  public static size = 169
   public description!: string
   public isInitialized!: boolean
   public withdrawable!: BN
   public allowStartRound!: BN
   public updatedAt!: BN
+  public submission!: Submission
 
   public static schema = {
     kind: 'struct',
@@ -395,6 +396,7 @@ export class Oracle extends Serialization {
       ['withdrawable', 'u64'],
       ['allowStartRound', 'u64'],
       ['updatedAt', 'u64'],
+      ['submission', Submission],
       ['aggregator', [32], pubkeyMapper],
       ['owner', [32], pubkeyMapper]
     ]

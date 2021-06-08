@@ -6,7 +6,7 @@
   "testnetDefaultChannel": "v1.4.8",
   "scripts": {
     "solink": "ts-node src/cli.ts",
-    "solana:devnet": "solana config set --url https://devnet.solana.com",
+    "solana:devnet": "solana config set --url https://parrot.devnet.rpcpool.com",
     "build:program": "solray build program",
     "watch": "yarn ts-node-dev --respawn"
   },

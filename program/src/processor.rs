@@ -287,7 +287,7 @@ impl<'a> SubmitContext<'a> {
             return Err(Error::InvalidRoundID)?;
         }
 
-        self.submit(&mut aggregator)?;
+        self.submit(&mut aggregator, &mut oracle)?;
 
         // credit oracle for submission
         oracle.withdrawable = oracle
@@ -304,7 +304,7 @@ impl<'a> SubmitContext<'a> {
 
     /// push oracle answer to the current round. update answer if min submissions
     /// had been satisfied.
-    fn submit(&self, aggregator: &mut Aggregator) -> ProgramResult {
+    fn submit(&self, aggregator: &mut Aggregator, oracle: &mut Oracle) -> ProgramResult {
         let now = self.clock.slot;
 
         let mut round_submissions = aggregator.round_submissions(self.round_submissions)?;
@@ -338,6 +338,7 @@ impl<'a> SubmitContext<'a> {
         submission.updated_at = now;
         submission.value = self.value;
         submission.oracle = self.oracle.key.to_bytes();
+        oracle.submission = submission.clone();
 
         // this line is for later, but put here to deal with borrow check...
         let new_submission = *submission;
