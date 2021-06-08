@@ -110,8 +110,7 @@ export class Submitter {
   }
 
   private isRoundReported(roundID: BN): boolean {
-    // For initial round consider it as reported
-    return roundID.isZero() || roundID.lte(this.reportedRound)
+    return !roundID.isZero() && roundID.lte(this.reportedRound)
   }
 
   private async observeAggregatorState() {
