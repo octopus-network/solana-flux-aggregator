@@ -1,6 +1,5 @@
 import { PublicKey, Wallet } from "solray"
 import { conn } from "./context"
-import throttle from 'lodash/throttle';
 import { Aggregator, Submissions, Oracle } from "./schema"
 import BN from "bn.js"
 import { getAccounts, parseTransactionError, retryOperation } from "./utils"
@@ -59,7 +58,7 @@ export class Submitter {
   }
 
   public async start() {
-    await this.reloadStatesImpl()
+    await this.reloadStates()
 
     this.logger = log.child({
       aggregator: this.aggregator.config.description,
@@ -86,10 +85,6 @@ export class Submitter {
   }
 
   private async reloadStates()  {
-    return throttle(this.reloadStatesImpl, 100)
-  }
-
-  private async reloadStatesImpl() {
     if (!this.aggregator) {
       this.aggregator = await Aggregator.load(this.aggregatorPK)
     }
@@ -106,7 +101,7 @@ export class Submitter {
 
     this.oracle = Oracle.deserialize(oracle.data)
     this.answerSubmissions = Submissions.deserialize(answerSubmissions.data)
-    this.roundSubmissions = Submissions.deserialize(roundSubmissions.data)
+    this.roundSubmissions = Submissions.deserialize(roundSubmissions.data)    
   }
 
   private isRoundReported(roundID: BN): boolean {
@@ -120,7 +115,7 @@ export class Submitter {
       if (this.isRoundReported(this.aggregator.round.id)) {
         return
       }
-
+      
       // only update states if actually reporting to save RPC calls
       await this.reloadStates()
       this.onAggregatorStateUpdate()
@@ -146,9 +141,12 @@ export class Submitter {
         })
         continue
       }
+
+      if (!this.isRoundReported(this.aggregator.round.id)) {
+        // should reload the state if no round is reported
+        await this.reloadStates()
+      }
       
-      // should reload the state before trying to submit
-      await this.reloadStates()
       await this.trySubmit()
     }
   }
@@ -337,6 +335,7 @@ export class Submitter {
         }
       }, 15000, 4)
     } catch (err) {
+      this.reloadStates()
       this.logger.error("Submit error", {
         round: roundID.toString(),
         value: value.toString(),

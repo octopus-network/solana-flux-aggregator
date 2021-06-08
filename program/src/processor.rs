@@ -2,8 +2,8 @@
 
 use crate::{
     error::Error,
-    instruction::{self, Instruction},
-    state::{Aggregator, AggregatorConfig, Authority, Oracle, Requester, Round, Submissions},
+    instruction::{Instruction},
+    state::{Aggregator, AggregatorConfig, Authority, Oracle, Requester, Round, Submission, Submissions},
 };
 
 // use spl_token::state;
@@ -14,7 +14,7 @@ use solana_program::{
     msg,
     program::invoke_signed,
     program_error::ProgramError,
-    program_pack::{IsInitialized, Pack},
+    program_pack::{IsInitialized},
     pubkey::Pubkey,
     sysvar::{rent::Rent, Sysvar},
 };

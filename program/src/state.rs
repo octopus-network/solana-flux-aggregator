@@ -319,7 +319,7 @@ mod tests {
             "Oracle len: {}",
             borsh_utils::get_packed_len::<Oracle>()
         );
-
+        
         println!(
             "Submissions len: {}",
             borsh_utils::get_packed_len::<Submissions>()

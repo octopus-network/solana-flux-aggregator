@@ -97,7 +97,7 @@ export abstract class Serialization {
   }
 }
 
-class Submission {
+class Submission extends Serialization {
   public updatedAt!: BN
   public value!: BN
   public oracle!: PublicKey
@@ -109,10 +109,6 @@ class Submission {
       ["value", "u64"],
       ["oracle", [32], pubkeyMapper],
     ],
-  }
-
-  constructor(data: any) {
-    Object.assign(this, data)
   }
 }
 
@@ -396,9 +392,9 @@ export class Oracle extends Serialization {
       ['withdrawable', 'u64'],
       ['allowStartRound', 'u64'],
       ['updatedAt', 'u64'],
-      ['submission', Submission],
       ['aggregator', [32], pubkeyMapper],
-      ['owner', [32], pubkeyMapper]
+      ['owner', [32], pubkeyMapper],
+      ['submission', Submission],
     ]
   };
 
