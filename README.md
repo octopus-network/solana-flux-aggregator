@@ -86,6 +86,20 @@ For example to request a new round for `btc:usd` aggregator we will use:
 yarn solink request-round btc:usd
 ```
 
+# Using Standalone Node
+
+You can run a oracle inside a docker container by running:
+
+```sh
+IMAGE_TAG=local docker-compose -f docker-compose.standalone.yml up
+```
+
+Remember to copy the `.env.example` to `.env` and to set the `ORACLE_MNEMONIC` with one of the supported oracles addresses.
+
+For the `devnet` all the supported oracles are inside the `setup.dev.json` in the `oracles` section.
+
+For price feed customization, such as price sources, frequency, etc, you can have a look and change the `pricefeed.json` in the config folder.
+
 # Using Chainlink Node
 
 By default the `yarn solink oracle` will submit price changes directly. 
