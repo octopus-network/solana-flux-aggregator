@@ -14,7 +14,8 @@
         "parrot",
         "solink",
         "osprey",
-        "dunlin"
+        "dunlin",
+        "gadwall"
       ]
     },
     "eth:usd": {
@@ -31,7 +32,8 @@
         "parrot",
         "solink",
         "osprey",
-        "dunlin"
+        "dunlin",
+        "gadwall"
       ]
     },
     "sol:usd": {
@@ -48,7 +50,8 @@
         "parrot",
         "solink",
         "osprey",
-        "dunlin"
+        "dunlin",
+        "gadwall"
       ]
     }
   },
@@ -67,6 +70,9 @@
     },
     "dunlin": {
       "owner": "Af3yNckZXttZ4c49EDxPiL1psdLBY4KuKcE8CFxvuU3n"
+    },
+    "gadwall": {
+      "owner": "54tDMY8BwgKaskPteKJ7X6ZDLRAwA27ACgiE9ahCuyjH"
     }
   }
 }

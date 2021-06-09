@@ -73,6 +73,16 @@
             "type": "PublicKey",
             "base58": "Af3yNckZXttZ4c49EDxPiL1psdLBY4KuKcE8CFxvuU3n"
           }
+        },
+        "gadwall": {
+          "pubkey": {
+            "type": "PublicKey",
+            "base58": "5tUnBn9QToQ7HkJxmxj9tFLBsijaLt9m3ZHg92K7DFYg"
+          },
+          "owner": {
+            "type": "PublicKey",
+            "base58": "54tDMY8BwgKaskPteKJ7X6ZDLRAwA27ACgiE9ahCuyjH"
+          }
         }
       },
       "requesters": {}
