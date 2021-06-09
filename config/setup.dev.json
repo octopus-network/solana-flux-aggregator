@@ -10,9 +10,11 @@
       "rewardAmount": 10000,
       "rewardTokenAccount": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1",
       "oracles": [
+        "octopus",
+        "parrot",
         "solink",
-        "blockworks",
-        "bonafida"
+        "osprey",
+        "dunlin"
       ]
     },
     "eth:usd": {
@@ -25,21 +27,46 @@
       "rewardAmount": 10000,
       "rewardTokenAccount": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1",
       "oracles": [
+        "octopus",
+        "parrot",
         "solink",
-        "blockworks",
-        "bonafida"
+        "osprey",
+        "dunlin"
+      ]
+    },
+    "sol:usd": {
+      "decimals": 2,
+      "minSubmissions": 1,
+      "maxSubmissions": 13,
+      "roundTimeout": 0,
+      "restartDelay": 0,
+      "requesterRestartDelay": 0,
+      "rewardAmount": 10000,
+      "rewardTokenAccount": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1",
+      "oracles": [
+        "octopus",
+        "parrot",
+        "solink",
+        "osprey",
+        "dunlin"
       ]
     }
   },
   "oracles": {
+    "octopus": {
+      "owner": "HiPL676Z6XTgqsbjMbY25YNRzM7ag1uPddqneLuxLFHS"
+    },
+    "parrot": {
+      "owner": "9C5ExKWtgVot8dGN5aVw8tDASDFupDdvA9E28Dh99US5"
+    },
     "solink": {
-      "owner": "Draee2EHoVoPkRrMXnh17EcJMxuyirFSBsfMHuNBy2bq"
+      "owner": "2pafGWojtMy1Hf1mk9zzjCLRTsePSJEEzCuq8Bys5fhi"
     },
-    "blockworks": {
-      "owner": "GW6bnJN6cMNzVnoVfV9hW6vx6XxTfP8k3HA1PgWCumxV"
+    "osprey": {
+      "owner": "31KsByHNYuqJt5foAMM522vHaz1z3gHzufw43HaGHVVv"
     },
-    "bonafida": {
-      "owner": "5tTHnk3YjZuPUKUKAXR9PoAPhbLRCyy7AthLLZUTKpUX"
+    "dunlin": {
+      "owner": "Af3yNckZXttZ4c49EDxPiL1psdLBY4KuKcE8CFxvuU3n"
     }
   }
 }

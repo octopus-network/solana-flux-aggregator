@@ -1,119 +1,5 @@
 {
   "aggregators": {
-    "btc:usd": {
-      "pubkey": {
-        "type": "PublicKey",
-        "base58": "56q8nUrG1VM61rryFUEV32Yf9XqyUeZxqPYJJefXdUL"
-      },
-      "owner": {
-        "type": "PublicKey",
-        "base58": "2FQ8z8GGv5RjqNNwukF8DpBFbsgS6d1FmqwP42GEhFVF"
-      },
-      "config": {
-        "description": "btc:usd",
-        "decimals": 2,
-        "roundTimeout": 0,
-        "minSubmissions": 1,
-        "maxSubmissions": 13,
-        "restartDelay": 0,
-        "requesterRestartDelay": 0,
-        "rewardTokenAccount": {
-          "type": "PublicKey",
-          "base58": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1"
-        },
-        "rewardAmount": 10000
-      },
-      "oracles": {
-        "octopus": {
-          "pubkey": {
-            "type": "PublicKey",
-            "base58": "9VN3hTzF1UMb92Snt6PjoJPjcbT9q2nh9hSVxjezFcxT"
-          },
-          "owner": {
-            "type": "PublicKey",
-            "base58": "HiPL676Z6XTgqsbjMbY25YNRzM7ag1uPddqneLuxLFHS"
-          }
-        },
-        "parrot": {
-          "pubkey": {
-            "type": "PublicKey",
-            "base58": "cd2AM8bULNRZf2CfZDweQsTG3416cENH7QnqBUCsR45"
-          },
-          "owner": {
-            "type": "PublicKey",
-            "base58": "9C5ExKWtgVot8dGN5aVw8tDASDFupDdvA9E28Dh99US5"
-          }
-        },
-        "solink": {
-          "pubkey": {
-            "type": "PublicKey",
-            "base58": "9W12Jm6TV3kUNA3eWZ2TccTLzPTZcuDtbCsK5eJDBhrR"
-          },
-          "owner": {
-            "type": "PublicKey",
-            "base58": "2pafGWojtMy1Hf1mk9zzjCLRTsePSJEEzCuq8Bys5fhi"
-          }
-        }
-      },
-      "requesters": {}
-    },
-    "eth:usd": {
-      "pubkey": {
-        "type": "PublicKey",
-        "base58": "D7LXhzGHaMM6DUViyiJqah38i89ssMBryJysBX4efC5B"
-      },
-      "owner": {
-        "type": "PublicKey",
-        "base58": "2FQ8z8GGv5RjqNNwukF8DpBFbsgS6d1FmqwP42GEhFVF"
-      },
-      "config": {
-        "description": "eth:usd",
-        "decimals": 2,
-        "roundTimeout": 0,
-        "minSubmissions": 1,
-        "maxSubmissions": 13,
-        "restartDelay": 0,
-        "requesterRestartDelay": 0,
-        "rewardTokenAccount": {
-          "type": "PublicKey",
-          "base58": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1"
-        },
-        "rewardAmount": 10000
-      },
-      "oracles": {
-        "octopus": {
-          "pubkey": {
-            "type": "PublicKey",
-            "base58": "H7vfJQ9LYE6ssF9aobyjiikf6qpCimmGSfY6W35CBdoX"
-          },
-          "owner": {
-            "type": "PublicKey",
-            "base58": "HiPL676Z6XTgqsbjMbY25YNRzM7ag1uPddqneLuxLFHS"
-          }
-        },
-        "parrot": {
-          "pubkey": {
-            "type": "PublicKey",
-            "base58": "J8uVDrW2PvKJzQsyNuWb9cAqzQ8qQn6EnuFVAzksdpNp"
-          },
-          "owner": {
-            "type": "PublicKey",
-            "base58": "9C5ExKWtgVot8dGN5aVw8tDASDFupDdvA9E28Dh99US5"
-          }
-        },
-        "solink": {
-          "pubkey": {
-            "type": "PublicKey",
-            "base58": "2jezFPoxB4qLKV85FLi9srSZK3ght13R3yq6oaxGhW3g"
-          },
-          "owner": {
-            "type": "PublicKey",
-            "base58": "2pafGWojtMy1Hf1mk9zzjCLRTsePSJEEzCuq8Bys5fhi"
-          }
-        }
-      },
-      "requesters": {}
-    },
     "sol:usd": {
       "pubkey": {
         "type": "PublicKey",
@@ -166,6 +52,26 @@
           "owner": {
             "type": "PublicKey",
             "base58": "2pafGWojtMy1Hf1mk9zzjCLRTsePSJEEzCuq8Bys5fhi"
+          }
+        },
+        "osprey": {
+          "pubkey": {
+            "type": "PublicKey",
+            "base58": "EkH2E5LRxYjWaR1tug4sGePEZ7U1Xg8Ktq7nsixLuGE"
+          },
+          "owner": {
+            "type": "PublicKey",
+            "base58": "31KsByHNYuqJt5foAMM522vHaz1z3gHzufw43HaGHVVv"
+          }
+        },
+        "dunlin": {
+          "pubkey": {
+            "type": "PublicKey",
+            "base58": "BnqyPpGSXxezjmuEvtVXJQFQ5mfMngYNNP3RpPYy2Cb7"
+          },
+          "owner": {
+            "type": "PublicKey",
+            "base58": "Af3yNckZXttZ4c49EDxPiL1psdLBY4KuKcE8CFxvuU3n"
           }
         }
       },
