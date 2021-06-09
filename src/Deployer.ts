@@ -84,6 +84,10 @@ export class Deployer {
     this.setup = loadAggregatorSetup(setupFile)
   }
 
+  get program() {
+    return new FluxAggregator(this.wallet, this.state.programID)
+  }
+
   async runAll() {
     await this.deployProgram()
     await this.createAggregators()
@@ -148,10 +152,6 @@ export class Deployer {
         log.info(`Requester added`, { name, requesterName })
       }
     }
-  }
-
-  get program() {
-    return new FluxAggregator(this.wallet, this.state.programID)
   }
 
   async createRewardFaucet(

@@ -2,7 +2,6 @@ import { PublicKey, Account } from "solray"
 import BN from "bn.js"
 import { deserialize, serialize } from "borsh"
 import { conn } from "./context"
-import { jsonReplacer } from "./json"
 
 const MAX_ORACLES = 13
 
@@ -227,6 +226,7 @@ export class Aggregator extends Serialization {
   public answerSubmissions!: PublicKey
   public answer!: Answer
   public round!: Round
+  public owner!: PublicKey
 
   public static schema = {
     kind: "struct",
@@ -266,6 +266,13 @@ export class Configure extends InstructionSerialization {
   public static schema = {
     kind: "struct",
     fields: [["config", AggregatorConfig]],
+  }
+}
+
+export class TransferOwner extends InstructionSerialization {
+  public static schema = {
+    kind: "struct",
+    fields: [["newOwner", [32], pubkeyMapper]],
   }
 }
 
@@ -330,6 +337,7 @@ export class Instruction extends Serialization {
     values: [
       [Initialize.name, Initialize],
       [Configure.name, Configure],
+      [TransferOwner.name, TransferOwner],
       [AddOracle.name, AddOracle],
       [RemoveOracle.name, RemoveOracle],
       [AddRequester.name, AddRequester],
@@ -440,12 +448,14 @@ export const schema = new Map([
   [Instruction, Instruction.schema],
   [Initialize, Initialize.schema],
   [Configure, Configure.schema],
+  [TransferOwner, TransferOwner.schema],
+
   [AddOracle, AddOracle.schema],
-
   [AddRequester, AddRequester.schema],
+  [RemoveOracle, RemoveOracle.schema],
   [RemoveRequester, RemoveRequester.schema],
-  [RequestRound, RequestRound.schema],
 
+  [RequestRound, RequestRound.schema],
   [Submit, Submit.schema],
 
 ] as any) as any

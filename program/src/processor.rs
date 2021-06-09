@@ -1,10 +1,6 @@
 //! Program state processor
 
-use crate::{
-    error::Error,
-    instruction::{Instruction},
-    state::{Aggregator, AggregatorConfig, Authority, Oracle, Requester, Round, Submission, Submissions},
-};
+use crate::{error::Error, instruction::{Instruction}, state::{Aggregator, AggregatorConfig, Authority, Oracle, PublicKey, Requester, Round, Submission, Submissions}};
 
 // use spl_token::state;
 use solana_program::{
@@ -94,6 +90,30 @@ impl<'a> ConfigureContext<'a> {
         let mut aggregator = Aggregator::load_initialized(&self.aggregator)?;
         aggregator.authorize(self.aggregator_owner)?;
         aggregator.config = self.config.clone();
+        aggregator.save(self.aggregator)?;
+
+        Ok(())
+    }
+}
+
+struct TransferOwnerContext<'a> {
+    aggregator: &'a AccountInfo<'a>,
+    aggregator_owner: &'a AccountInfo<'a>,
+    
+    aggregator_new_owner: PublicKey,
+}
+
+impl<'a> TransferOwnerContext<'a> {
+    fn process(&self) -> ProgramResult {
+        let mut aggregator = Aggregator::load_initialized(&self.aggregator)?;
+        aggregator.authorize(self.aggregator_owner)?;
+
+        // new owner need to be also a signer?
+        // if !self.aggregator_new_owner.is_signer {
+        //     return Err(ProgramError::MissingRequiredSignature);
+        // }
+
+        aggregator.owner = self.aggregator_new_owner.clone();
         aggregator.save(self.aggregator)?;
 
         Ok(())
@@ -527,6 +547,12 @@ fn process2(instruction: Instruction, accounts: Accounts) -> ProgramResult {
             aggregator: accounts.get(0)?,
             aggregator_owner: accounts.get(1)?,
             config,
+        }
+        .process(),
+        Instruction::TransferOwner { new_owner } => TransferOwnerContext {
+            aggregator: accounts.get(0)?,
+            aggregator_owner: accounts.get(1)?,
+            aggregator_new_owner: new_owner,
         }
         .process(),
         Instruction::AddOracle { description } => AddOracleContext {

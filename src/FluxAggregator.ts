@@ -12,14 +12,10 @@ import BN from "bn.js"
 import {
   SYSVAR_RENT_PUBKEY,
   SYSVAR_CLOCK_PUBKEY,
-  TransactionInstruction,
-  SystemProgram,
 } from "@solana/web3.js"
 
 import { AggregatorConfig, IAggregatorConfig, schema } from "./schema"
 import * as encoding from "./schema"
-import { deserialize, serialize } from "borsh"
-import { conn } from "./context"
 
 interface InitializeParams {
   config: IAggregatorConfig
@@ -30,6 +26,12 @@ interface ConfigureParams {
   config: IAggregatorConfig
   aggregator: PublicKey,
   owner: Account
+}
+
+interface TransferOwnerParams {
+  aggregator: PublicKey,
+  owner: Account
+  newOwner: PublicKey
 }
 
 interface InitializeInstructionParams extends InitializeParams {
@@ -162,6 +164,18 @@ export default class FluxAggregator extends BaseProgram {
       [this.account, params.owner,]
     )
   }
+
+  public async transferOwner(params: TransferOwnerParams) {
+    const input = encoding.TransferOwner.serialize({
+      newOwner: params.newOwner,
+    })
+
+    await this.sendTx(
+      [this.instruction(input, [{ write: params.aggregator }, params.owner])],
+      [this.account, params.owner]
+    )
+  }
+
 
   public async addOracle(params: AddOracleParams): Promise<Account> {
     const oracle = new Account()

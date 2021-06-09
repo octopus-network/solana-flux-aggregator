@@ -31,7 +31,7 @@ async function maybeRequestAirdrop(pubkey: PublicKey) {
   }
 }
 
-function deployFile(): AggregatorDeployFile {
+function loadAggregatorDeploy(): AggregatorDeployFile {
   return loadJSONFile<AggregatorDeployFile>(process.env.DEPLOY_FILE!)
 }
 
@@ -56,7 +56,7 @@ cli.command("oracle").action(async (name) => {
   const wallet = await walletFromEnv("ORACLE_MNEMONIC", conn)
   await maybeRequestAirdrop(wallet.pubkey)
 
-  const deploy = loadJSONFile<AggregatorDeployFile>(process.env.DEPLOY_FILE!)
+  const deploy = loadAggregatorDeploy()
   const solinkConf = loadJSONFile<SolinkConfig>(process.env.SOLINK_CONFIG!);
   const feeder = new PriceFeeder(deploy, solinkConf, wallet)
   feeder.start()
@@ -66,14 +66,14 @@ cli.command("request-round <aggregator-id>").action(async (aggregatorId) => {
   const wallet = await walletFromEnv("REQUESTER_MNEMONIC", conn)
   await maybeRequestAirdrop(wallet.pubkey)
 
-  const deploy = loadJSONFile<AggregatorDeployFile>(process.env.DEPLOY_FILE!)
+  const deploy = loadAggregatorDeploy()
   const feeder = new RoundRequester(deploy, wallet)
   await feeder.requestRound(aggregatorId)
   process.exit(0)
 })
 
 cli.command("observe").action(async (name?: string) => {
-  let deploy = loadJSONFile<AggregatorDeployFile>(process.env.DEPLOY_FILE!)
+  let deploy = loadAggregatorDeploy()
 
   for (let [name, aggregatorInfo] of Object.entries(deploy.aggregators)) {
     const observer = new AggregatorObserver(aggregatorInfo.pubkey, conn)
@@ -106,7 +106,7 @@ cli.command("observe").action(async (name?: string) => {
 
 cli.command("chainlink-external").action(async () => {
   const wallet = await walletFromEnv("ORACLE_MNEMONIC", conn)
-  const deploy = loadJSONFile<AggregatorDeployFile>(process.env.DEPLOY_FILE!)
+  const deploy = loadAggregatorDeploy()
   const solinkConf = loadJSONFile<SolinkConfig>(process.env.SOLINK_CONFIG!);
   const externalAdapter = new ChainlinkExternalAdapter(deploy, solinkConf, wallet);
 
@@ -124,7 +124,7 @@ cli.command("read-median <aggregator-id>").action(async (aggregatorId) => {
 //  NETWORK=dev yarn run solink configure-agg
 cli.command('configure-agg <setup-file> <pair>').action(async (setupFile: string, pair: string) => {
   let setupConf = loadAggregatorSetup(setupFile);
-  let deploy = loadJSONFile<AggregatorDeployFile>(process.env.DEPLOY_FILE!);
+  let deploy = loadAggregatorDeploy()
   const wallet = await walletFromEnv("ADMIN_MNEMONIC", conn)
   let agg = new FluxAggregator(wallet, deploy.programID);
 
@@ -150,6 +150,34 @@ cli.command('configure-agg <setup-file> <pair>').action(async (setupFile: string
     aggregator: deploy.aggregators[pair].pubkey,
     owner: wallet.account,
   })
+})
+
+cli.command('transfer-owner <pair> <new-owner').action(async (pair: string, newOwner: string) => {
+  let deploy = loadAggregatorDeploy()
+  const aggregatorPk = deploy.aggregators[pair].pubkey;
+  const newOwnerPk = new PublicKey(newOwner)
+
+  const aggregatorAccount = await conn.getAccountInfo(aggregatorPk);
+  if(!aggregatorAccount) {
+    throw new Error('aggregatorAccount not found')
+  }
+  const aggregator = Aggregator.deserialize<Aggregator>(aggregatorAccount?.data);
+  const wallet = await walletFromEnv("ADMIN_MNEMONIC", conn)
+
+  log.info(`
+    prog_id: ${deploy.programID}, 
+    aggregator: ${aggregatorPk}, 
+    current owner: ${aggregator.owner},
+    new owner: ${newOwner}`)
+
+  const agg = new FluxAggregator(wallet, deploy.programID);
+  await agg.transferOwner({
+    aggregator: deploy.aggregators[pair].pubkey,
+    owner: wallet.account,
+    newOwner: newOwnerPk,
+  })
+
+  log.info(`aggregator owner changed`)
 })
 
 cli.parse(process.argv)

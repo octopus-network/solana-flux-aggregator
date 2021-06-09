@@ -1,7 +1,7 @@
 //! Instruction types
 #![allow(dead_code)]
 
-use crate::state::AggregatorConfig;
+use crate::state::{AggregatorConfig, PublicKey};
 
 use borsh::{BorshDeserialize, BorshSchema, BorshSerialize};
 
@@ -24,6 +24,10 @@ pub enum Instruction {
 
     Configure {
         config: AggregatorConfig,
+    },
+
+    TransferOwner {
+        new_owner: PublicKey,
     },
 
     AddOracle {
