@@ -1,6 +1,6 @@
 {
   "aggregators": {
-    "btc:usd": {
+    "sol:usd": {
       "decimals": 2,
       "minSubmissions": 1,
       "maxSubmissions": 13,
@@ -10,26 +10,33 @@
       "rewardAmount": 10000,
       "rewardTokenAccount": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1",
       "oracles": [
-        "blockworks"
-      ]
-    },
-    "eth:usd": {
-      "decimals": 2,
-      "minSubmissions": 1,
-      "maxSubmissions": 13,
-      "roundTimeout": 0,
-      "restartDelay": 0,
-      "requesterRestartDelay": 0,
-      "rewardAmount": 10000,
-      "rewardTokenAccount": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1",
-      "oracles": [
-        "blockworks"
+        "octopus",
+        "parrot",
+        "solink",
+        "osprey",
+        "dunlin",
+        "gadwall"
       ]
     }
   },
   "oracles": {
-    "blockworks": {
-      "owner": "GW6bnJN6cMNzVnoVfV9hW6vx6XxTfP8k3HA1PgWCumxV"
+    "octopus": {
+      "owner": "HiPL676Z6XTgqsbjMbY25YNRzM7ag1uPddqneLuxLFHS"
+    },
+    "parrot": {
+      "owner": "9C5ExKWtgVot8dGN5aVw8tDASDFupDdvA9E28Dh99US5"
+    },
+    "solink": {
+      "owner": "2pafGWojtMy1Hf1mk9zzjCLRTsePSJEEzCuq8Bys5fhi"
+    },
+    "osprey": {
+      "owner": "31KsByHNYuqJt5foAMM522vHaz1z3gHzufw43HaGHVVv"
+    },
+    "dunlin": {
+      "owner": "Af3yNckZXttZ4c49EDxPiL1psdLBY4KuKcE8CFxvuU3n"
+    },
+    "gadwall": {
+      "owner": "54tDMY8BwgKaskPteKJ7X6ZDLRAwA27ACgiE9ahCuyjH"
     }
   }
 }
