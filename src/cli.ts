@@ -28,6 +28,10 @@ async function maybeRequestAirdrop(pubkey: PublicKey) {
     log.info("airdrop 10 SOL", { address: pubkey.toBase58() })
     await conn.requestAirdrop(pubkey, 10 * 1e9)
     await sleep(500)
+  } else {
+    const balance = await conn.getBalance(pubkey);
+    log.info("address", { address: pubkey.toBase58() })
+    log.info("balance", { balance })
   }
 }
 

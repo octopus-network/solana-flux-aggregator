@@ -5,6 +5,6 @@ WORKDIR /app
 COPY --from=solanalabs/solana:v1.6.9 /usr/bin/cargo-build-bpf /usr/bin/cargo-build-bpf
 COPY --from=solanalabs/solana:v1.6.9 /usr/bin/sdk /usr/bin/sdk
 
-# build: docker build - < Dockerfile-program
-# run:   docker run -it --entrypoint bash --mount type=bind,src=$your_parrot_monorepo_full_path,target=/app/workspace $image_id_tag
-# cd /app/workspace && build-bpf --features production
+# build: docker build -t program-build - < Dockerfile-program
+# run:   docker run -it --entrypoint bash --mount type=bind,src=$this_repo_full_path,target=/app/workspace program-build
+# cd /app/workspace && cargo build-bpf
