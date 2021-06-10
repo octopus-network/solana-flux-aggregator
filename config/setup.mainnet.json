@@ -10,33 +10,21 @@
       "rewardAmount": 10000,
       "rewardTokenAccount": "3oLHHTaRqNsuTMjsTtkVy8bock6Bx8gCmDxku4TurVj1",
       "oracles": [
-        "octopus",
-        "parrot",
-        "solink",
-        "osprey",
-        "dunlin",
-        "gadwall"
+        "mallard",
+        "goldfinch",
+        "goose"
       ]
     }
   },
   "oracles": {
-    "octopus": {
-      "owner": "HiPL676Z6XTgqsbjMbY25YNRzM7ag1uPddqneLuxLFHS"
+    "mallard": {
+      "owner": "2uXiqUavNfVADitNHBo986EmBnSXQ5gMLH9KPKaQmTBM"
     },
-    "parrot": {
-      "owner": "9C5ExKWtgVot8dGN5aVw8tDASDFupDdvA9E28Dh99US5"
+    "goldfinch": {
+      "owner": "5PumoPt8czaT3CrW1RNioSj7PJXpKvczUvVbctAdCkRT"
     },
-    "solink": {
-      "owner": "2pafGWojtMy1Hf1mk9zzjCLRTsePSJEEzCuq8Bys5fhi"
-    },
-    "osprey": {
-      "owner": "31KsByHNYuqJt5foAMM522vHaz1z3gHzufw43HaGHVVv"
-    },
-    "dunlin": {
-      "owner": "Af3yNckZXttZ4c49EDxPiL1psdLBY4KuKcE8CFxvuU3n"
-    },
-    "gadwall": {
-      "owner": "54tDMY8BwgKaskPteKJ7X6ZDLRAwA27ACgiE9ahCuyjH"
+    "goose": {
+      "owner": "7i3BLys67w1sbcopHNRzx7eS3hLyVPoswpVg8VETkt4N"
     }
   }
 }

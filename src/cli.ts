@@ -121,6 +121,14 @@ cli.command("read-median <aggregator-id>").action(async (aggregatorId) => {
   log.info(`median: ${agg.config.description}(decimal: ${agg.config.decimals}) -> ${agg.answer.median.toNumber()}, (rewardAmount: ${agg.config.rewardAmount})`);
 })
 
+cli.command("check-balance").action(async (type) => {
+  const wallet = await walletFromEnv("ADMIN_MNEMONIC", conn)
+  console.log('publicKey', wallet.account.publicKey.toBase58());
+  console.log('privateKey', wallet.account.secretKey)
+  const balance = await conn.getBalance(wallet.account.publicKey)
+  log.info(`balance: ${balance}`);
+})
+
 //  NETWORK=dev yarn run solink configure-agg
 cli.command('configure-agg <setup-file> <pair>').action(async (setupFile: string, pair: string) => {
   let setupConf = loadAggregatorSetup(setupFile);
