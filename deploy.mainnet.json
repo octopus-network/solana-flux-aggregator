@@ -44,14 +44,14 @@
             "base58": "5PumoPt8czaT3CrW1RNioSj7PJXpKvczUvVbctAdCkRT"
           }
         },
-        "goose": {
+        "siskin": {
           "pubkey": {
             "type": "PublicKey",
-            "base58": "CFHDmk6125SAWwY2xTHHQiitKVjVszYbjmwABhegtuce"
+            "base58": "9ZYLc77FfwVMbpVHrjjsTtasoHbQ7NgrHLKKAemQtsSA"
           },
           "owner": {
             "type": "PublicKey",
-            "base58": "7i3BLys67w1sbcopHNRzx7eS3hLyVPoswpVg8VETkt4N"
+            "base58": "Gtsu94Vbwm2hNyR5k3U4djkD69pX52HsY63q2forFDDp"
           }
         }
       },

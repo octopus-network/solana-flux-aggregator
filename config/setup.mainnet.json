@@ -12,7 +12,7 @@
       "oracles": [
         "mallard",
         "goldfinch",
-        "goose"
+        "siskin"
       ]
     }
   },
@@ -23,8 +23,8 @@
     "goldfinch": {
       "owner": "5PumoPt8czaT3CrW1RNioSj7PJXpKvczUvVbctAdCkRT"
     },
-    "goose": {
-      "owner": "7i3BLys67w1sbcopHNRzx7eS3hLyVPoswpVg8VETkt4N"
+    "siskin": {
+      "owner": "Gtsu94Vbwm2hNyR5k3U4djkD69pX52HsY63q2forFDDp"
     }
   }
 }
