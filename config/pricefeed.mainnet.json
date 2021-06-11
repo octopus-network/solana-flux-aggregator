@@ -1,0 +1,14 @@
+{
+  "_description": "configure witch feeds to use for pair, and other param",
+  "priceFileDir": "./config/prices",
+  "submitter": {
+    "sol:usd": {
+      "source": ["ftx"],
+      "minValueChangeForNewRound": 10
+    },
+    "default": {
+      "source": [],
+      "minValueChangeForNewRound": 100
+    }
+  }
+}
