@@ -11,7 +11,7 @@
       "minValueChangeForNewRound": 100
     },
     "sol:usd": {
-      "source": ["ftx", "binance", "okex"],
+      "source": ["ftx"],
       "minValueChangeForNewRound": 10
     },
     "usd:usd": {
