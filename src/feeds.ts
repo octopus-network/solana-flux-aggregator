@@ -26,7 +26,7 @@ export interface IPriceFeed {
 export abstract class PriceFeed {
   public emitter = new EventEmitter()
 
-  protected conn!: ReconnectingWebSocket
+  public conn!: ReconnectingWebSocket
   protected connected!: Promise<void>
 
   protected abstract get log(): winston.Logger
@@ -442,7 +442,7 @@ export class AggregatedFeed {
   public prices: IPrice[] = []
   public logger: Logger
   public lastUpdate = new Map<string, number>()
-  public lastUpdateTimeout = 120000; // 1m
+  public lastUpdateTimeout = 120000; // 2m
 
   // assume that the feeds are already connected
   constructor(
@@ -465,8 +465,7 @@ export class AggregatedFeed {
     for (let feed of this.feeds) {
       feed.subscribe(pair)
       this.lastUpdate.set(`${feed.source}-${pair}`, Date.now())
-
-      this.logger.info('subscribe', {feed:feed.source})
+      this.logger.info('aggregated feed subscribed', { feed:feed.source })
 
       const index = i
       i++
@@ -497,6 +496,20 @@ export class AggregatedFeed {
       return
     }
     setInterval(() => {
+
+      // Check feeds websocket connection
+      for (const feed of this.feeds) {
+        if(feed.conn.readyState !== feed.conn.OPEN) {
+          this.logger.error(`Websocket is not connected`,{
+            feed: feed.source,
+          })
+          this.errorNotifier?.notifyCritical('AggregatedFeed', `Websocket is not connected`, {
+            feed: feed.source,
+          })
+        }
+      }
+
+      // Check last update
       const now = Date.now()
       for (const [key, value] of this.lastUpdate.entries()) {
         if(now - value > this.lastUpdateTimeout) {
