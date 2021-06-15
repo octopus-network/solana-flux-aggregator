@@ -6,5 +6,7 @@ services:
       context: .
     restart: always
     command: yarn solink oracle
+    volumes:
+      - ./logs:/app/logs
     env_file:
       - .env

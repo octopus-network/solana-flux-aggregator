@@ -17,5 +17,6 @@ deploy.local.json
 deploy.private.json
 telegram.bot.json
 yarn-error.log
+logs/*.log
 chainlink/*
 !chainlink/config

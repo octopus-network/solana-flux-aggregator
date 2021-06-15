@@ -5,7 +5,7 @@ import EventEmitter from "events"
 import { eventsIter, median, sleep } from "./utils"
 import pako from 'pako'
 import { log } from "./log"
-import winston from "winston"
+import winston, { Logger } from "winston"
 import { FeedSource } from "./config"
 import ReconnectingWebSocket from "reconnecting-websocket"
 import { ErrorNotifier } from "./ErrorNotifier"
@@ -440,8 +440,9 @@ export class FilePriceFeed extends PriceFeed {
 export class AggregatedFeed {
   public emitter = new EventEmitter()
   public prices: IPrice[] = []
+  public logger: Logger
   public lastUpdate = new Map<string, number>()
-  public lastUpdateTimeout = 60000; // 1m
+  public lastUpdateTimeout = 120000; // 1m
 
   // assume that the feeds are already connected
   constructor(
@@ -449,6 +450,10 @@ export class AggregatedFeed {
     public pair: string, 
     private errorNotifier?: ErrorNotifier
   ) {
+    this.logger = log.child({
+      pair
+    })
+
     this.subscribe()
     this.startStaleChecker()
   }
@@ -460,6 +465,8 @@ export class AggregatedFeed {
     for (let feed of this.feeds) {
       feed.subscribe(pair)
       this.lastUpdate.set(`${feed.source}-${pair}`, Date.now())
+
+      this.logger.info('subscribe', {feed:feed.source})
 
       const index = i
       i++
@@ -493,10 +500,16 @@ export class AggregatedFeed {
       const now = Date.now()
       for (const [key, value] of this.lastUpdate.entries()) {
         if(now - value > this.lastUpdateTimeout) {
+          this.logger.error(`No price data from websocket`,{
+            feed: key,
+            lastUpdate: new Date(value).toISOString()
+          })
           this.errorNotifier?.notifyCritical('AggregatedFeed', `No price data from websocket`, {
             feed: key,
             lastUpdate: new Date(value).toISOString()
           })
+          // force restart process
+          process.exit(1);
         }
       }
     }, this.lastUpdateTimeout / 2)
