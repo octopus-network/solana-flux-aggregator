@@ -313,7 +313,7 @@ export class Submitter {
             currentValue: value,
           }
         } catch (err) {
-          this.logger.error(`Submit error`, {
+          this.logger.info(`Submit confirmed failed`, {
             round: roundID.toString(),
             value: value.toString(),
             err: err.toString(),
@@ -340,7 +340,10 @@ export class Submitter {
       this.logger.error("Submit error", {
         round: roundID.toString(),
         value: value.toString(),
+        aggregator: this.aggregator.config.description,
+        oracle: this.oraclePK.toString(),
         err: err.toString(),
+        txId,
       })
       this.errorNotifier.notifyCritical('Submitter', `Oracle fail to submit a round`, {
         round: roundID.toString(),

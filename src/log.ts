@@ -1,5 +1,6 @@
 import logger from "winston"
 import { format } from "winston"
+import Sentry from 'winston-transport-sentry-node';
 
 logger.add(
   new logger.transports.Console({
@@ -15,5 +16,16 @@ logger.add(
     level: 'error'
   })
 )
+
+if(process.env.SENTRY_DNS) {
+  logger.add(
+    new Sentry({
+      sentry: {
+        dsn: process.env.SENTRY_DNS,
+      },
+      level: 'error'
+    })
+  )
+}
 
 export const log = logger
