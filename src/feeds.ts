@@ -17,6 +17,7 @@ export interface IPrice {
   pair: string
   decimals: number
   value: number
+  time: number
 }
 
 export interface IPriceFeed {
@@ -147,6 +148,7 @@ export class BitStamp extends PriceFeed {
       pair,
       decimals: 2,
       value: Math.floor(payload.data.price * 100),
+      time: Date.now(),
     }
 
     return price
@@ -200,6 +202,7 @@ export class FTX extends PriceFeed {
       pair,
       decimals: 2,
       value: Math.floor(payload.data.last * 100),
+      time: Date.now(),
     }
 
     return price
@@ -257,7 +260,8 @@ export class CoinBase extends PriceFeed {
       pair,
       decimals: 2,
       value: Math.floor(payload.price * 100),
-    }
+      time: Date.now(),
+    }    
 
     return price
   }
@@ -307,12 +311,12 @@ export class Binance extends PriceFeed {
     const quoteCurrency = payload.s.slice(3).toLowerCase();
     const pair = `${baseCurrency}:${quoteCurrency == 'busd' ? 'usd' : quoteCurrency}`;
 
-
     const price: IPrice = {
       source: Binance.name,
       pair,
       decimals: 2,
       value: Math.floor(payload.p * 100),
+      time: Date.now(),
     }
 
     return price
@@ -378,6 +382,7 @@ export class OKEx extends PriceFeed {
       pair,
       decimals: 2,
       value: Math.floor(payload.data[0].last * 100),
+      time: Date.now(),
     }
 
     return price
@@ -550,13 +555,20 @@ export class AggregatedFeed {
       return
     }
 
-    const values = prices.filter(price => price.value > 0).map((price) => price.value)
+    const now = Date.now();
+    const acceptedTime = now - (2* 60 * 1000); // 5 minutes ago
+
+    const values = prices
+      // accept only prices > 0 that have been updated within 5 minutes
+      .filter(price => price.value > 0 && price.time >= acceptedTime)
+      .map((price) => price.value)
 
     return {
       source: "median",
       pair: prices[0].pair,
       decimals: prices[0].decimals,
       value: median(values),
+      time: now
     }
   }
 }

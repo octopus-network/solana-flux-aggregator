@@ -31,9 +31,7 @@ export class TelegramNotifier extends BaseNotifier {
 
     this.bot.on("message", (msg) => {
       const chatId = msg.chat.id
-      const msgText = msg.text
-      console.log('msg.text', msg.text)
-      
+      const msgText = msg.text      
       switch (msgText) {
         case '/start':
         case '/help':

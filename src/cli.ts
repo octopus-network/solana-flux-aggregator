@@ -17,6 +17,7 @@ import { log } from "./log"
 import { ChainlinkExternalAdapter } from "./ChainlinkExternalAdapter"
 import { loadAggregatorSetup, SolinkConfig } from "./config"
 import FluxAggregator from "./FluxAggregator";
+import metricServer from "./metrics"
 
 process.on('unhandledRejection', error => {
   console.trace('unhandledRejection', error)
@@ -69,6 +70,12 @@ cli.command("oracle").action(async (name) => {
   const solinkConf = loadJSONFile<SolinkConfig>(process.env.SOLINK_CONFIG!)
   const feeder = new PriceFeeder(deploy, solinkConf, wallet)
   feeder.start()
+  if(process.env.PROMETHEUS_HOST && process.env.PROMETHEUS_PORT) {
+    metricServer.listen({
+      host: process.env.PROMETHEUS_HOST,
+      port: parseInt(process.env.PROMETHEUS_PORT),
+    });
+  }
 })
 
 cli.command("request-round <aggregator-id>").action(async (aggregatorId) => {

@@ -9,6 +9,7 @@ import { log } from "./log"
 import { IPriceFeed } from "./feeds"
 import axios from "axios"
 import { ErrorNotifier } from "./ErrorNotifier"
+import { metricOracleFeedPrice } from "./metrics"
 
 // allow oracle to start a new round after this many slots. each slot is about 500ms
 const MAX_ROUND_STALENESS = 10
@@ -131,6 +132,12 @@ export class Submitter {
       }
 
       this.currentValue = new BN(price.value)
+
+      metricOracleFeedPrice.set( {
+        submitter: this.oracle.description,
+        feed: price.pair,
+        source: price.source,
+      }, price.value / 10 ** price.decimals)
 
       const valueDiff = this.aggregator.answer.median
         .sub(this.currentValue)
