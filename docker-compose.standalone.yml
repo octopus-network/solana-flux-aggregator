@@ -8,5 +8,7 @@ services:
     command: yarn solink oracle
     volumes:
       - ./logs:/app/logs
+    ports:
+      - 127.0.0.1:7777:7777
     env_file:
       - .env
