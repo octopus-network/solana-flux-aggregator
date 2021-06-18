@@ -13,7 +13,7 @@ logger.add(
 logger.add(
   new logger.transports.File({
     filename: 'logs/fatal.log',
-    format: format.combine(format.timestamp(), format.cli(), format.simple()),
+    format: format.combine(format.timestamp(), format.simple()),
     level: 'error'
   })
 )

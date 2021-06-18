@@ -88,23 +88,28 @@ export class Submitter {
   }
 
   private async reloadStates()  {
-    if (!this.aggregator) {
-      this.aggregator = await Aggregator.load(this.aggregatorPK)
-    }
+    try {
+      if (!this.aggregator) {
+        this.aggregator = await Aggregator.load(this.aggregatorPK)
+      }
 
-    const [
-      oracle,
-      roundSubmissions,
-      answerSubmissions,
-    ] = await getAccounts(conn, [
-      this.oraclePK,
-      this.aggregator.roundSubmissions,
-      this.aggregator.answerSubmissions,
-    ])
+      const [
+        oracle,
+        roundSubmissions,
+        answerSubmissions,
+      ] = await getAccounts(conn, [
+        this.oraclePK,
+        this.aggregator.roundSubmissions,
+        this.aggregator.answerSubmissions,
+      ])
 
-    this.oracle = Oracle.deserialize(oracle.data)
-    this.answerSubmissions = Submissions.deserialize(answerSubmissions.data)
-    this.roundSubmissions = Submissions.deserialize(roundSubmissions.data)    
+      this.oracle = Oracle.deserialize(oracle.data)
+      this.answerSubmissions = Submissions.deserialize(answerSubmissions.data)
+      this.roundSubmissions = Submissions.deserialize(roundSubmissions.data)   
+    } catch(err) {
+      this.logger.error('Error in ReloadStates', err)
+      throw err
+    } 
   }
 
   private isRoundReported(roundID: BN): boolean {
@@ -151,8 +156,6 @@ export class Submitter {
       const valueDiff = this.aggregator.answer.median
         .sub(this.currentValue)
         .abs()
-
-        console.log('valueDiff',this.currentValue.toNumber(), valueDiff.toNumber());
         
       if (valueDiff.lten(this.cfg.minValueChangeForNewRound)) {
         this.logger.debug("price did not change enough to start a new round", {
