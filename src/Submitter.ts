@@ -272,6 +272,8 @@ export class Submitter {
     }
 
     // Set reporting round to avoid report twice
+    // We also save the previousRound in case we fail to report this round, we will rollback and try again
+    // NOTE: by setting the reportedRound here, we avoid to create a Chainlink Submit Request twice
     this.previousRound = this.reportedRound
     this.reportedRound = roundID
 
