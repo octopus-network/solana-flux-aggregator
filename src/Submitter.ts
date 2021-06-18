@@ -39,6 +39,7 @@ export class Submitter {
   public program: FluxAggregator
   public logger!: Logger
   public currentValue: BN
+  public previousRound: BN
   public reportedRound: BN
   public lastSubmit = new Map<string, number>()
   public lastSubmitTimeout = 60000 * 5; // 5m
@@ -55,6 +56,7 @@ export class Submitter {
   ) {
     this.program = new FluxAggregator(this.oracleOwnerWallet, programID)
     this.currentValue = new BN(0)
+    this.previousRound = new BN(0)
     this.reportedRound = new BN(0)
   }
 
@@ -270,6 +272,7 @@ export class Submitter {
     }
 
     // Set reporting round to avoid report twice
+    this.previousRound = this.reportedRound
     this.reportedRound = roundID
 
     this.logger.info("Submit to current round", { round: roundID.toString() })
@@ -363,6 +366,7 @@ export class Submitter {
         }
       }, 15000, 4)
     } catch (err) {
+      this.reportedRound = this.previousRound
       this.reloadStates()
       this.logger.error("Submit error", {
         round: roundID.toString(),
