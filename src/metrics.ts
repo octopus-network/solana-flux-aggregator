@@ -19,13 +19,23 @@ export const metricOracleLastSubmittedPrice = new client.Gauge({
   labelNames: ['submitter', 'feed']
 })
 
+export const metricOracleSinceLastSubmitSeconds = new client.Gauge({
+  name: 'oracle_since_last_submit_seconds',
+  help: 'Time passed since last submit',
+  labelNames: ['submitter', 'feed']
+})
+
 export const metricOracleBalanceSol = new client.Gauge({
   name: 'oracle_balance_sol',
   help: 'Oracle owner balance in SOL',
   labelNames: ['submitter']
 })
 
+
+
 register.registerMetric(metricOracleFeedPrice)
+register.registerMetric(metricOracleLastSubmittedPrice)
+register.registerMetric(metricOracleSinceLastSubmitSeconds)
 register.registerMetric(metricOracleBalanceSol)
 
 // Define the HTTP server
