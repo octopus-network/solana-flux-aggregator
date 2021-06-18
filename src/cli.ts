@@ -2,6 +2,7 @@ import dotenv from "dotenv"
 dotenv.config({
   path: process.env.DOTENV_PATH || undefined
 })
+import "./sentry"
 import { Command } from "commander"
 import { loadJSONFile } from "./json"
 import { AggregatorDeployFile, Deployer } from "./Deployer"
@@ -16,10 +17,15 @@ import { log } from "./log"
 import { ChainlinkExternalAdapter } from "./ChainlinkExternalAdapter"
 import { loadAggregatorSetup, SolinkConfig } from "./config"
 import FluxAggregator from "./FluxAggregator";
+import metricServer from "./metrics"
 
 process.on('unhandledRejection', error => {
-  console.trace('unhandledRejection', error);
-});
+  console.trace('unhandledRejection', error)
+})
+
+process.on('uncaughtException', err => {
+  process.exit(1) 
+})
 
 const cli = new Command()
 
@@ -29,7 +35,7 @@ async function maybeRequestAirdrop(pubkey: PublicKey) {
     await conn.requestAirdrop(pubkey, 10 * 1e9)
     await sleep(500)
   } else {
-    const balance = await conn.getBalance(pubkey);
+    const balance = await conn.getBalance(pubkey)
     log.info("address", { address: pubkey.toBase58() })
     log.info("balance", { balance })
   }
@@ -61,9 +67,15 @@ cli.command("oracle").action(async (name) => {
   await maybeRequestAirdrop(wallet.pubkey)
 
   const deploy = loadAggregatorDeploy()
-  const solinkConf = loadJSONFile<SolinkConfig>(process.env.SOLINK_CONFIG!);
+  const solinkConf = loadJSONFile<SolinkConfig>(process.env.SOLINK_CONFIG!)
   const feeder = new PriceFeeder(deploy, solinkConf, wallet)
   feeder.start()
+  if(process.env.PROMETHEUS_HOST && process.env.PROMETHEUS_PORT) {
+    metricServer.listen({
+      host: process.env.PROMETHEUS_HOST,
+      port: parseInt(process.env.PROMETHEUS_PORT),
+    });
+  }
 })
 
 cli.command("request-round <aggregator-id>").action(async (aggregatorId) => {
@@ -111,8 +123,8 @@ cli.command("observe").action(async (name?: string) => {
 cli.command("chainlink-external").action(async () => {
   const wallet = await walletFromEnv("ORACLE_MNEMONIC", conn)
   const deploy = loadAggregatorDeploy()
-  const solinkConf = loadJSONFile<SolinkConfig>(process.env.SOLINK_CONFIG!);
-  const externalAdapter = new ChainlinkExternalAdapter(deploy, solinkConf, wallet);
+  const solinkConf = loadJSONFile<SolinkConfig>(process.env.SOLINK_CONFIG!)
+  const externalAdapter = new ChainlinkExternalAdapter(deploy, solinkConf, wallet)
 
   const serverInfo = await externalAdapter.start()  
   log.info(`chainlink external adapter running on ${serverInfo}`)
@@ -120,25 +132,25 @@ cli.command("chainlink-external").action(async () => {
 
 //read median of pair, eg: NETWORK=dev yarn run solink read-median HBVsLHp8mWGMGfrh1Gf5E8RAxww71mXBgoZa6Zvsk5cK
 cli.command("read-median <aggregator-id>").action(async (aggregatorId) => {
-  let acct = await conn.getAccountInfo(new PublicKey(aggregatorId));
-  let agg = Aggregator.deserialize<Aggregator>(acct?.data || Buffer.from(''));
-  log.info(`median: ${agg.config.description}(decimal: ${agg.config.decimals}) -> ${agg.answer.median.toNumber()}, (rewardAmount: ${agg.config.rewardAmount})`);
+  let acct = await conn.getAccountInfo(new PublicKey(aggregatorId))
+  let agg = Aggregator.deserialize<Aggregator>(acct?.data || Buffer.from(''))
+  log.info(`median: ${agg.config.description}(decimal: ${agg.config.decimals}) -> ${agg.answer.median.toNumber()}, (rewardAmount: ${agg.config.rewardAmount})`)
 })
 
 cli.command("check-balance").action(async (type) => {
   const wallet = await walletFromEnv("ADMIN_MNEMONIC", conn)
-  console.log('publicKey', wallet.account.publicKey.toBase58());
+  console.log('publicKey', wallet.account.publicKey.toBase58())
   console.log('privateKey', wallet.account.secretKey)
   const balance = await conn.getBalance(wallet.account.publicKey)
-  log.info(`balance: ${balance}`);
+  log.info(`balance: ${balance}`)
 })
 
 //  NETWORK=dev yarn run solink configure-agg
 cli.command('configure-agg <setup-file> <pair>').action(async (setupFile: string, pair: string) => {
-  let setupConf = loadAggregatorSetup(setupFile);
+  let setupConf = loadAggregatorSetup(setupFile)
   let deploy = loadAggregatorDeploy()
   const wallet = await walletFromEnv("ADMIN_MNEMONIC", conn)
-  let agg = new FluxAggregator(wallet, deploy.programID);
+  let agg = new FluxAggregator(wallet, deploy.programID)
 
   let conf = setupConf.aggregators[pair];
   if (!conf) {
@@ -169,11 +181,11 @@ cli.command('transfer-owner <pair> <new-owner').action(async (pair: string, newO
   const aggregatorPk = deploy.aggregators[pair].pubkey;
   const newOwnerPk = new PublicKey(newOwner)
 
-  const aggregatorAccount = await conn.getAccountInfo(aggregatorPk);
+  const aggregatorAccount = await conn.getAccountInfo(aggregatorPk)
   if(!aggregatorAccount) {
     throw new Error('aggregatorAccount not found')
   }
-  const aggregator = Aggregator.deserialize<Aggregator>(aggregatorAccount?.data);
+  const aggregator = Aggregator.deserialize<Aggregator>(aggregatorAccount?.data)
   const wallet = await walletFromEnv("ADMIN_MNEMONIC", conn)
 
   log.info(`
@@ -182,7 +194,7 @@ cli.command('transfer-owner <pair> <new-owner').action(async (pair: string, newO
     current owner: ${aggregator.owner},
     new owner: ${newOwner}`)
 
-  const agg = new FluxAggregator(wallet, deploy.programID);
+  const agg = new FluxAggregator(wallet, deploy.programID)
   await agg.transferOwner({
     aggregator: deploy.aggregators[pair].pubkey,
     owner: wallet.account,

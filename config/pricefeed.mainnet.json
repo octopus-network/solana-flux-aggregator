@@ -3,7 +3,7 @@
   "priceFileDir": "./config/prices",
   "submitter": {
     "sol:usd": {
-      "source": ["ftx"],
+      "source": ["ftx", "coinbase"],
       "minValueChangeForNewRound": 10
     },
     "default": {

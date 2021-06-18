@@ -7,6 +7,7 @@ dist
 .pnp.js
 .env
 .env.prod
+.env.dev
 deploy.json
 integration-example/Cargo.lock
 .DS_Store
