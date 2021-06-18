@@ -139,14 +139,19 @@ export class Submitter {
         source: price.source,
       }, price.value / 10 ** price.decimals)
 
+
+      const lastSubmit = Date.now() - (this.lastSubmit.get(this.aggregatorPK.toBase58()) || Date.now());
       metricOracleSinceLastSubmitSeconds.set({
         submitter: this.oracle.description,
-        feed: price.pair,
-      }, Math.round(Date.now() - (this.lastSubmit.get(this.aggregatorPK.toBase58()) || Date.now()) / 1000))
+        feed: this.aggregator.config.description,
+      }, Math.floor(lastSubmit / 1000))
 
       const valueDiff = this.aggregator.answer.median
         .sub(this.currentValue)
         .abs()
+
+        console.log('valueDiff',this.currentValue.toNumber(), valueDiff.toNumber());
+        
       if (valueDiff.lten(this.cfg.minValueChangeForNewRound)) {
         this.logger.debug("price did not change enough to start a new round", {
           diff: valueDiff.toNumber(),

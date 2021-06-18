@@ -523,20 +523,20 @@ export class AggregatedFeed {
       }
 
       // Check last update
-      const now = Date.now()
-      for (const [key, value] of this.lastUpdate.entries()) {
-        if(now - value > this.lastUpdateTimeout) {
-          const meta = {
-            feed: key,
-            submitter: this.oracleName,
-            lastUpdate: new Date(value).toISOString()
-          };
-          this.logger.error(`No price data from websocket`, meta)
-          this.errorNotifier?.notifyCritical('AggregatedFeed', `No price data from websocket`, meta)
-          // force restart process
-          process.exit(1);
-        }
-      }
+      // const now = Date.now()
+      // for (const [key, value] of this.lastUpdate.entries()) {
+      //   if(now - value > this.lastUpdateTimeout) {
+      //     const meta = {
+      //       feed: key,
+      //       submitter: this.oracleName,
+      //       lastUpdate: new Date(value).toISOString()
+      //     };
+      //     this.logger.error(`No price data from websocket`, meta)
+      //     this.errorNotifier?.notifyCritical('AggregatedFeed', `No price data from websocket`, meta)
+      //     // force restart process
+      //     process.exit(1);
+      //   }
+      // }
     }, this.lastUpdateTimeout / 2)
   }
 
@@ -562,8 +562,8 @@ export class AggregatedFeed {
       return
     }
 
-    const now = Date.now();
-    const acceptedTime = now - (2* 60 * 1000); // 5 minutes ago
+    const now = Date.now()
+    const acceptedTime = now - (2* 60 * 1000) // 5 minutes ago
 
     const values = prices
       // accept only prices > 0 that have been updated within 5 minutes
