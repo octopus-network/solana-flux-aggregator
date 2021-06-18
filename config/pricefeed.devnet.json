@@ -1,0 +1,27 @@
+{
+    "_description": "configure witch feeds to use for pair, and other param",
+    "priceFileDir": "./config/prices",
+    "submitter": {
+      "btc:usd": {
+        "source": ["coinbase", "ftx"],
+        "minValueChangeForNewRound": 5000
+      },
+      "eth:usd": {
+        "source": ["coinbase", "ftx"],
+        "minValueChangeForNewRound": 100
+      },
+      "sol:usd": {
+        "source": ["ftx", "binance", "okex"],
+        "minValueChangeForNewRound": 10
+      },
+      "usd:usd": {
+        "source": ["file"],
+        "minValueChangeForNewRound": 1
+      },
+      "default": {
+        "source": [],
+        "minValueChangeForNewRound": 100
+      }
+    }
+  }
+  

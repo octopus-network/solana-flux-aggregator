@@ -9,7 +9,7 @@ import { log } from "./log"
 import { IPriceFeed } from "./feeds"
 import axios from "axios"
 import { ErrorNotifier } from "./ErrorNotifier"
-import { metricOracleFeedPrice } from "./metrics"
+import { metricOracleFeedPrice, metricOracleLastSubmittedPrice } from "./metrics"
 
 // allow oracle to start a new round after this many slots. each slot is about 500ms
 const MAX_ROUND_STALENESS = 10
@@ -302,6 +302,11 @@ export class Submitter {
           if(res.value.err) {
             throw res.value.err;
           }
+
+          metricOracleLastSubmittedPrice.set( {
+            submitter: this.oracle.description,
+            feed: this.aggregator.config.description,
+          }, value.toNumber() / 10 ** this.aggregator.config.decimals)
 
           this.reloadStates()
 

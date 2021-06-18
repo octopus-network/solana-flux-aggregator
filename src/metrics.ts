@@ -4,11 +4,6 @@ import client from 'prom-client'
 // Create a Registry which registers the metrics
 const register = new client.Registry()
 
-// Add a default label which is added to all metrics
-register.setDefaultLabels({
-  app: 'oracle_submitter'
-})
-
 // Enable the collection of default metrics
 // client.collectDefaultMetrics({ register })
 
@@ -16,6 +11,12 @@ export const metricOracleFeedPrice = new client.Gauge({
   name: 'oracle_feed_price',
   help: 'Oracle feeds prices',
   labelNames: ['submitter', 'feed', 'source']
+})
+
+export const metricOracleLastSubmittedPrice = new client.Gauge({
+  name: 'oracle_last_submitted_price',
+  help: 'Oracle submitted and confirmed price on blockchain',
+  labelNames: ['submitter', 'feed']
 })
 
 export const metricOracleBalanceSol = new client.Gauge({

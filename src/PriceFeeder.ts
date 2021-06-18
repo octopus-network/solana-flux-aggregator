@@ -116,7 +116,8 @@ export class PriceFeeder {
         continue
       }
       log.info(`feeds for ${name}: ${pairFeeds.map(f => f.source).join(',')}`)
-      const feed = new AggregatedFeed(pairFeeds, name, errorNotifier)
+      const oracleName  = this.getOracleName();
+      const feed = new AggregatedFeed(pairFeeds, name, oracleName, errorNotifier)
       const priceFeed = feed.medians()
       const chainlinkMode = !!process.env.CHAINLINK_NODE_URL
 
@@ -156,9 +157,8 @@ export class PriceFeeder {
     }
   }
 
-  private async startMetricBalance() {
+  private getOracleName() {
     let oracleName = 'unknown'
-
     for (const aggregator of Object.values(this.deployInfo.aggregators)) {
       const result = Object.entries(aggregator.oracles).find(
         ([, oracleInfo]) => {
@@ -169,7 +169,11 @@ export class PriceFeeder {
         oracleName = result[0]
       }
     }
+    return oracleName;
+  }
 
+  private async startMetricBalance() {    
+    const oracleName  = this.getOracleName();
     const balance = await conn.getBalance(this.wallet.account.publicKey)
     metricOracleBalanceSol.set(
       {

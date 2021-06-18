@@ -9,6 +9,7 @@ import winston, { Logger } from "winston"
 import { FeedSource } from "./config"
 import ReconnectingWebSocket from "reconnecting-websocket"
 import { ErrorNotifier } from "./ErrorNotifier"
+import { metricOracleFeedPrice } from "./metrics"
 
 export const UPDATE = "UPDATE"
 
@@ -453,6 +454,7 @@ export class AggregatedFeed {
   constructor(
     public feeds: PriceFeed[], 
     public pair: string, 
+    private oracleName: string,
     private errorNotifier?: ErrorNotifier
   ) {
     this.logger = log.child({
@@ -481,6 +483,12 @@ export class AggregatedFeed {
           return
         }
 
+        metricOracleFeedPrice.set( {
+          submitter: this.oracleName,
+          feed: this.pair,
+          source: feed.source,
+        }, price.value / 10 ** price.decimals)
+
         this.prices[index] = price
         this.lastUpdate.set(`${feed.source}-${pair}`, Date.now())
         this.onPriceUpdate(price)
@@ -505,12 +513,12 @@ export class AggregatedFeed {
       // Check feeds websocket connection
       for (const feed of this.feeds) {
         if(feed.conn.readyState !== feed.conn.OPEN) {
-          this.logger.error(`Websocket is not connected`,{
+          const meta = {
             feed: feed.source,
-          })
-          this.errorNotifier?.notifyCritical('AggregatedFeed', `Websocket is not connected`, {
-            feed: feed.source,
-          })
+            submitter: this.oracleName
+          }
+          this.logger.error(`Websocket is not connected`, meta)
+          this.errorNotifier?.notifyCritical('AggregatedFeed', `Websocket is not connected`, meta)
         }
       }
 
@@ -518,14 +526,13 @@ export class AggregatedFeed {
       const now = Date.now()
       for (const [key, value] of this.lastUpdate.entries()) {
         if(now - value > this.lastUpdateTimeout) {
-          this.logger.error(`No price data from websocket`,{
+          const meta = {
             feed: key,
+            submitter: this.oracleName,
             lastUpdate: new Date(value).toISOString()
-          })
-          this.errorNotifier?.notifyCritical('AggregatedFeed', `No price data from websocket`, {
-            feed: key,
-            lastUpdate: new Date(value).toISOString()
-          })
+          };
+          this.logger.error(`No price data from websocket`, meta)
+          this.errorNotifier?.notifyCritical('AggregatedFeed', `No price data from websocket`, meta)
           // force restart process
           process.exit(1);
         }

@@ -4,8 +4,8 @@
   "submitter": {
    
     "sol:usd": {
-      "source": ["ftx"],
-      "minValueChangeForNewRound": 10
+      "source": ["ftx", "coinbase"],
+      "minValueChangeForNewRound": 1
     },
    
     "default": {
