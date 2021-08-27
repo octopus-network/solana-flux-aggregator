@@ -425,7 +425,8 @@ export class AggregatedFeed {
   recentPrices() : IPrice[] {
     return this.prices.filter((p) => p &&
       p.timestamp &&
-      (p.timestamp - Date.now()) < 10*SECONDS)
+      (p.timestamp - Date.now()) < 10*SECONDS &&
+      p.value > 0)
   }
 
   get median(): IPrice | undefined {
