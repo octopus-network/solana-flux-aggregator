@@ -28,6 +28,7 @@ export class Submitter {
   public logger!: Logger
   public currentValue: BN
   public reportedRound: BN
+  public startedAt: number
 
   constructor(
     programID: PublicKey,
@@ -43,6 +44,7 @@ export class Submitter {
 
     this.currentValue = new BN(0)
     this.reportedRound = new BN(0)
+    this.startedAt = Date.now()
   }
 
   // TODO: harvest rewards if > n
@@ -142,6 +144,10 @@ export class Submitter {
   }
 
   private async trySubmit() {
+    if (Date.now() - this.startedAt < 5000) {
+      this.logger.info("Skip submit during warmup")
+      return
+    }
     // TODO: make it possible to be triggered by chainlink task
     // TODO: If from chainlink node, update state before running
     this.logger.debug("oracle", { oracle: this.oracle })
