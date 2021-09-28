@@ -253,6 +253,7 @@ export class Submitter {
       this.logger.error("Submit error", {
         err: err.toString(),
       })
+      process.exit(-2)
     }
   }
 }
