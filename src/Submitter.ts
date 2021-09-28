@@ -172,6 +172,7 @@ export class Submitter {
       let newRoundID = round.id.addn(1)
       this.logger.info("Starting a new round", {
         round: newRoundID.toString(),
+        sinceLastUpdate: sinceLastUpdate.toString(),
       })
       return this.submitCurrentValue(newRoundID)
     }
@@ -216,7 +217,7 @@ export class Submitter {
     }
 
     if (this.isRoundReported(roundID)) {
-      this.logger.debug("don't report to the same round twice")
+      this.logger.info("don't report to the same round twice")
       return
     }
 
